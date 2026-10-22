@@ -2,11 +2,13 @@
 
 Windows 上的《风暴英雄》聊天翻译助手。接收游戏内聊天，将英文、韩文翻译为中文，也可以把你输入的中文翻译成英文或韩文，再由你粘贴发送。
 
-当前版本：**0.3.12**。目前适配 Windows x64、中文游戏客户端 **build 98348**。游戏更新后，聊天读取功能需要重新验证。
+当前公开版本：**v1.0**（程序内构建号 0.3.12）。目前适配 Windows x64、中文游戏客户端 **build 98348**。游戏更新后，聊天读取功能需要重新验证。
 
 ## 下载
 
-**[下载 Windows x64 免安装包](https://github.com/renyouhao/heroes-storm-helper/releases/download/v0.3.12/HotsHelper-0.3.12-Windows-x64.zip)** · [v0.3.12 发布说明与附件](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v0.3.12) · [所有版本](https://github.com/renyouhao/heroes-storm-helper/releases)
+公开发布编号已由 v0.3.12 调整为 **v1.0**，对应原发布提交，未重新构建；安装包文件名、程序内构建号及校验值仍为 0.3.12。后续兼容新增或修复递增小版本，破坏兼容或核心流程重构递增大版本；发布说明列明具体更新。
+
+**[下载 Windows x64 免安装包](https://github.com/renyouhao/heroes-storm-helper/releases/download/v1.0/HotsHelper-0.3.12-Windows-x64.zip)** · [v1.0 发布说明与附件](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v1.0) · [所有版本](https://github.com/renyouhao/heroes-storm-helper/releases)
 
 在发布页的 **Assets** 中下载 `HotsHelper-0.3.12-Windows-x64.zip`，完整解压后启动中文命名的程序。GitHub 自动提供的 `Source code (zip)` 和 `Source code (tar.gz)` 是源码，需要自行构建。
 
