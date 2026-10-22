@@ -6,9 +6,9 @@ Windows 上的《风暴英雄》聊天翻译助手。接收游戏内聊天，将
 
 ## 下载
 
-**[下载 Windows x64 免安装包](https://github.com/renyouhao/heroes-storm-helper/releases/download/v0.3.12/风暴英雄助手-0.3.12-Windows-x64.zip)** · [v0.3.12 发布说明与附件](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v0.3.12) · [所有版本](https://github.com/renyouhao/heroes-storm-helper/releases)
+**[下载 Windows x64 免安装包](https://github.com/renyouhao/heroes-storm-helper/releases/download/v0.3.12/HotsHelper-0.3.12-Windows-x64.zip)** · [v0.3.12 发布说明与附件](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v0.3.12) · [所有版本](https://github.com/renyouhao/heroes-storm-helper/releases)
 
-在发布页的 **Assets** 中下载 `风暴英雄助手-0.3.12-Windows-x64.zip`，完整解压后启动。GitHub 自动提供的 `Source code (zip)` 和 `Source code (tar.gz)` 是源码，需要自行构建。
+在发布页的 **Assets** 中下载 `HotsHelper-0.3.12-Windows-x64.zip`，完整解压后启动中文命名的程序。GitHub 自动提供的 `Source code (zip)` 和 `Source code (tar.gz)` 是源码，需要自行构建。
 
 ## 功能
 
