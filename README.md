@@ -4,6 +4,12 @@ Windows 上的《风暴英雄》聊天翻译助手。接收游戏内聊天，将
 
 当前版本：**0.3.12**。目前适配 Windows x64、中文游戏客户端 **build 98348**。游戏更新后，聊天读取功能需要重新验证。
 
+## 下载
+
+**[下载 Windows x64 免安装包](https://github.com/renyouhao/heroes-storm-helper/releases/download/v0.3.12/风暴英雄助手-0.3.12-Windows-x64.zip)** · [v0.3.12 发布说明与附件](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v0.3.12) · [所有版本](https://github.com/renyouhao/heroes-storm-helper/releases)
+
+在发布页的 **Assets** 中下载 `风暴英雄助手-0.3.12-Windows-x64.zip`，完整解压后启动。GitHub 自动提供的 `Source code (zip)` 和 `Source code (tar.gz)` 是源码，需要自行构建。
+
 ## 功能
 
 - **实时翻译**：支持团队、队伍、密语及所有玩家频道；大厅和对局分别采集，换局后自动接续。
@@ -17,7 +23,7 @@ Windows 上的《风暴英雄》聊天翻译助手。接收游戏内聊天，将
 
 ## 普通用户怎么用
 
-使用完整的 Windows 发行包，解压后双击“风暴英雄助手.exe”。保留整个目录及 `_internal` 文件夹，无需另装 Python 或 SDK。本仓库不提交本机生成的 EXE、安装包或私人配置。
+从上方 Release 下载完整的 Windows 发行包，解压后双击“风暴英雄助手.exe”。保留整个目录及 `_internal` 文件夹，无需另装 Python 或 SDK。EXE 和安装包作为 Release 附件提供，私人配置不随包分发。
 
 1. 在自己的阿里云账号下开通**机器翻译通用版**，为助手创建 RAM 用户及 AccessKey，授予 `alimt:TranslateGeneral` 权限。
 2. 在助手中填写自己的 AccessKey ID、AccessKey Secret。
