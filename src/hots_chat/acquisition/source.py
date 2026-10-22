@@ -18,6 +18,7 @@ class ChatSource:
         self.thread = None
         self.generation = 0
         self.last_attempt = -float('inf')
+        self.diagnostics = None
 
     @property
     def running(self):
@@ -230,6 +231,10 @@ class ChatSource:
                 except DiscoveryCancelled:
                     break
                 except (HistoryInvalid,OSError,ValueError,RuntimeError) as failure:
+                    if self.diagnostics is not None:
+                        self.diagnostics.record('capture.state',source='match',outcome='error',
+                            stage='poll' if reader is not None else 'discover' if game is not None else 'connect',
+                            error_type=type(failure).__name__,winerror=getattr(failure,'winerror',None))
                     if reader is not None and not isinstance(failure,OSError):
                         remember()
                         if isinstance(failure,HistoryCleared):

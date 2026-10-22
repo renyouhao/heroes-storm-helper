@@ -57,6 +57,8 @@ class WindowSettings:
     overlay_style: str='subtitle'
     color_theme: str=DEFAULT_THEME
     repeat_hotkey: str='F8'
+    repeat_action: str='S'
+    repeat_interval_ms: int=200
 
     def __post_init__(self):
         self.color_theme=normalize_theme(self.color_theme)
@@ -136,6 +138,9 @@ class WindowSettings:
                 parse_function_key(s.repeat_hotkey)
                 s.repeat_hotkey=s.repeat_hotkey.strip().upper()
             except ValueError:s.repeat_hotkey='F8'
+            from .repeat import validate_repeat_config
+            try:validate_repeat_config(s.repeat_action,s.repeat_interval_ms)
+            except ValueError:s.repeat_action,s.repeat_interval_ms='S',200
             if s.mode not in ('normal','compact') or s.target_language not in ('ko','en') or not isinstance(s.hotkeys,dict):raise ValueError
             s.color_theme=normalize_theme(s.color_theme)
             if s.overlay_bottom_anchor is not None:

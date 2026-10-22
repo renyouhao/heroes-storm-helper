@@ -56,6 +56,7 @@ class LobbySource:
         self.clock = clock or time.monotonic
         self.wall_clock = wall_clock or time.time
         self._capture_after_filetime = None
+        self.diagnostics = None
         self.module_base_finder = module_base_finder
         self.reader_factory, self.discovery_factory = reader_factory, discovery_factory
         self.generation, self.last_attempt = 0, -float('inf')
@@ -352,7 +353,11 @@ class LobbySource:
                                 probe_backoff = min(20., probe_backoff * 2)
                 except DiscoveryCancelled:
                     break
-                except OSError:
+                except OSError as failure:
+                    if self.diagnostics is not None:
+                        self.diagnostics.record('capture.state',source='lobby',outcome='error',
+                            stage='poll' if reader is not None else 'connect',
+                            error_type=type(failure).__name__,winerror=getattr(failure,'winerror',None))
                     if reader:remember(reader.root, reader.cursor)
                     if game:game.close()
                     game = pid = image_base = reader = scanner = None
@@ -361,7 +366,10 @@ class LobbySource:
                     connected = False
                     self.last_attempt = self.clock()
                     state('大厅连接等待重试，采集保持开启')
-                except (HistoryInvalid, ValueError, RuntimeError, struct.error):
+                except (HistoryInvalid, ValueError, RuntimeError, struct.error) as failure:
+                    if self.diagnostics is not None:
+                        self.diagnostics.record('capture.state',source='lobby',outcome='error',
+                            stage='poll' if reader is not None else 'discover',error_type=type(failure).__name__)
                     if reader:remember(reader.root, reader.cursor)
                     failures += 1
                     if reader is not None and failures <= 5:

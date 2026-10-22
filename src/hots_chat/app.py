@@ -34,7 +34,7 @@ class DemoSource:
     def reconnect(self):pass
 
 
-def build_controller(paths,demo=False):
+def build_controller(paths,demo=False,diagnostics=None):
     saved=None;notice=''
     if demo:
         engine,source=DemoEngine(),DemoSource();account='main'
@@ -45,9 +45,12 @@ def build_controller(paths,demo=False):
         store=CredentialStore(paths.credentials_file)
         try:saved=store.load()
         except ConfigError:notice='本机加密凭据无法读取，请在设置中重新配置自己的密钥。'
+        if saved and diagnostics is not None:
+            diagnostics.register_secrets(saved.credentials.access_key_id,saved.credentials.access_key_secret)
         engine=AliyunEngine(saved.credentials) if saved else UnconfiguredEngine()
-        source=PersistentChatSource();account=saved.account if saved else 'unconfigured'
-    controller=ChatController(source,engine,BudgetLedger(paths.ledger_file),account)
+        source=PersistentChatSource(**({'diagnostics':diagnostics} if diagnostics is not None else {}))
+        account=saved.account if saved else 'unconfigured'
+    controller=ChatController(source,engine,BudgetLedger(paths.ledger_file),account,diagnostics=diagnostics)
     controller.is_demo=demo
     controller.cloud_configured=bool(demo or saved)
     controller.startup_notice=notice
@@ -83,32 +86,48 @@ def main(argv=None):
         return check_installation(args.check_installation,display_mode=display_mode)
     mutex=SingleInstance()
     if not mutex.acquire(): print('助手已经运行。'); return 1
-    controller=None
+    controller=None;diagnostics=None;diagnostic_hooks=None
     temporary=tempfile.TemporaryDirectory(prefix='hots-demo-') if args.demo else None
     try:
         paths=AppPaths.from_root(PROJECT_ROOT)
         if temporary:
             base=Path(temporary.name)
             paths=AppPaths(base/'.env',base/'usage.sqlite3',base/'language.sqlite3',base/'preferences.json')
-        controller=build_controller(paths,args.demo)
+        if not args.demo:
+            from .diagnostics import DiagnosticRecorder
+            from .diagnostic_hooks import DiagnosticHooks
+            diagnostics=DiagnosticRecorder(paths.diagnostics_dir)
+            diagnostic_hooks=DiagnosticHooks(diagnostics)
+            diagnostics.record('app.start',stage='startup')
+        controller=build_controller(paths,args.demo,diagnostics=diagnostics)
         if args.demo:
             from .clock import now,month_key
             controller.ledger.confirm_baseline('main',month_key(now()),0,now())
         import tkinter as tk
         from .ui.main_window import create_app
         from .window_settings import WindowSettings
-        root=tk.Tk(); create_app(root,controller,WindowSettings.load(paths.preferences_file),
+        root=tk.Tk()
+        if diagnostic_hooks is not None:diagnostic_hooks.attach_root(root)
+        create_app(root,controller,WindowSettings.load(paths.preferences_file),
                                display=TkDisplayRuntime(root),enable_repeat_hotkey=not args.demo)
         root.mainloop()
         return 0
     except (ConfigError,BudgetError) as failure:
+        if diagnostic_hooks is not None:diagnostic_hooks.capture('startup',failure)
         print(str(failure)); return 2
+    except Exception as failure:
+        if diagnostic_hooks is not None:diagnostic_hooks.capture('main',failure)
+        raise
     finally:
         if controller:
             if hasattr(controller,'account_setup'):controller.account_setup.close()
             controller.close()
         mutex.close()
         if temporary:temporary.cleanup()
+        if diagnostic_hooks is not None:diagnostic_hooks.close()
+        if diagnostics is not None:
+            diagnostics.record('app.stop',stage='shutdown')
+            diagnostics.close()
 
 
 if __name__=='__main__':raise SystemExit(main())

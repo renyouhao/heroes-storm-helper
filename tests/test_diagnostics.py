@@ -1,8 +1,10 @@
 import json
+import os
 from pathlib import Path
 import tempfile
 import threading
 import time
+import tracemalloc
 import unittest
 from unittest.mock import patch
 import zipfile
@@ -16,7 +18,7 @@ class DiagnosticTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.base = Path(self.tmp.name)
         self.now = 0.0
-        self.recorder = DiagnosticRecorder(self.base / 'logs', monotonic=lambda: self.now)
+        self.recorder = DiagnosticRecorder(self.base / 'logs', monotonic=lambda: self.now, enabled=True)
         self.addCleanup(self.recorder.close)
 
     def export_rows(self):
@@ -78,6 +80,15 @@ class DiagnosticTests(unittest.TestCase):
         self.assertNotIn('SECRET-', body)
         self.assertIn('[redacted]', body)
 
+    def test_export_redacts_a_key_registered_after_its_text_was_written(self):
+        self.recorder.enable_details(True)
+        self.recorder.record('message.received', original='try NEW-SECRET-FIXTURE before switching')
+        self.export_rows()
+        self.recorder.register_secrets('NEW-SECRET-FIXTURE')
+        _, rows = self.export_rows()
+        self.assertNotIn('NEW-SECRET-FIXTURE', json.dumps(rows))
+        self.assertIn('[redacted]', json.dumps(rows))
+
     def test_slow_writer_and_full_queue_do_not_wait_for_disk(self):
         entered, release = threading.Event(), threading.Event()
         original = self.recorder._write_line
@@ -111,7 +122,7 @@ class DiagnosticTests(unittest.TestCase):
 
     def test_rotation_limits_files_and_keeps_zip_readable(self):
         self.recorder.close()
-        recorder = DiagnosticRecorder(self.base / 'rotated', max_bytes=500)
+        recorder = DiagnosticRecorder(self.base / 'rotated', max_bytes=500, enabled=True)
         self.addCleanup(recorder.close)
         for i in range(120):
             recorder.record('translation.result', job_id=str(i), outcome='ok', elapsed_ms=2.5)
@@ -132,6 +143,70 @@ class DiagnosticTests(unittest.TestCase):
         matching = [r for r in rows if r['event'] == 'capture.state']
         self.assertLessEqual(len(matching), 2)
         self.assertEqual(sum(r.get('count', 1) for r in matching), 100)
+
+    def test_export_excludes_expired_logs_without_deleting_unrelated_files(self):
+        self.recorder.record('app.start')
+        self.export_rows()
+        old = time.time() - 8 * 24 * 3600
+        path = self.base / 'logs' / 'helper.log'
+        os.utime(path, (old, old))
+        private = self.base / 'logs' / 'private.log'
+        private.write_text('keep-private-fixture')
+        os.utime(private, (old, old))
+        _, rows = self.export_rows()
+        self.assertFalse(any(row['event'] == 'app.start' for row in rows))
+        self.assertTrue(private.is_file())
+
+    def test_export_streams_retained_logs_instead_of_loading_them_all(self):
+        directory=self.base/'logs'
+        directory.mkdir(exist_ok=True)
+        line=(json.dumps({'event':'message.received','original':'x'*3000})+'\n').encode()
+        for suffix in ('','.1','.2','.3','.4'):
+            (directory/('helper.log'+suffix)).write_bytes(line*600)
+        tracemalloc.start()
+        try:
+            self.recorder.export_report(self.base/'large.zip')
+            _,peak=tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+        self.assertLess(peak,3*1024*1024)
+        with zipfile.ZipFile(self.base/'large.zip') as archive:
+            self.assertTrue(json.loads(archive.read('summary.json'))['contains_body'])
+            self.assertEqual(len(archive.namelist()),6)
+
+    def test_default_off_has_no_worker_or_files_until_explicitly_enabled(self):
+        recorder=DiagnosticRecorder(self.base/'off')
+        self.addCleanup(recorder.close)
+        self.assertFalse(recorder.record('app.start'))
+        self.assertFalse(recorder.snapshot()['enabled'])
+        self.assertIsNone(recorder.thread)
+        self.assertFalse((self.base/'off').exists())
+        recorder.set_enabled(True)
+        self.assertTrue(recorder.record('app.start'))
+        recorder.set_enabled(False)
+        self.assertFalse(recorder.record('message.received',original='not-recorded'))
+        target=recorder.export_report(self.base/'off.zip')
+        with zipfile.ZipFile(target) as archive:
+            content=archive.read('helper.log').decode()
+        self.assertIn('app.start',content)
+        self.assertNotIn('not-recorded',content)
+
+    def test_timed_out_export_never_publishes_its_zip_later(self):
+        recorder=DiagnosticRecorder(self.base/'timeout', enabled=True, export_timeout=.05)
+        self.addCleanup(recorder.close)
+        entered,release=threading.Event(),threading.Event()
+        original=recorder._export
+        def slow(request):
+            entered.set()
+            release.wait(2)
+            return original(request)
+        target=self.base/'timeout.zip'
+        with patch.object(recorder,'_export',side_effect=slow):
+            with self.assertRaises(OSError):recorder.export_report(target)
+            self.assertTrue(entered.is_set())
+            release.set()
+            recorder.export_report(self.base/'after-timeout.zip')
+        self.assertFalse(target.exists())
 
 
 if __name__ == '__main__':

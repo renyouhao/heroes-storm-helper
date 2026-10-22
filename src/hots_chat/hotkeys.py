@@ -54,7 +54,8 @@ class Win32Hotkeys:
 
 
 class HotkeyManager:
-    def __init__(self,backend=None):
+    def __init__(self,backend=None,diagnostics=None):
+        self.diagnostics=diagnostics
         self.backend=backend;self.thread=None;self.thread_id=None;self.ready=threading.Event()
     def start(self,bindings,emit):
         self.stop()
@@ -69,7 +70,11 @@ class HotkeyManager:
                 self.thread_id=backend.prepare()
                 actions={}
                 for i,(action,(mods,vk)) in enumerate(parsed,1):
-                    if backend.register(i,mods,vk):registered.append(i);actions[i]=action
+                    accepted=backend.register(i,mods,vk)
+                    if self.diagnostics is not None:
+                        self.diagnostics.record('hotkey.state',stage='register',source=action,
+                                                outcome='ok' if accepted else 'conflict')
+                    if accepted:registered.append(i);actions[i]=action
                     else:emit({'kind':'conflict','action':action})
                 self.ready.set()
                 while True:

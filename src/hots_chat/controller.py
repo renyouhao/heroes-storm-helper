@@ -1,6 +1,9 @@
 from collections import OrderedDict
+from dataclasses import replace
 import queue
 import threading
+import re
+import time
 import uuid
 from .models import AppEvent,TranslationJob,TranslationResult
 from .cache import BoundedTranslationCache
@@ -12,11 +15,13 @@ from .usage import BudgetError,character_count
 from .clock import now as real_now
 from .context import LocalContext
 from .channels import SUPPORTED_CHANNELS
+from .chat_text import normalize_chat_text
 
 
 class ChatController:
-    def __init__(self,source,engine,ledger,account,clock=None,monotonic=None):
+    def __init__(self,source,engine,ledger,account,clock=None,monotonic=None,diagnostics=None):
         self.source,self.engine,self.ledger,self.account=source,engine,ledger,account
+        self.diagnostics=diagnostics
         self.clock=clock or real_now
         self.generation=0; self.paused=False; self.automatic_paused=False; self.stopped=False
         self.configuration_held=False
@@ -33,6 +38,12 @@ class ChatController:
         self.allowed_channels=set(SUPPORTED_CHANNELS)
         self.thread=threading.Thread(target=self._work,name='translation-worker',daemon=True)
         self.thread.start()
+
+    def _trace(self,event,**fields):
+        if self.diagnostics is not None:
+            fields.setdefault('generation',self.generation)
+            try:self.diagnostics.record(event,**fields)
+            except Exception:pass  # 诊断设施不能改变业务结果。
 
     @property
     def idle(self):
@@ -61,9 +72,15 @@ class ChatController:
 
     def handle_source_event(self,event):
         with self.condition:
+            if event.kind in ('generation','capture_state','error','conflict'):
+                self._trace('capture.state',stage=event.kind,outcome='received',generation=event.generation)
             if event.kind=='generation':
                 if event.generation<self.generation:return
                 self.generation=event.generation
+                for jobs in self.subscribers.values():
+                    for job in jobs:
+                        self._trace('translation.discarded',job_id=job.job_id,
+                                    message_id=job.message_id,outcome='generation_change')
                 # 清除等待任务和订阅；在途请求仍记账但不向新一代发布。
                 self.pending.clear(); self.subscribers.clear()
                 # 重连/重新定位也会换代；本机防护窗口必须按单调时间自然过期。
@@ -77,12 +94,19 @@ class ChatController:
         with self.condition:
             if event.generation != self.generation: return
             if event.channel not in self.allowed_channels:return
+            text=normalize_chat_text(event.text)
+            if text != event.text:event=replace(event,text=text)
             self.messages[event.message_id]=event
             self.context.add(event)
             while len(self.messages)>500: self.messages.popitem(last=False)
             self._emit(AppEvent('chat',event.generation,event))
             source=incoming_source_language(event.text)
-            if self.paused or self.configuration_held or self.automatic_paused or source is None: return
+            self._trace('message.received',message_id=event.message_id,channel=event.channel,
+                        characters=len(event.text),original=event.text)
+            if self.paused or self.configuration_held or self.automatic_paused or source is None:
+                self._trace('translation.route',message_id=event.message_id,
+                            outcome='unsupported_or_symbol' if source is None else 'paused')
+                return
             if len(event.text.encode('utf-8'))>4096:
                 self._emit(AppEvent('error',event.generation,{'message_id':event.message_id,'error':'消息过长，仅显示原文。'})); return
             self._submit(event.text,source,'zh','auto',event.message_id)
@@ -118,6 +142,8 @@ class ChatController:
                     for job in self.subscribers.get(key,[]):
                         if job.kind=='manual':manual.append(job)
                         else:
+                            self._trace('translation.discarded',job_id=job.job_id,
+                                        message_id=job.message_id,outcome='automatic_paused')
                             self._emit(AppEvent('error',job.generation,{'message_id':job.message_id,'job_id':job.job_id,'error':'自动翻译已暂停，待发请求已取消。'}))
                     if manual:
                         self.subscribers[key]=manual
@@ -155,11 +181,19 @@ class ChatController:
         with self.condition:
             event=self.messages.get(message_id)
             if not event: raise ValueError('消息已过期。')
+            if len(event.text.encode('utf-8'))>4096:
+                raise ValueError('消息过长，仅显示原文。')
             source=incoming_source_language(event.text)
             if source is None: raise ValueError('目前仅支持英文和韩文，原文已保留。')
             return self._submit(event.text,source,'zh','auto',message_id,explicit=True)
 
     def _result(self,job,result,provenance='阿里云'):
+        request_id=result.request_id
+        self._trace('translation.result',job_id=job.job_id,message_id=job.message_id,
+                    request_ref=result.job_id,
+                    request_id=request_id if isinstance(request_id,str) and re.fullmatch(r'[A-Za-z0-9_-]{1,128}',request_id) else '',
+                    elapsed_ms=result.elapsed_ms,translated=result.translated,
+                    outcome={'缓存':'cache','已校对本机短句':'local'}.get(provenance,'cloud'))
         self._emit(AppEvent('manual_result' if job.kind=='manual' else 'result',job.generation,
                    {'message_id':job.message_id,'job_id':job.job_id,'translated':result.translated,
                     'engine_translation':result.translated,'detected_language':result.detected_language,
@@ -168,7 +202,10 @@ class ChatController:
     def _submit(self,text,source,target,kind,message_id,explicit=False):
         if self.stopped: raise ValueError('助手已关闭。')
         job=TranslationJob(uuid.uuid4().hex,message_id,self.generation,text,source,target,kind)
+        self._trace('translation.submitted',job_id=job.job_id,message_id=message_id,
+                    source=source,target=target,characters=len(text),original=text,stage=kind)
         if kind=='auto' and self.automatic_paused:
+            self._trace('translation.route',job_id=job.job_id,message_id=message_id,outcome='automatic_paused')
             self._emit(AppEvent('error',job.generation,{'job_id':job.job_id,'message_id':message_id,'error':'自动翻译已暂停，请先启用。'}));return job.job_id
         self._expire_pending()
         if kind=='manual':
@@ -182,8 +219,11 @@ class ChatController:
         if cached is not None:
             self._result(job,cached,'缓存'); return job.job_id
         if self.paused or self.configuration_held:
+            self._trace('translation.route',job_id=job.job_id,message_id=message_id,outcome='cloud_paused')
             self._emit(AppEvent('error',job.generation,{'job_id':job.job_id,'message_id':message_id,'error':'云翻译已暂停，请先启用。'})); return job.job_id
         if key in self.subscribers:
+            self._trace('translation.route',job_id=job.job_id,message_id=message_id,outcome='coalesced',
+                        request_ref=self.subscribers[key][0].job_id)
             if len(self.subscribers[key])>=500:
                 self._emit(AppEvent('gap',self.generation,'相同消息订阅已满，请手动重试。'))
             else:
@@ -202,15 +242,18 @@ class ChatController:
             if guarded:self.guard.record_sender(event.channel,event.sender)
             self.subscribers[key]=[job]; self.condition.notify()
         else:
+            self._trace('translation.route',job_id=job.job_id,message_id=message_id,outcome='queue_full')
             if guarded:self._suppress(job,'queue_full')
             else:self._emit(AppEvent('error',job.generation,{'job_id':job.job_id,'message_id':message_id,'error':'请求队列已满，请重试。'}))
         return job.job_id
 
     def _suppress(self,job,reason):
+        self._trace('translation.discarded',job_id=job.job_id,message_id=job.message_id,outcome=reason)
         self._emit(AppEvent('suppressed',job.generation,{'message_id':job.message_id,'job_id':job.job_id,'reason':reason}))
 
     def _drop(self,key,message,reason=None):
         for job in self.subscribers.pop(key,[]):
+            self._trace('translation.discarded',job_id=job.job_id,message_id=job.message_id,outcome=reason or 'cancelled')
             if reason:self._suppress(job,reason)
             else:self._emit(AppEvent('error',job.generation,{'message_id':job.message_id,'job_id':job.job_id,'error':message}))
 
@@ -239,8 +282,10 @@ class ChatController:
                     self.guard.record_characters(job.text)
                 self.active=key
             reservation=None; result=None; error=None; status='error'
+            stage='reserve';started=time.perf_counter()
             try:
                 reservation=self.ledger.reserve(self.account,job.job_id,job.text,self.clock())
+                self._trace('usage.reserve',job_id=job.job_id,outcome='ok',characters=len(job.text))
                 # A configuration hold can arrive while the ledger is reserving.
                 # Authorize network start under the same lock as pause/hold.
                 with self.condition:
@@ -249,13 +294,24 @@ class ChatController:
                     status='cancelled'
                     if not self.stopped:error='云翻译已暂停，待发请求已取消。'
                 else:
+                    stage='request'
+                    self._trace('translation.request',job_id=job.job_id,message_id=job.message_id,outcome='start')
                     result=self.engine.translate(job); status='ok'
-            except (BudgetError,TranslationError) as failure: error=str(failure)
-            except Exception: error='翻译失败，已保留用量；请检查本机配置后重试。'
+            except (BudgetError,TranslationError) as failure:
+                error=str(failure)
+                self._trace('translation.failure',job_id=job.job_id,stage=stage,error_type=type(failure).__name__,
+                            error_code=getattr(failure,'kind','budget'),
+                            provider_code=getattr(failure,'provider_code',None),elapsed_ms=(time.perf_counter()-started)*1000)
+            except Exception as failure:
+                error='翻译失败，已保留用量；请检查本机配置后重试。'
+                self._trace('translation.failure',job_id=job.job_id,stage=stage,error_type=type(failure).__name__)
             finally:
                 if reservation:
-                    try: self.ledger.settle(reservation,status,self.clock())
+                    try:
+                        self.ledger.settle(reservation,status,self.clock())
+                        self._trace('usage.settle',job_id=job.job_id,outcome=status)
                     except BudgetError:
+                        self._trace('usage.settle',job_id=job.job_id,outcome='error',error_code='budget')
                         error='账本结算失败，云翻译已暂停。'
                         with self.condition:
                             self.paused=True
@@ -267,6 +323,7 @@ class ChatController:
                     if job.generation==self.generation:self.cache.put(key[1:],result)
                     for subscriber in subscribers:
                         if subscriber.generation==self.generation: self._result(subscriber,result)
+                        else:self._trace('translation.discarded',job_id=subscriber.job_id,outcome='stale_generation')
                 elif error:
                     for subscriber in subscribers:
                         if subscriber.generation==self.generation:

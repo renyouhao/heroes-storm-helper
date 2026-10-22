@@ -16,7 +16,7 @@ from .chat_feed import ChatFeed
 from .rounded_panel import RoundedPanel
 from ..loot import LootHelper, LootStatus
 from .loot_panel import LootPanel
-from ..repeat import RepeatHelper, RepeatStatus
+from ..repeat import RepeatHelper, RepeatStatus, validate_repeat_config
 from .repeat_panel import RepeatPanel
 
 
@@ -128,8 +128,10 @@ class MainWindow:
         self.repeat_helper=RepeatHelper()
         self._repeat_active=False
         self._repeat_binding=self.settings.repeat_hotkey
+        self._repeat_action=self.settings.repeat_action
+        self._repeat_interval_ms=self.settings.repeat_interval_ms
         self.repeat_panel=RepeatPanel(self.notebook,on_prepare=self.prepare_repeat,on_cancel=self.cancel_repeat,
-                                      settings=self.settings,metrics=initial_metrics)
+                                      settings=self.settings,metrics=initial_metrics,on_apply=self.apply_repeat_config)
         self.notebook.add(self.repeat_panel,text='动作连按')
         self.reply_panel=RoundedPanel(workspace,settings=self.settings,padding=12,fit_height=True)
         self.reply_panel.grid(row=4,column=0,sticky='ew',padx=16,pady=(0,3))
@@ -158,7 +160,7 @@ class MainWindow:
         self._tabs_hidden=None
         self.status_var=tk.StringVar(value=self.vm.status); ttk.Label(workspace,textvariable=self.status_var,padding=(18,6),style='Muted.TLabel',width=1).grid(row=5,column=0,sticky='ew')
         self.refresh_usage()
-        self.hotkeys=HotkeyManager()
+        self.hotkeys=HotkeyManager(diagnostics=getattr(controller,'diagnostics',None))
         self.screen_ticks=0;self.monitor_bounds=[]
         from .overlay_window import OverlayWindow
         from .quick_input import QuickInput
@@ -206,6 +208,24 @@ class MainWindow:
     def prepare_repeat(self):
         self._prepare_action('repeat')
 
+    def _repeat_options(self):
+        if getattr(self.settings,'repeat_action','S')=='S':return {}
+        return dict(action=self.settings.repeat_action,interval_ms=self.settings.repeat_interval_ms)
+
+    def apply_repeat_config(self,action,interval_ms):
+        validate_repeat_config(action,interval_ms)
+        previous=(self.settings.repeat_action,self.settings.repeat_interval_ms)
+        self.cancel_repeat()
+        self.settings.repeat_action,self.settings.repeat_interval_ms=action,interval_ms
+        try:self.save_settings()
+        except OSError:
+            self.settings.repeat_action,self.settings.repeat_interval_ms=previous
+            raise
+        self._repeat_binding=self.settings.repeat_hotkey
+        self._repeat_action,self._repeat_interval_ms=action,interval_ms
+        if self._repeat_listener_started:self._start_repeat_listener()
+        self.repeat_panel.apply_settings(self.settings,self._layout_metrics)
+
     def _cancel_action_request(self, kind=None):
         if kind is not None and getattr(self,'_pending_action',None)!=kind:return
         self._action_revision=getattr(self,'_action_revision',0)+1
@@ -242,7 +262,8 @@ class MainWindow:
                 return
             self._pending_action=None
             helper=self.repeat_helper if kind=='repeat' else self.loot_helper
-            started=(helper.prepare(self.settings.repeat_hotkey) if kind=='repeat' else helper.prepare())
+            started=(helper.prepare(self.settings.repeat_hotkey,**self._repeat_options())
+                     if kind=='repeat' else helper.prepare())
             if not started:emit(status('error','请等待本次模式结束后再重新准备。'))
 
         attempt()
@@ -273,6 +294,10 @@ class MainWindow:
         self._sync_action_visibility()
 
     def update_repeat_status(self,status):
+        recorder=getattr(getattr(self,'controller',None),'diagnostics',None)
+        if recorder is not None:
+            recorder.record('hotkey.state',stage='repeat',outcome=status.state,
+                            source=getattr(self.settings,'repeat_action','S'),generation=status.generation)
         if status.state=='requested':
             if self.closed or not self.repeat_helper.accepts_status(status):return
             if self.quick_input._visible:
@@ -367,7 +392,7 @@ class MainWindow:
         if self.closed or not self._repeat_hotkey_enabled:return
         self._repeat_listener_started=True
         try:
-            if not self.repeat_helper.start_listening(self.settings.repeat_hotkey):
+            if not self.repeat_helper.start_listening(self.settings.repeat_hotkey,**self._repeat_options()):
                 self.repeat_ui_failed(OSError('连按快捷键监听未能启动，请稍后重新保存设置。'))
         except (OSError,ValueError) as failure:self.repeat_ui_failed(failure)
 
@@ -515,9 +540,11 @@ class MainWindow:
         if hasattr(self,'phrase_panel'):self.phrase_panel.apply_metrics(metrics)
         try:self.loot_panel.apply_settings(self.settings,metrics)
         except (OSError,tk.TclError) as failure:self.loot_ui_failed(failure)
-        if self._repeat_binding!=self.settings.repeat_hotkey:
+        if ((self._repeat_binding,getattr(self,'_repeat_action','S'),getattr(self,'_repeat_interval_ms',200))
+                !=(self.settings.repeat_hotkey,self.settings.repeat_action,self.settings.repeat_interval_ms)):
             self.cancel_repeat()
             self._repeat_binding=self.settings.repeat_hotkey
+            self._repeat_action,self._repeat_interval_ms=self.settings.repeat_action,self.settings.repeat_interval_ms
             if self._repeat_listener_started:self._start_repeat_listener()
         try:self.repeat_panel.apply_settings(self.settings,metrics)
         except (OSError,tk.TclError) as failure:self.repeat_ui_failed(failure)
@@ -664,7 +691,14 @@ class MainWindow:
         events=self.controller.drain_events()
         changed=False
         for event in events:
-            self.vm.apply(event)
+            applied=self.vm.apply(event)
+            recorder=getattr(self.controller,'diagnostics',None)
+            if recorder is not None and event.kind in ('chat','result','manual_result','error','generation'):
+                payload=event.payload if isinstance(event.payload,dict) else {}
+                recorder.record('ui.apply',stage=event.kind,generation=event.generation,
+                                message_id=payload.get('message_id',getattr(event.payload,'message_id',None)),
+                                job_id=payload.get('job_id'),
+                                outcome=applied)
             if hasattr(self,'quick_input'):self.quick_input.handle_event(event)
             if event.kind=='capture_state' and event.generation==self.vm.generation:
                 self.capture_state.set('采集：'+str(event.payload))

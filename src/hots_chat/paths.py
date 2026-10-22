@@ -14,6 +14,10 @@ class AppPaths:
     def credentials_file(self):
         return self.ledger_file.parent / 'credentials.dpapi'
 
+    @property
+    def diagnostics_dir(self):
+        return self.ledger_file.parent / 'logs'
+
     @classmethod
     def from_root(cls, root: Path):
         root = root.resolve()

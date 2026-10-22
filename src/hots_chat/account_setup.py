@@ -60,12 +60,23 @@ class AccountSetup:
         self._resume_paused=True
         self._session_active=False
         self._stage='waiting'
+        if saved:self._register_diagnostic_secrets(saved.credentials)
+
+    def _register_diagnostic_secrets(self,credentials):
+        recorder=getattr(self.controller,'diagnostics',None)
+        if recorder is not None:
+            recorder.register_secrets(credentials.access_key_id,credentials.access_key_secret)
+            recorder.record('configuration.progress',stage='credentials',outcome='provided',
+                            key_id_last4=credentials.access_key_id[-4:])
 
     @property
     def busy(self):
         return bool(self._thread and self._thread.is_alive())
 
     def _emit(self, kind, **values):
+        recorder=getattr(self.controller,'diagnostics',None)
+        if recorder is not None:
+            recorder.record('configuration.progress',stage=values.get('stage',self._stage),outcome=kind)
         try:self._events.put_nowait({'kind':kind,**values})
         except queue.Full:pass
 
@@ -88,6 +99,12 @@ class AccountSetup:
         try:
             work(token)
         except Exception as failure:
+            recorder=getattr(self.controller,'diagnostics',None)
+            if recorder is not None:
+                code=getattr(failure,'provider_code',None)
+                recorder.record('configuration.progress',stage=self._stage,outcome='error',
+                                error_type=type(failure).__name__,
+                                provider_code=code if isinstance(code,str) and code in _KNOWN_CODES else '')
             # Never expose provider errors, SDK request headers, or credentials.
             with self._lock:
                 if not token.is_set():
@@ -136,6 +153,7 @@ class AccountSetup:
                    for value in (credentials.access_key_id,credentials.access_key_secret)):
             raise ValueError('请填写有效的 AccessKey ID 与 Secret。')
         if self.busy or self._closed:raise ValueError('配置任务仍在处理或已关闭，请稍后重试。')
+        self._register_diagnostic_secrets(credentials)
         if not self._session_active:self._resume_paused=self.controller.paused
         self._session_active=True
         self.controller.hold_configuration(True)

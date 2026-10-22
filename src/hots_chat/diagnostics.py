@@ -25,9 +25,17 @@ _BODIES = frozenset(('original', 'translated'))
 _LOG_NAMES = ('helper.log',) + tuple(f'helper.log.{i}' for i in range(1, 5))
 
 
+class _ExportRequest:
+    def __init__(self,destination):
+        self.destination=destination
+        self.done=threading.Event()
+        self.lock=threading.Lock()
+        self.cancelled=self.published=self.failed=False
+
+
 class DiagnosticRecorder:
     def __init__(self, directory, *, monotonic=time.monotonic, queue_size=256,
-                 max_bytes=2 * 1024 * 1024):
+                 max_bytes=2 * 1024 * 1024, enabled=False, export_timeout=10.0):
         self.directory = Path(directory)
         self.monotonic = monotonic
         self.queue = queue.Queue(maxsize=queue_size)
@@ -37,13 +45,33 @@ class DiagnosticRecorder:
         self._detail_until = 0.0
         self._dropped = 0
         self._closed = self._write_error = False
+        self._enabled=bool(enabled)
+        self._export_timeout=export_timeout
+        self._worker_lock=threading.Lock()
         self._contains_body = False
         self._stop = threading.Event()
         self._file = None
         self._size = self._batch = 0
         self._repeated = None
-        self.thread = threading.Thread(target=self._run, name='diagnostic-writer', daemon=True)
-        self.thread.start()
+        self.thread=None
+        if self._enabled:self._ensure_worker()
+
+    def _ensure_worker(self):
+        with self._worker_lock:
+            if self.thread is None and not self._closed:
+                self.thread=threading.Thread(target=self._run,name='diagnostic-writer',daemon=True)
+                self.thread.start()
+
+    def set_enabled(self,enabled):
+        if self._closed:return
+        self._enabled=bool(enabled)
+        if self._enabled:
+            self._ensure_worker()
+            self.record('app.start',stage='diagnostics_enabled')
+        else:
+            self._detail_until=0.0
+            try:self.queue.put_nowait(None)
+            except queue.Full:pass
 
     def register_secrets(self, *values):
         # 换Key后仍保留本进程旧值，避免已排队的详细正文泄露旧凭据。
@@ -51,16 +79,16 @@ class DiagnosticRecorder:
         self._secrets += additions
 
     def enable_details(self, enabled):
-        self._detail_until = self.monotonic() + 600 if enabled else 0.0
+        self._detail_until = self.monotonic() + 600 if enabled and self._enabled else 0.0
 
     def snapshot(self):
-        return {'enabled': not self._closed and not self._write_error,
+        return {'enabled': self._enabled and not self._closed and not self._write_error,
                 'details_enabled': self.monotonic() < self._detail_until,
                 'dropped': self._dropped, 'write_error': self._write_error,
                 'version': __version__, 'contains_body': self._contains_body}
 
     def record(self, event, **fields):
-        if self._closed or self._write_error or event not in EVENTS:
+        if not self._enabled or self._closed or self._write_error or event not in EVENTS:
             return False
         data = {'event': event, 'time': time.time(), 'session_id': self.session_id}
         detailed = self.monotonic() < self._detail_until
@@ -154,16 +182,22 @@ class DiagnosticRecorder:
         if repeatable:
             self._repeated = (row, 1, row['time'])
 
-    def _export(self, destination):
+    def _export(self, request):
+        if request.cancelled:return
+        destination=request.destination
         if self._write_error:
             raise OSError('诊断日志不可写，请检查用户数据目录后重试。')
         self._flush_repeated()
         self._flush()
+        if self._file is not None:
+            self._file.close()
+            self._file = None
+        # 导出前也执行保留期清理，长期空闲的旧日志不随包带出。
+        self._open()
         files = [(name, self.directory / name) for name in _LOG_NAMES]
         files = [(name, path) for name, path in files if path.is_file() and not path.is_symlink()]
         # 旧运行留下的日志也可能有正文，摘要以实际导出材料为准。
-        contents = [(name, path.read_bytes()) for name, path in files]
-        contains_body = any(b'"original":' in data or b'"translated":' in data for _, data in contents)
+        contains_body = any(self._has_bodies(path) for _,path in files)
         summary = dict(self.snapshot(), contains_body=contains_body, schema=1,
                        exported_at=datetime.now(timezone.utc).isoformat(), session_id=self.session_id)
         temporary = None
@@ -172,12 +206,37 @@ class DiagnosticRecorder:
                 temporary = Path(stream.name)
             with zipfile.ZipFile(temporary, 'w', zipfile.ZIP_DEFLATED) as archive:
                 archive.writestr('summary.json', json.dumps(summary, ensure_ascii=False, indent=2))
-                for name, data in contents:
-                    archive.writestr(name, data)
-            temporary.replace(destination)
+                for name, path in files:
+                    with path.open('r',encoding='utf-8') as source,archive.open(name,'w') as output:
+                        for line in source:
+                            if request.cancelled:return
+                            if len(line)>4096:continue
+                            try:row=json.loads(line)
+                            except (ValueError,TypeError):continue
+                            if not isinstance(row,dict) or row.get('event') not in EVENTS:continue
+                            allowed=_TEXT|_NUMBERS|_BODIES|{'event','time','session_id','summary','last_time',
+                                                        'original_truncated','translated_truncated'}
+                            row={k:self._redact(v) for k,v in row.items() if k in allowed}
+                            output.write((json.dumps(row,ensure_ascii=False,separators=(',',':'))+'\n').encode('utf-8'))
+            with request.lock:
+                if request.cancelled:return
+                temporary.replace(destination)
+                request.published=True
+                request.done.set()
         finally:
             if temporary is not None and temporary.exists():
                 temporary.unlink()
+
+    @staticmethod
+    def _has_bodies(path):
+        with path.open('rb') as stream:
+            tail=b''
+            while True:
+                chunk=stream.read(65536)
+                if not chunk:return False
+                data=tail+chunk
+                if b'"original":' in data or b'"translated":' in data:return True
+                tail=data[-32:]
 
     def export_report(self, destination):
         if self._closed or self._write_error:
@@ -185,14 +244,18 @@ class DiagnosticRecorder:
         destination = Path(destination)
         if destination.suffix.lower() != '.zip':
             raise ValueError('请选择 ZIP 文件。')
-        done, result = threading.Event(), []
+        request=_ExportRequest(destination)
+        self._ensure_worker()
         try:
-            self.queue.put((destination, done, result), timeout=2)
+            self.queue.put(request, timeout=2)
         except queue.Full:
             raise OSError('日志繁忙，请稍后重试。') from None
-        if not done.wait(10):
-            raise OSError('日志导出超时，请稍后重试。')
-        if result:
+        if not request.done.wait(self._export_timeout):
+            with request.lock:
+                if not request.published:
+                    request.cancelled=True
+                    raise OSError('日志导出超时，请稍后重试。')
+        if request.failed:
             raise OSError('日志导出失败，请检查保存位置后重试。')
         return destination
 
@@ -201,21 +264,20 @@ class DiagnosticRecorder:
         try:
             while not self._stop.is_set() or not self.queue.empty():
                 try:
-                    item = self.queue.get(timeout=.1)
+                    item = self.queue.get(timeout=.1 if self._enabled else None)
                 except queue.Empty:
                     item = None
                 try:
-                    if isinstance(item, tuple):
-                        destination, done, result = item
+                    if isinstance(item, _ExportRequest):
                         try:
-                            self._export(destination)
+                            self._export(item)
                         except (OSError, ValueError):
-                            result.append(False)
+                            item.failed=True
                         finally:
-                            done.set()
+                            item.done.set()
                     elif item is not None and not self._write_error:
                         self._consume(item)
-                    if time.monotonic() - flushed >= 1:
+                    if not self._enabled or time.monotonic() - flushed >= 1:
                         self._flush_repeated()
                         self._flush()
                         flushed = time.monotonic()
@@ -235,5 +297,7 @@ class DiagnosticRecorder:
     def close(self, timeout=1.0):
         self._closed = True
         self._stop.set()
-        if self.thread is not threading.current_thread():
+        try:self.queue.put_nowait(None)
+        except queue.Full:pass
+        if self.thread is not None and self.thread is not threading.current_thread():
             self.thread.join(timeout=max(0, timeout))
