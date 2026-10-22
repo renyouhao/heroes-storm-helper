@@ -1,0 +1,114 @@
+"""入口导入无副作用；仅 main 创建窗口。"""
+import argparse
+from pathlib import Path
+import tempfile
+import sys
+from . import APP_NAME
+from .paths import AppPaths
+from .config import ConfigError
+from .usage import BudgetLedger,BudgetError
+from .controller import ChatController
+from .acquisition.persistent import PersistentChatSource
+from .translation.aliyun import AliyunEngine
+from .models import TranslationResult,ChatEvent,AppEvent
+from .instance import SingleInstance
+from .phrases import PhraseBook,validate_phrase
+from .language_store import decode_import
+
+PROJECT_ROOT=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parents[2]))
+
+
+class DemoEngine:
+    provider_id='demo'; config_version='offline-v1'
+    def translate(self,job): return TranslationResult(job.job_id,'[离线演示] '+job.text,None,None,0)
+    def close(self): pass
+
+
+class DemoSource:
+    selected_pid=None
+    def process_finder(self):return []
+    def start(self,emit):
+        for i,text in enumerate(('hello team','같이 가요','ㄱㄱ')):
+            emit(AppEvent('chat',0,ChatEvent(str(i),0,'团队','演示队友','00:01',text)))
+    def stop(self):pass
+    def reconnect(self):pass
+
+
+def build_controller(paths,demo=False):
+    saved=None;notice=''
+    if demo:
+        engine,source=DemoEngine(),DemoSource();account='main'
+    else:
+        from .credentials import CredentialStore
+        from .identity import IdentityClient
+        from .account_setup import AccountSetup,UnconfiguredEngine
+        store=CredentialStore(paths.credentials_file)
+        try:saved=store.load()
+        except ConfigError:notice='本机加密凭据无法读取，请在设置中重新配置自己的密钥。'
+        engine=AliyunEngine(saved.credentials) if saved else UnconfiguredEngine()
+        source=PersistentChatSource();account=saved.account if saved else 'unconfigured'
+    controller=ChatController(source,engine,BudgetLedger(paths.ledger_file),account)
+    controller.is_demo=demo
+    controller.cloud_configured=bool(demo or saved)
+    controller.startup_notice=notice
+    if not demo:
+        controller.account_setup=AccountSetup(controller,store,IdentityClient(),AliyunEngine,saved)
+        if not saved:controller.pause_translation(True)
+    controller.preferences_path=paths.preferences_file
+    try:
+        controller.phrases=PhraseBook(paths.language_file)
+        data=(PROJECT_ROOT/'data'/'phrases.json').read_text(encoding='utf-8')
+        controller.phrases.store.seed_once('phrases',decode_import(data,'phrases',validate_phrase))
+        controller.set_local_resolver(controller.phrases.resolve)
+    except BaseException:
+        controller.close();raise
+    return controller
+
+
+def main(argv=None):
+    parser=argparse.ArgumentParser(description=APP_NAME)
+    mode=parser.add_mutually_exclusive_group()
+    mode.add_argument('--demo',action='store_true',help='离线演示，不读取游戏或凭据')
+    mode.add_argument('--check-installation',type=Path,metavar='REPORT',help='隔离安装自检并写入报告，不连接游戏或云')
+    mode.add_argument('--check-cloud-configuration',type=Path,nargs=2,metavar=('CREDENTIALS','REPORT'),
+                      help='显式使用指定凭据文件，在临时目录测试一键配置和重载翻译；共 4 字符，不访问游戏或现用配置')
+    args=parser.parse_args(argv)
+    if args.check_cloud_configuration:
+        from .cloud_diagnostic import check_cloud_configuration
+        return check_cloud_configuration(*args.check_cloud_configuration)
+    from .display_runtime import enable_process_dpi_awareness,TkDisplayRuntime
+    display_mode=enable_process_dpi_awareness()
+    if args.check_installation:
+        from .installation import check_installation
+        return check_installation(args.check_installation,display_mode=display_mode)
+    mutex=SingleInstance()
+    if not mutex.acquire(): print('助手已经运行。'); return 1
+    controller=None
+    temporary=tempfile.TemporaryDirectory(prefix='hots-demo-') if args.demo else None
+    try:
+        paths=AppPaths.from_root(PROJECT_ROOT)
+        if temporary:
+            base=Path(temporary.name)
+            paths=AppPaths(base/'.env',base/'usage.sqlite3',base/'language.sqlite3',base/'preferences.json')
+        controller=build_controller(paths,args.demo)
+        if args.demo:
+            from .clock import now,month_key
+            controller.ledger.confirm_baseline('main',month_key(now()),0,now())
+        import tkinter as tk
+        from .ui.main_window import create_app
+        from .window_settings import WindowSettings
+        root=tk.Tk(); create_app(root,controller,WindowSettings.load(paths.preferences_file),
+                               display=TkDisplayRuntime(root),enable_repeat_hotkey=not args.demo)
+        root.mainloop()
+        return 0
+    except (ConfigError,BudgetError) as failure:
+        print(str(failure)); return 2
+    finally:
+        if controller:
+            if hasattr(controller,'account_setup'):controller.account_setup.close()
+            controller.close()
+        mutex.close()
+        if temporary:temporary.cleanup()
+
+
+if __name__=='__main__':raise SystemExit(main())

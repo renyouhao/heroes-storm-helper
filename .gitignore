@@ -1,0 +1,31 @@
+# Local credentials, including backup variants.
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+.superpowers/
+*.egg-info/
+
+# Per-user state and diagnostics must never be published.
+*.dpapi
+*.db
+*.sqlite*
+*.initialized
+*.log
+*.dmp
+preferences.json
+
+# Local builds, benchmarks and captured game messages.
+/releases/
+/build/
+/dist/
+/benchmarks/
+/probes/*.json
+/probes/*.txt
+/docs/superpowers/
+
+# Keep only the public, self-contained user guide from local artifacts.
+/artifacts/*
+!/artifacts/风暴英雄助手新手指南.html

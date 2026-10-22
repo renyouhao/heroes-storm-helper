@@ -1,0 +1,136 @@
+"""本机生成免安装目录包；只显式复制公开种子，不读取用户配置。"""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import zipfile
+from hots_chat import APP_NAME,__version__
+
+ROOT=Path(__file__).resolve().parents[1]
+NAME=APP_NAME
+VERSION=__version__
+
+
+def stage_public_data(root, destination):
+    for name in ('phrases.json',):
+        target=Path(destination)/'data'/name
+        target.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copy2(Path(root)/'data'/name,target)
+
+
+def verify_bundle(bundle):
+    result=[]
+    for path in sorted(Path(bundle).rglob('*')):
+        if not path.is_file():continue
+        relative=path.relative_to(bundle)
+        parts=[p.lower() for p in relative.parts]
+        if any(p.startswith('.env') or p.endswith(('.dpapi','.db','.log','.sqlite','.sqlite3','.initialized'))
+               or '.sqlite' in p or p in ('probes','benchmarks','验收报告','preferences.json') for p in parts):
+            raise ValueError('发行目录包含本地状态或诊断文件，已阻止打包。')
+        with path.open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
+        result.append({'path':relative.as_posix(),'bytes':path.stat().st_size,'sha256':digest})
+    if not any(row['path']==NAME+'.exe' for row in result):raise ValueError('缺少程序入口。')
+    return result
+
+
+def main(argv=None):
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output',type=Path,default=ROOT/'releases')
+    args=parser.parse_args(argv)
+    args.output.mkdir(parents=True,exist_ok=True)
+    work=Path(tempfile.mkdtemp(prefix='hots-release-',dir=args.output))
+    stage_public_data(ROOT,work/'public')
+    command=[sys.executable,'-m','PyInstaller','--noconfirm','--onedir','--windowed','--noupx',
+             '--name',NAME,'--paths',str(ROOT/'src'),'--distpath',str(work/'dist'),
+             '--workpath',str(work/'build'),'--specpath',str(work)]
+    command+=['--manifest',str(ROOT/'packaging'/'highdpi.manifest')]
+    for name in ('phrases.json',):
+        command+=['--add-data',str(work/'public'/'data'/name)+os.pathsep+'data']
+    command.append(str(ROOT/'packaging'/'launcher.py'))
+    subprocess.run(command,cwd=ROOT,check=True)
+    bundle=work/'dist'/NAME
+    note=(f'{NAME} {VERSION} · Windows x64 免安装测试版\n\n'
+          f'解压整个文件夹，双击“{NAME}.exe”，无需安装Python。\n'
+          '首次使用先在阿里云开通机器翻译通用版并给RAM用户翻译权限；助手使用AccessKey，不填写阿里云网页登录账号密码。\n'
+          '填入自己的AccessKey ID/Secret，核对“本月其他用量”，点击一次“连接并开始使用”：自动验证身份、确认月账本、预留2字符翻译“你好”，成功后加密保存并启用翻译。\n'
+          '“本月其他用量”首次默认0，可按实际情况修改；它不是查询云端得出的数字。已有同账号非零值保留，同月不可调低；本助手已记用量不需重复填写。\n'
+          '处理时字段暂时禁用；取消保留原配置。测试失败、超时或取消后的已发请求仍保守保留预留用量，重试会再次计数。\n'
+          '失败提示当前阶段、安全错误类别或可识别云错误码；未知错误不直接展示底层内容。可先检查Key配对、网络、服务开通和RAM权限。\n'
+          '配置目录自动创建，无需拷贝AppData或另装SDK；首次不必分两步操作。\n'
+          '可跳过云配置，只接收原文。密钥仅保存在当前Windows用户的本机加密文件。\n'
+          '无边框游戏模式；Ctrl+T中文翻译并复制，再由你粘贴发送。\n'
+          '设置→外观可选择月白蓝/石墨紫/雾青；保存后同步主窗、设置、译文和输入条，下次启动记住。\n'
+          '主窗宽屏侧边导航提供实时消息/常用短句/开箱助手/动作连按/偏好设置，开箱助手为第三页、动作连按为第四页，窄屏保留顶部标签；聊天与回复使用圆角容器。\n'
+          '动作连按：游戏在前台时，单独按F8直接开始S连按，再按F8取消；无需在主窗口点击准备，也无需关闭游戏聊天输入框。聊天框开着时S会输入其中，右键点地板由自己操作。\n'
+          '启动及运行沿用游戏底部被动状态条，提示“按 F8 取消”；取消后收起，不抢鼠标或输入焦点。\n'
+          '设置→快捷键可将连按开关改为F1–F12，提示同步实际按键；保存改键结束本次连按，下次新按即可开始，不保存运行状态。\n'
+          '正式模式启动后监听快捷键，空闲不发送S；长按只切换一次。Esc、Enter、组合键、打开Ctrl+T或切出目标游戏窗口都会结束本次连按，回游戏不自动恢复；松开后新按快捷键可再次开始，此前Enter/Esc的状态不阻止下一次启动。\n'
+          '连按仅发送S按下/抬起，不自动点击鼠标、不识别地板或对局状态，右键等鼠标保持游戏原有操作。每组发送前核验真实游戏前台且同一HWND/PID。\n'
+          '20毫秒为目标发送间隔，实际受Windows调度和游戏响应影响；卡顿不追补，不保证精确50次/秒或提升真实攻击速度。\n'
+          '连按与开箱互斥：按F8后先显示启动状态条，关闭开箱发送门并等旧开箱线程退出，才允许发送S；未能退出会取消本次并明确提示，不同时发送。活动期间聊天字幕暂藏且不续期。\n'
+          '本轮连按测试只使用合成按键、FakeWin32与屏幕外Tk，未向真实游戏发按键；动画效果、游戏接受输入、实际节奏及远程操作仍待手动验收。\n'
+          '开箱助手：点击“准备开箱”，手动选好游戏主菜单补给箱页，回游戏单独Space开始→Space暂停→Space继续；Esc在准备阶段也可结束。\n'
+          '准备时可切回游戏并选页；30秒未开始准备失效。长按空格只切换一次，助手自己模拟的空格不切换状态。\n'
+          '首次Space后，其他按键/鼠标按钮/滚轮或切出目标游戏窗口立即结束本次模式，不自动恢复，需重新点准备。\n'
+          '默认每900毫秒最多发送一组空格按下/抬起；每次发送前核验前台为HeroesOfTheStorm_x64.exe且同一HWND/PID。\n'
+          '开箱默认关闭，不保存准备状态；仅点击准备后建立原生键鼠钩子，结束即释放。\n'
+          '待开始/开箱中/暂停时显示三主题小状态条，穿透且不激活；期间聊天字幕暂藏，结束只恢复未到期内容，不续期。\n'
+          '开箱页隐藏中文回复区，草稿和消息历史仍保留。只循环Space，不购买、不重掷，不识别补给箱页、剩余箱数或统计开箱数，用完需手动停止。\n'
+          '开箱离线验证仅使用FakeWin32和屏幕外Tk；真实游戏对SendInput的接受、900毫秒动画节奏、Mac远程空格及切窗体验仍待实机验收。\n'
+          '采集启动一次即可持续运行：大厅与对局分别自动连接，换局、返回大厅无需手动重新连接；退出游戏后等待重开。\n'
+          '首次未找到聊天时保持有效只读连接，分段自动定位。大厅按本次采集启动时间补收新队伍/密语，接入期间发出的首句也会接收；启动前历史不回放。\n'
+          '试用与普通对局首次接入或发现未知记录链时，有限补收该链最近5条支持消息，可能包含启动前近几条；超过5条的首次突发消息可能遗漏。已有游标重连按未读记录接续，不受5条限制。\n'
+          '设置→连接→手动重新连接可立即重新尝试；真正的进程读取错误会释放句柄并自动退避重试。\n'
+          '默认接收全部聊天：团队、队伍、密语、所有玩家；实时消息频道可选仅队伍或仅密语等筛选，仅影响后续消息，不清除历史。\n'
+          '大厅与对局中游戏内可见的队伍/密语使用持续记录接续；团队/所有玩家在对局中接收；不读取独立战网客户端。\n'
+          '同一条记录不会重复翻译，重复发送相同正文仍按不同消息接收；昵称暂缺不阻塞正文，已确认本人发出的密语显示“我 → 联系人未知”，未确认身份仍显示“发送者未知”。\n'
+          '大厅队伍姓名在身份确认后，好友关系暂不可读或子记录缺少名字时，尝试同账号有效昵称；身份不明或名字损坏仍显示未知，不借用别人的名字。旧未知消息不自动补名，后续新消息重新查名。\n'
+          '返回大厅时会检查旧记录之外的新来源，各来源保留各自游标；旧聊天持续活跃也不会阻止新来源发现。未知远处地址仍需有界分段扫描，不承诺固定接入秒数。\n'
+          '接收翻译仅支持英文和韩文：英文按英语、含韩字按韩语译中；含其他语言字母的消息仅保留原文，不自动翻译。显式重试采用相同规则，中文快捷输入仍输出英语或韩语。\n'
+          '系统提示与Ping不翻译。当前已完成大厅记录与昵称方向的只读核对，完整换局和新版实际云翻译仍待用户手动验收。\n'
+          '实时消息不再逐条显示“阿里云”“缓存”来源标签，原文、译文和错误/防护提示保留；翻译及缓存功能照常工作。\n'
+          '紧凑模式或大字号时输入与预览并排，最小窗口缩小间距。\n'
+          '旧紫晶迁移为石墨紫，旧冰蓝迁移为月白蓝，原有位置与快捷键保留。\n'
+          '默认透明字幕：11磅/420逻辑像素宽/首次接收起6秒，白字暗边，仅最新1条最多2行；开原文时译文原文各1行。\n'
+          '背景真正透明，字幕文字保持不透明；可选深色半透明面板显示最新2条共4行，不透明度仅影响半透明面板（含其调整态）。\n'
+          '设置→游戏内→保存并使用底部字幕布局：底部居中，底边按工作区高度86%估算，不检测HUD，需用户拖动校准。\n'
+          '旧chat预设仅一次迁到bottom；自定义位置及非默认字号/停留时间保留，旧默认14磅/440宽/15秒迁为11磅/420宽/6秒。\n'
+          'Ctrl+T默认独立底部居中，custom可沿用自定位置；打开暂藏字幕，关闭仅恢复未到期内容，复制成功850毫秒后收起。\n'
+          '仍只复制译文，由用户回游戏粘贴发送；完整内容在主窗查看。\n'
+          '刷屏防护保留原文，浮窗重复折叠。按Windows工作区与DPI适配单屏，原生DPI保持文字清晰。\n'
+          '1K/2K/4K与100%–200%缩放已有隔离模拟验证，2K/4K物理显示仍待验收。\n'
+          '本机90万字符/月保护不关闭阿里云后付费；同主账号其它设备新调用需自行核对。\n'
+          '换局保留最近500条运行期历史，退出程序释放。\n'
+          '支持中文客户端98348；游戏更新后需重新验证采集。\n'
+          '当前是本地构建测试版；游戏遮挡/输入法候选窗/远程焦点、实际分辨率切换与分场景性能仍待实机验收。\n')
+    (bundle/'使用说明.txt').write_text(note,encoding='utf-8-sig')
+    guide=ROOT/'artifacts'/'风暴英雄助手新手指南.html'
+    if guide.is_file():shutil.copy2(guide,bundle/guide.name)
+    report=work/'安装自检.json'
+    started=time.perf_counter()
+    subprocess.run([str(bundle/(NAME+'.exe')),'--check-installation',str(report)],check=True,timeout=60,
+                   creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+    checked=json.loads(report.read_text(encoding='utf-8'))
+    if not checked.get('passed'):raise ValueError('发行包安装自检失败。')
+    files=verify_bundle(bundle)
+    manifest={'version':VERSION,'files':files,'installation_check':checked,
+              'installation_check_seconds':round(time.perf_counter()-started,3)}
+    (work/'发行校验.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+    target=args.output/(NAME+'-'+VERSION+'-Windows-x64.zip')
+    # Write a new archive then atomically replace, never recurse over user's files.
+    temporary=target.with_suffix('.zip.tmp')
+    with zipfile.ZipFile(temporary,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as archive:
+        for row in files:archive.write(bundle/row['path'],NAME+'/'+row['path'])
+    os.replace(temporary,target)
+    (args.output/'发行校验.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+    print(json.dumps({'zip':str(target),'bytes':target.stat().st_size,'files':len(files),'self_check':checked},ensure_ascii=False))
+    return 0
+
+
+if __name__=='__main__':raise SystemExit(main())

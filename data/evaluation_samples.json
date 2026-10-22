@@ -1,0 +1,152 @@
+[
+  {
+    "text": "hello team",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "go top",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "go bottom",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "wait for level 10",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "do not chase",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "defend core",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "take the camp",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "retreat now",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "objective soon",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "thanks",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "같이 가요",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "후퇴해요",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "탑 갈게요",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "용병 먹어요",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "궁 없어요",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "감사합니다",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "ㄱㄱ",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "ㅋㅋ",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "ㅇㅋ",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "ㅈㅅ",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "hello 你好",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "안녕 team",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "do not <b> chase",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "a",
+    "source": "auto",
+    "target": "zh"
+  },
+  {
+    "text": "守核心",
+    "source": "zh",
+    "target": "ko"
+  },
+  {
+    "text": "不要现在开团",
+    "source": "zh",
+    "target": "ko"
+  },
+  {
+    "text": "等十级再打",
+    "source": "zh",
+    "target": "ko"
+  },
+  {
+    "text": "我去上路",
+    "source": "zh",
+    "target": "ko"
+  },
+  {
+    "text": "请先撤退",
+    "source": "zh",
+    "target": "ko"
+  },
+  {
+    "text": "谢谢队友",
+    "source": "zh",
+    "target": "ko"
+  }
+]

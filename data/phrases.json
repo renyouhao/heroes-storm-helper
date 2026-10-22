@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "kind": "phrases",
+  "items": [
+    {
+      "id": "seed-1",
+      "category": "对线",
+      "source_text": "我去上路",
+      "translations": {
+        "en": "I will go top.",
+        "ko": "제가 탑으로 갈게요."
+      },
+      "reviewed": false,
+      "favorite": false,
+      "revision": 1
+    },
+    {
+      "id": "seed-2",
+      "category": "对线",
+      "source_text": "我去下路",
+      "translations": {
+        "en": "I will go bottom.",
+        "ko": "제가 바텀으로 갈게요."
+      },
+      "reviewed": false,
+      "favorite": false,
+      "revision": 1
+    },
+    {
+      "id": "seed-3",
+      "category": "对线",
+      "source_text": "先补经验",
+      "translations": {
+        "en": "Soak experience first.",
+        "ko": "먼저 경험치를 챙겨요."
+      },
+      "reviewed": false,
+      "favorite": false,
+      "revision": 1
+    },
+    {
+      "id": "seed-4",
+      "category": "团战",
+      "source_text": "先撤退",
+      "translations": {
+        "en": "Retreat first.",
+        "ko": "일단 후퇴해요."
+      },
+      "reviewed": false,
+      "favorite": false,
+      "revision": 1
+    },
+    {
+      "id": "seed-5",
+      "category": "团战",
+      "source_text": "等我们一起",
+      "translations": {
+        "en": "Wait for us to group up.",
+        "ko": "우리 모일 때까지 기다려요."
+      },
+      "reviewed": false,
+      "favorite": false,
+      "revision": 1
+    },
+    {
+      "id": "seed-6",
+      "category": "团战",
+      "source_text": "不要追了",
+      "translations": {
+        "en": "Do not chase.",
+        "ko": "쫓아가지 마세요."
+      },
+      "reviewed": false,
+      "favorite": false,
+      "revision": 1
+    },
+    {
+      "id": "seed-7",
+      "category": "机制",
+      "source_text": "准备打机制",
+      "translations": {
+        "en": "Get ready for the objective.",
+        "ko": "오브젝트 준비해요."
+      },
+      "reviewed": false,
+      "favorite": false,
+      "revision": 1
+    },
+    {
+      "id": "seed-8",
+      "category": "机制",
+      "source_text": "先打佣兵",
+      "translations": {
+        "en": "Take the mercenary camp first.",
+        "ko": "먼저 용병 캠프를 먹어요."
+      },
+      "reviewed": false,
+      "favorite": false,
+      "revision": 1
+    },
+    {
+      "id": "seed-9",
+      "category": "机制",
+      "source_text": "守住核心",
+      "translations": {
+        "en": "Defend the core.",
+        "ko": "핵을 지켜요."
+      },
+      "reviewed": false,
+      "favorite": false,
+      "revision": 1
+    },
+    {
+      "id": "seed-10",
+      "category": "礼貌",
+      "source_text": "谢谢",
+      "translations": {
+        "en": "Thank you.",
+        "ko": "감사합니다."
+      },
+      "reviewed": false,
+      "favorite": false,
+      "revision": 1
+    },
+    {
+      "id": "seed-11",
+      "category": "礼貌",
+      "source_text": "抱歉我的问题",
+      "translations": {
+        "en": "Sorry, my mistake.",
+        "ko": "죄송해요. 제 실수예요."
+      },
+      "reviewed": false,
+      "favorite": false,
+      "revision": 1
+    },
+    {
+      "id": "seed-12",
+      "category": "礼貌",
+      "source_text": "打得好",
+      "translations": {
+        "en": "Well played.",
+        "ko": "잘하셨어요."
+      },
+      "reviewed": false,
+      "favorite": false,
+      "revision": 1
+    }
+  ]
+}
