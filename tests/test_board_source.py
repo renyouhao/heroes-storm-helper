@@ -1,7 +1,9 @@
 """98348 面板 reader 的合成边界测试；不访问真实进程或窗口。"""
 import unittest
+import struct
 from types import SimpleNamespace
 from dataclasses import replace
+from unittest.mock import patch
 
 from tests.test_talent_source import TalentMemory, Binding
 from hots_chat.acquisition.memory import GameProcess
@@ -76,11 +78,19 @@ class BoardMemory(TalentMemory):
         self.pack(cell+0x130,'Q',shared)
         array=self.allocate(8);self.pack(array,'Q',cell)
         self.pack(group+0x140,'I',1);self.pack(group+0x150,'Q',array)
-        import struct
         self.children(cell,struct.unpack('<Q',label)[0]);self.children(group,cell)
         self.children(self.row,self.name,self.hero_name,self.tree,group)
         self.put(self.tree+0x48,b'\x01')
+        self.stat_group=group
         return cell
+
+    def set_stat_text(self, cell, text):
+        label=struct.unpack('<Q',self.read(cell+0x150,8))[0]
+        obj=struct.unpack('<Q',self.read(label+0x1d8,8))[0]
+        shared=struct.unpack('<Q',self.read(obj+0x28,8))[0]
+        encoded=text.encode('utf8')
+        self.pack(shared+0x18,'II',len(encoded)<<2,0)
+        self.put(shared+0x20,encoded)
 
 
 class BoardReaderTests(unittest.TestCase):
@@ -170,6 +180,77 @@ class BoardReaderTests(unittest.TestCase):
         hit=result.hits[0]
         self.assertEqual((hit.metric_id,hit.value),('hero_damage',133027))
         self.assertEqual(hit.rect,(120,180,216,216))
+
+    def poll_with_change_between_captures(self, change):
+        original=self.reader._capture
+        calls=0
+        def capture(*args):
+            nonlocal calls
+            result=original(*args)
+            calls+=1
+            if calls==1:change()
+            return result
+        with patch.object(self.reader,'_capture',new=capture):
+            return self.poll()
+
+    def test_live_stat_integer_change_uses_second_capture_without_losing_board(self):
+        cell=self.memory.add_stat()
+        result=self.poll_with_change_between_captures(
+            lambda:self.memory.set_stat_text(cell,'133,028'))
+        self.assertEqual(result.status,'available',result.reason)
+        self.assertEqual([(hit.metric_id,hit.value) for hit in result.hits],
+                         [('hero_damage',133028)])
+        self.assertFalse(self.memory.closed,'正常数值更新不能清掉reader的有效连接与面板缓存')
+
+    def test_other_stat_change_keeps_clicked_stat_and_stable_talent(self):
+        self.memory.add_stat()
+        first_group=self.memory.stat_group
+        other=self.memory.add_stat('ExperienceContribution','5,555')
+        self.memory.pack(other+0xa8,'4f',300.,100.,340.,180.)
+        self.memory.children(self.memory.row,self.memory.name,self.memory.hero_name,
+                             self.memory.tree,first_group,self.memory.stat_group)
+        self.memory.put(self.memory.tree+0x48,b'\x21')
+        result=self.poll_with_change_between_captures(
+            lambda:self.memory.set_stat_text(other,'5,556'))
+        self.assertEqual(result.status,'available',result.reason)
+        self.assertEqual([(hit.metric_id,hit.value) for hit in result.hits
+                          if hasattr(hit,'metric_id')],
+                         [('hero_damage',133027),('experience',5556)])
+        self.assertEqual([hit.talent_id for hit in result.hits if hasattr(hit,'talent_id')],
+                         ['ChromieTalent1'])
+
+    def test_stat_value_tolerance_keeps_metric_geometry_and_pointer_guards(self):
+        changes=('metric','rect','cell_pointer','label_pointer')
+        for change in changes:
+            with self.subTest(change=change):
+                self.reader.close()
+                self.memory=BoardMemory()
+                memory=self.memory
+                cell=memory.add_stat()
+                memory.put(memory.tree+0x48,b'\x21')
+                def u64(address):return struct.unpack('<Q',memory.read(address,8))[0]
+                def mutate():
+                    if change=='metric':
+                        shared=u64(cell+0x130)
+                        value=b'SiegeDamage'
+                        memory.pack(shared+0x18,'II',len(value)<<2,0)
+                        memory.put(shared+0x20,value)
+                    elif change=='rect':memory.pack(cell+0xa8,'4f',201.,100.,241.,180.)
+                    elif change=='cell_pointer':
+                        label=u64(cell+0x150)
+                        new=memory.frame(0x26777c0)
+                        memory.blocks[new]=bytearray(memory.blocks[cell])
+                        memory.children(new,label)
+                        memory.pack(u64(memory.stat_group+0x150),'Q',new)
+                        memory.children(memory.stat_group,new)
+                    else:
+                        wrapper=memory.label_frame(0x26928d0,'133,027')
+                        label=u64(wrapper+0x140)
+                        memory.pack(cell+0x150,'Q',label)
+                        memory.children(cell,label)
+                result=self.poll_with_change_between_captures(mutate)
+                self.assertEqual(result.status,'unknown',result.reason)
+                self.assertEqual(result.hits,())
 
     def test_unknown_and_inapplicable_statistics_do_not_become_zero(self):
         for link,text in (('NewUnknownScore','8'),('Healing','-'),('Deaths','1.5')):

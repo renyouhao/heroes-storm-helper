@@ -225,7 +225,8 @@ class BoardHelper:
                             pending_revision = None
                             publish_status()
                         continue
-                    if not 0 <= self.clock()-event_at <= .25:
+                    # 按下决定是否接受新手势；松开只同步持键状态，不能因排队变慢而丢弃。
+                    if down and not 0 <= self.clock()-event_at <= .25:
                         session.cancel('点击处理超时，请重新双击。')
                         pending_revision = None
                         publish_status()
@@ -260,6 +261,12 @@ class BoardHelper:
                     continue
                 if self._suspended or self.busy_provider():
                     session.cancel('其他输入操作正在进行，请稍后重新双击。')
+                    publish_status()
+                    continue
+                if session._left_held:
+                    # 未处理第二次松开时只检查已有动作是否过期，先让事件队列前进。
+                    # 此时 tick 不会交出动作；松开后仍须 fresh 复核才能发送。
+                    session.tick(hit,context,self.clock())
                     publish_status()
                     continue
                 if not backend.input_idle():continue
