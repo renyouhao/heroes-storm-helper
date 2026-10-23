@@ -114,13 +114,34 @@ class RepeatActionSessionTests(unittest.TestCase):
                 self.assertEqual(session.status.state, 'idle')
                 self.assertEqual([vk for vk, _ in self.backend.sent], [0x59])
 
-    def test_original_s_mode_uses_legacy_backend_and_twenty_ms_even_with_custom_ys_interval(self):
-        session = self.session(action='S', interval_ms=5000, backend=DirectBackend())
+    def test_s_mode_uses_configured_interval_with_the_existing_s_backend(self):
+        session = self.session(action='S', interval_ms=350, backend=DirectBackend())
+        self.start(session)
+        self.now[0] = 10.349; session.tick()
+        self.assertEqual(len(self.backend.sent), 1)
+        self.now[0] = 10.350; session.tick()
+        self.assertEqual(self.backend.sent, [(11, 22), (11, 22)])
+
+    def test_ys_twenty_ms_alternates_without_sending_early(self):
+        session = self.session(interval_ms=20)
         self.start(session)
         self.now[0] = 10.019; session.tick()
-        self.assertEqual(len(self.backend.sent), 1)
+        self.assertEqual([vk for vk, _ in self.backend.sent], [0x59])
         self.now[0] = 10.020; session.tick()
-        self.assertEqual(self.backend.sent, [(11, 22), (11, 22)])
+        self.assertEqual([vk for vk, _ in self.backend.sent], [0x59, 0x53])
+
+    def test_both_actions_default_to_twenty_ms_when_no_interval_is_passed(self):
+        for action in ('S', 'YS'):
+            with self.subTest(action=action):
+                self.backend = ActionBackend()
+                self.now = [10.]
+                session = repeat.DirectRepeatSession(self.backend, lambda status: None,
+                    clock=lambda: self.now[0], action=action, next_generation=lambda: 1)
+                session.listen(); self.press(session); session.tick()
+                self.now[0] = 10.019; session.tick()
+                self.assertEqual(len(self.backend.sent), 1)
+                self.now[0] = 10.020; session.tick()
+                self.assertEqual(len(self.backend.sent), 2)
 
     def test_unsupported_ys_backend_fails_without_sending_fallback_s(self):
         session = self.session(backend=DirectBackend())
@@ -171,13 +192,16 @@ class RepeatActionSettingsTests(unittest.TestCase):
     def test_new_defaults_and_saved_choice_roundtrip(self):
         settings = WindowSettings()
         self.assertEqual(getattr(settings, 'repeat_action', None), 'S')
-        self.assertEqual(getattr(settings, 'repeat_interval_ms', None), 200)
+        self.assertEqual(getattr(settings, 'repeat_interval_ms', None), 20)
+        self.assertEqual(getattr(settings, 'repeat_s_interval_ms', None), 20)
         settings.repeat_action, settings.repeat_interval_ms = 'YS', 375
+        settings.repeat_s_interval_ms = 85
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'preferences.json'
             settings.save(path)
             loaded = WindowSettings.load(path)
             self.assertEqual((loaded.repeat_action, loaded.repeat_interval_ms), ('YS', 375))
+            self.assertEqual(loaded.repeat_s_interval_ms, 85)
 
     def test_old_preferences_keep_other_values_and_default_to_s_and_200(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -185,7 +209,7 @@ class RepeatActionSettingsTests(unittest.TestCase):
             path.write_text('{"font_size":17,"color_theme":"mint"}', encoding='utf-8')
             loaded = WindowSettings.load(path)
             self.assertEqual((getattr(loaded, 'repeat_action', None),
-                              getattr(loaded, 'repeat_interval_ms', None)), ('S', 200))
+                              getattr(loaded, 'repeat_interval_ms', None)), ('S', 20))
             self.assertEqual((loaded.font_size, loaded.color_theme), (17, 'mint'))
 
     def test_corrupt_action_preferences_fall_back_without_erasing_unrelated_settings(self):
@@ -198,8 +222,27 @@ class RepeatActionSettingsTests(unittest.TestCase):
                                                     font_size=17)), encoding='utf-8')
                     loaded = WindowSettings.load(path)
                     self.assertEqual((getattr(loaded, 'repeat_action', None),
-                                      getattr(loaded, 'repeat_interval_ms', None)), ('S', 200))
+                                      getattr(loaded, 'repeat_interval_ms', None)), ('S', 20))
                     self.assertEqual(loaded.font_size, 17)
+
+    def test_existing_ys_interval_is_preserved_and_s_starts_at_twenty(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'preferences.json'
+            path.write_text('{"repeat_action":"YS","repeat_interval_ms":200}', encoding='utf-8')
+            loaded = WindowSettings.load(path)
+            self.assertEqual((loaded.repeat_action, loaded.repeat_interval_ms,
+                              loaded.repeat_s_interval_ms), ('YS', 200, 20))
+
+    def test_invalid_s_interval_does_not_erase_ys_or_other_settings(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'preferences.json'
+            for value in (0, 19, 5001, True, '20', None, 20.5):
+                with self.subTest(value=value):
+                    path.write_text(json.dumps(dict(repeat_action='YS', repeat_interval_ms=350,
+                        repeat_s_interval_ms=value, font_size=17)), encoding='utf-8')
+                    loaded = WindowSettings.load(path)
+                    self.assertEqual((loaded.repeat_action, loaded.repeat_interval_ms,
+                                      loaded.repeat_s_interval_ms, loaded.font_size), ('YS', 350, 20, 17))
 
 
 class RepeatActionHelperTests(unittest.TestCase):

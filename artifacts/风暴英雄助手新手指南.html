@@ -46,21 +46,21 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
   <div class="layout">
     <aside class="toc no-print" aria-label="目录">
       <h2 class="toc-title">按顺序来</h2>
-      <nav aria-label="指南章节"><a href="#start">先看这一页</a><a href="#prepare">01 · 先准备好</a><a href="#service">02 · 开通翻译服务</a><a href="#key">03 · 申请自己的 Key</a><a href="#permission">04 · 给它翻译权限</a><a href="#connect">05 · 把 Key 填进助手</a><a href="#translate">06 · 看译文、发消息</a><a href="#repeat">07 · F8 连按怎么用</a><a href="#loot">08 · 连续开箱怎么用</a><a href="#settings">09 · 常用设置</a><a href="#faq">10 · 有问题先看这里</a><a href="#quota">11 · 费用和 Key 保管</a><a href="#quick">一页速查</a><a href="#sources">官方入口与说明</a></nav>
+      <nav aria-label="指南章节"><a href="#start">先看这一页</a><a href="#prepare">01 · 先准备好</a><a href="#service">02 · 开通翻译服务</a><a href="#key">03 · 申请自己的 Key</a><a href="#permission">04 · 给它翻译权限</a><a href="#connect">05 · 把 Key 填进助手</a><a href="#translate">06 · 看译文、发消息</a><a href="#repeat">07 · F8 连按怎么用</a><a href="#talent">07B · 自动选天赋</a><a href="#loot">08 · 连续开箱怎么用</a><a href="#settings">09 · 常用设置</a><a href="#faq">10 · 有问题先看这里</a><a href="#quota">11 · 费用和 Key 保管</a><a href="#quick">一页速查</a><a href="#sources">官方入口与说明</a></nav>
     </aside>
     <main class="content" id="reportContent">
 <header class="hero" id="start">
-  <p class="eyebrow">第一次使用也能照着做 · 适用 0.3.13</p>
+  <p class="eyebrow">第一次使用也能照着做 · 适用本地 1.1.0</p>
   <h1 data-review-id="beginner:title">风暴英雄助手<br><span class="marker">从申请 Key 到上手使用</span></h1>
   <p class="lead">你只要做三件事：在阿里云准备好自己的翻译 Key，填进助手，再回到游戏里使用。下面按顺序来，不需要会写代码。</p>
-  <div class="meta"><span>文档修订：2026-10-22</span><span>阿里云官网核对：2026-10-21</span><span>面向：Windows 上第一次使用助手的玩家</span></div>
+  <div class="meta"><span>文档修订：2026-10-23</span><span>阿里云官网核对：2026-10-21</span><span>面向：Windows 上第一次使用助手的玩家</span></div>
   <div class="route" aria-label="入门顺序"><span>① 开通服务、申请 Key</span><b>→</b><span>② 填 Key，一键连接</span><b>→</b><span>③ 回游戏看译文</span></div>
   <p class="small">已经有能用的阿里云机器翻译 Key？直接看<a href="#connect">第 05 节</a>。只想先体验开箱或连按？它们不需要翻译 Key，可先跳过云翻译配置。</p>
 </header>
 
 <section class="section" id="prepare"><h2>01 · 先准备好这几样</h2>
 <article class="card" data-review-id="beginner:prepare"><ol class="steps">
-<li><strong>一台 Windows 64 位电脑，以及完整的助手压缩包。</strong>把“风暴英雄助手-0.3.13-Windows-x64.zip”解压到一个普通文件夹里，再打开里面的“风暴英雄助手.exe”。整个文件夹都要保留，不要只把 exe 单独拖出来；不用另外安装 Python 或 SDK。助手会自动创建自己的配置目录，不用拷贝 AppData。更新时先正常退出旧助手，再启动新文件夹里的程序。</li>
+<li><strong>一台 Windows 64 位电脑，以及完整的助手压缩包。</strong>把“风暴英雄助手-0.3.14-Windows-x64.zip”解压到一个普通文件夹里，再打开里面的“风暴英雄助手.exe”。整个文件夹都要保留，不要只把 exe 单独拖出来；不用另外安装 Python 或 SDK。助手会自动创建自己的配置目录，不用拷贝 AppData。更新时先正常退出旧助手，再启动新文件夹里的程序。</li>
 <li><strong>自己的阿里云账号。</strong>浏览器打开<a href="https://www.aliyun.com/">阿里云官网</a>，注册或登录。网页如果要求身份认证，按它的提示完成。申请和开通服务都由你在官网操作。</li>
 <li><strong>能上网的网络和《风暴英雄》。</strong>云翻译需要网络；助手目前适配中文客户端 build 98348。建议游戏用“无边框窗口化”，方便显示游戏内提示。</li>
 </ol></article>
@@ -151,14 +151,24 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 </section>
 
 <section class="section" id="repeat"><h2>07 · F8 动作连按</h2>
-<article class="card" data-review-id="beginner:repeat"><p>这个功能可重复按 <strong>S</strong>，或交替按 <strong>Y＋S</strong>，不需要翻译 Key。先在助手的“动作连按”页选择动作；Y＋S 的按键间隔可填 20–5000 毫秒整数，默认 200，然后点击<strong>保存并应用</strong>。</p><ol class="steps">
+<article class="card" data-review-id="beginner:repeat"><p>这个功能可重复按 <strong>S</strong>，或交替按 <strong>Y＋S</strong>，不需要翻译 Key。先在助手的“动作连按”页选择动作；S 和 Y＋S 的“按键间隔”都可填 20–5000 毫秒整数，分别保存，新配置均默认 20；旧版保存值保留，然后点击<strong>保存并应用</strong>。</p><ol class="steps">
 <li>启动助手正式程序，切回游戏。<strong>聊天输入框开着也可以，无需先关闭。</strong></li>
 <li>单独按 <strong>F8</strong> 开始已保存的动作。不用先去助手里点击“准备连按”；需要配合游戏动作时，自己右键点游戏地面。</li>
-<li>如果 Y＋S 间隔填 200，就是 Y → 等 200 毫秒 → S → 等 200 毫秒再循环。S 模式固定 20 毫秒。保存新配置会结束当前动作，需回游戏再按 F8；实际节奏受系统与游戏响应影响，卡顿不补发。</li>
+<li>如果 Y＋S 间隔填 200，就是 Y → 等 200 毫秒 → S → 等 200 毫秒再循环。S 模式也可以改间隔，例如填 100 就是每隔 100 毫秒按一次 S。保存新配置会结束当前动作，需回游戏再按 F8；实际节奏受系统与游戏响应影响，卡顿不补发。</li>
 <li>看到游戏下方显示<strong>“正在连按 / 按 F8 取消”</strong>，就是本次连按的状态提示。</li>
 <li><strong>再按一次 F8 取消</strong>，提示会收起。之后想再开，松开按键后重新按 F8 就行。</li>
 </ol><p>Esc、Enter、打开 Ctrl+T、按组合键或切出游戏，也会结束本次。Esc／Enter 只结束当前连按，不会阻止你松开按键后下一次单独按 F8 重新开始；切回游戏不会自动继续。右键仍由你自己操作；动作连按和连续开箱不能同时运行。</p>
 <div class="callout"><strong>聊天框开着时，S 或 Y＋S 会输入到聊天框。</strong>0.3.11 不再按是否打开聊天框或此前的 Enter／Esc 状态拦截 F8。可以用下方“按 F8 取消”提示判断是否启动，再按 F8 取消；如果要看游戏动作，再由自己关闭输入框并操作。连按按键效果由游戏决定，不保证提高攻击速度。</div></article>
+</section>
+
+<section class="section" id="talent"><h2>07B · 自动选爱心天赋（本地 1.1.0）</h2>
+<article class="card" data-review-id="beginner:talent"><p>本地 1.1.0 测试包已包含这个功能；旧的公开包和本地 0.3.14 ZIP 不包含。它不需要翻译 Key，默认关闭。</p><ol class="steps">
+<li>先在游戏里给各层想用的天赋标好<strong>爱心</strong>，选中自己要用的首选方案。</li>
+<li>游戏内“快速选择首选天赋”快捷键保持为 <strong>Ctrl＋反引号</strong>。反引号在 Esc 下方、数字 1 左边。</li>
+<li>助手打开<strong>天赋辅助</strong>，勾选“自动选择游戏内的爱心天赋”，再回游戏。开关会保存，下一局自动重新识别；不用每把准备。</li>
+<li>天赋待选时助手只尝试一次，然后检查该层是否选中。显示 3 秒未确认时，请检查爱心和快捷键，并<strong>手选本层</strong>；下一层会继续检测。反复关开开关不会重试本层。</li>
+</ol><p>切出游戏时不发按键，也不会抢焦点；后台低频只读，观察返回大厅或换局。使用开箱、连按或快捷输入期间延后。关闭开关后停止读取和发送。看不准自己的玩家身份、游戏版本或天赋状态时暂停。</p>
+<div class="callout"><strong>实测范围要分开看：</strong>build 98348 的霍格、克罗米试用、大厅退出再进、镜像克罗米归属已核对；克罗米一级已实际自动选中。乱斗自然升级、连续多局和英文客户端还需要实机验证，观战／回放未验收。助手按各英雄真实天赋等级读取，50 毫秒是轮询目标，不保证同一帧选中。游戏中不可选的爱心天赋不会被替换成其他选项；回读只确认“该层已选择”，不独立核对当前爱心目标。</div></article>
 </section>
 
 <section class="section" id="loot"><h2>08 · 在补给箱页面连续开箱</h2>
@@ -187,7 +197,7 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <details class="faq-item" data-review-id="beginner:faq-cloud"><summary>身份验证通过，账本、翻译测试或保存阶段失败</summary><p>身份验证成功只说明 Key 能确认身份。翻译测试失败时，检查是否开通“机器翻译通用版”、是否给刚才那个 RAM 用户加了翻译权限，以及阿里云是否有欠费或服务限制。账本阶段要核对本月其他用量、系统日期和磁盘权限，已有同账号的值同月不能调低；保存阶段可核对当前 Windows 用户和写入权限。看窗口显示的阶段和安全提示排查，不要删除账本或连续重复连接；已预留的测试用量不会因失败退回。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-month"><summary>提示“额度未确认”，或者换月后不能翻译</summary><p>去“设置 → 连接 → 确认本月其他用量”。没有本月其他调用才填 0，有就填已用字符数；不知道先查清。填完后再检查自动翻译。不要删除用量文件、换 Key 来当作额度清零。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-copy"><summary>Ctrl+T 翻译了，游戏里却没发出去</summary><p>它只帮你复制。请回到游戏打开聊天框，Ctrl+V 粘贴，再按 Enter 发送。输入法还在选字时，先确定汉字，再按一次 Enter 提交翻译。快捷键无反应可以从助手主界面的“快捷输入”按钮打开。</p></details>
-<details class="faq-item" data-review-id="beginner:faq-repeat"><summary>按 F8 没出现 s，或者连按没效果</summary><p>确认使用 0.3.13，关闭助手输入条，松开所有修饰键，再回游戏单独按 F8；游戏聊天输入框无需关闭，开着时会输入所选动作的 S 或 Y、S。此前按过 Enter／Esc 也不影响这次启动；运行中按 Enter／Esc 会结束当前连按，松开后可再按 F8 重开。如果改过快捷键，按你保存的那个键。用下方“按 F8 取消”提示判断是否启动；没有提示或有提示但无输入／动作，可分别反馈这两种情况。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-repeat"><summary>按 F8 没出现 s，或者连按没效果</summary><p>确认使用 0.3.14，关闭助手输入条，松开所有修饰键，再回游戏单独按 F8；游戏聊天输入框无需关闭，开着时会输入所选动作的 S 或 Y、S。此前按过 Enter／Esc 也不影响这次启动；运行中按 Enter／Esc 会结束当前连按，松开后可再按 F8 重开。如果改过快捷键，按你保存的那个键。用下方“按 F8 取消”提示判断是否启动；没有提示或有提示但无输入／动作，可分别反馈这两种情况。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-overlay"><summary>游戏里看不到译文，或者位置挡视线</summary><p>先在主界面确认确实有新的译文。字幕显示时间较短，可在“设置 → 游戏内”调整；用无边框窗口化，重新拖动浮窗位置。透明字幕模式主要显示文字，想要底色可改为半透明面板。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-word"><summary>某个短词翻译不符合语境</summary><p>主界面保留原文，可以对照着看；需要时选择消息再点“重试所选”。短词缺少上下文时仍可能有多种意思，重试也会使用翻译额度，别连续刷同一句。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-diagnostics"><summary>怎么把日志发给开发者排查？</summary><p>诊断默认完全关闭。遇到问题时，正式模式打开<strong>设置 → 诊断 → 开启诊断日志</strong>，复现一次，再点<strong>一键导出诊断日志</strong>，选择位置保存 ZIP，然后自己发给开发者，并说明出问题的大致时间。开启后的基础日志只记录关键阶段、耗时、错误和编号，不保存聊天正文，也不调用云服务。开关仅本次运行有效，下次启动仍关闭；关闭后已有日志仍可导出。</p><p>排查错译或表情时，可先勾选“详细诊断”，复现一次再导出；十分钟后会自动关闭。正文、译文各最多记录 256 字，已配置密钥始终脱敏，分享前仍需检查正文里其他私人信息。不要另外附带 .env、credentials.dpapi 或用户数据库。日志后台有界写入，约 2 MiB × 5 份、保留 7 天；繁忙时允许丢弃诊断并计数。</p></details>
@@ -218,22 +228,22 @@ Key、Secret 自己保管，截图和反馈都别带上它们。</pre></article>
 <li><a href="https://ram.console.aliyun.com/">RAM 控制台</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/create-a-ram-user">创建 RAM 用户</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair">创建 Key</a></li>
 <li><a href="https://help.aliyun.com/zh/machine-translation/getting-started/ram-user-authorization">翻译权限说明</a> · <a href="https://help.aliyun.com/zh/ram/create-a-custom-policy">创建自定义权限策略</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user">给用户授权</a></li>
 <li><a href="https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview">额度与收费规则</a></li>
-</ul><p class="small">助手用法按 0.3.13 的功能整理，2026-10-22 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。</p></article>
-<details class="card step-card no-print"><summary>复制全文的纯文字版</summary><button type="button" data-copy-target="originalMarkdown">复制全文</button><pre id="originalMarkdown">第一次使用也能照着做 · 适用 0.3.13
+</ul><p class="small">助手用法按 0.3.14 的功能整理，2026-10-23 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。</p></article>
+<details class="card step-card no-print"><summary>复制全文的纯文字版</summary><button type="button" data-copy-target="originalMarkdown">复制全文</button><pre id="originalMarkdown">第一次使用也能照着做 · 适用本地 1.1.0
 
 风暴英雄助手
 从申请 Key 到上手使用
 
 你只要做三件事：在阿里云准备好自己的翻译 Key，填进助手，再回到游戏里使用。下面按顺序来，不需要会写代码。
 
-  文档修订：2026-10-22阿里云官网核对：2026-10-21面向：Windows 上第一次使用助手的玩家
+  文档修订：2026-10-23阿里云官网核对：2026-10-21面向：Windows 上第一次使用助手的玩家
   ① 开通服务、申请 Key→② 填 Key，一键连接→③ 回游戏看译文
   
 已经有能用的阿里云机器翻译 Key？直接看第 05 节。只想先体验开箱或连按？它们不需要翻译 Key，可先跳过云翻译配置。
 
 01 · 先准备好这几样
 
-一台 Windows 64 位电脑，以及完整的助手压缩包。把“风暴英雄助手-0.3.13-Windows-x64.zip”解压到一个普通文件夹里，再打开里面的“风暴英雄助手.exe”。整个文件夹都要保留，不要只把 exe 单独拖出来；不用另外安装 Python 或 SDK。助手会自动创建自己的配置目录，不用拷贝 AppData。更新时先正常退出旧助手，再启动新文件夹里的程序。
+一台 Windows 64 位电脑，以及完整的助手压缩包。把“风暴英雄助手-0.3.14-Windows-x64.zip”解压到一个普通文件夹里，再打开里面的“风暴英雄助手.exe”。整个文件夹都要保留，不要只把 exe 单独拖出来；不用另外安装 Python 或 SDK。助手会自动创建自己的配置目录，不用拷贝 AppData。更新时先正常退出旧助手，再启动新文件夹里的程序。
 
 自己的阿里云账号。浏览器打开阿里云官网，注册或登录。网页如果要求身份认证，按它的提示完成。申请和开通服务都由你在官网操作。
 
@@ -367,13 +377,13 @@ Ctrl + T→输入中文、选语言→Enter 翻译→回游戏粘贴发送
 
 07 · F8 动作连按
 
-这个功能可重复按 S，或交替按 Y＋S，不需要翻译 Key。先在助手的“动作连按”页选择动作；Y＋S 的按键间隔可填 20–5000 毫秒整数，默认 200，然后点击保存并应用。
+这个功能可重复按 S，或交替按 Y＋S，不需要翻译 Key。先在助手的“动作连按”页选择动作；S 和 Y＋S 的“按键间隔”都可填 20–5000 毫秒整数，分别保存，新配置均默认 20；旧版保存值保留，然后点击保存并应用。
 
 启动助手正式程序，切回游戏。聊天输入框开着也可以，无需先关闭。
 
 单独按 F8 开始已保存的动作。不用先去助手里点击“准备连按”；需要配合游戏动作时，自己右键点游戏地面。
 
-如果 Y＋S 间隔填 200，就是 Y → 等 200 毫秒 → S → 等 200 毫秒再循环。S 模式固定 20 毫秒。保存新配置会结束当前动作，需回游戏再按 F8；实际节奏受系统与游戏响应影响，卡顿不补发。
+如果 Y＋S 间隔填 200，就是 Y → 等 200 毫秒 → S → 等 200 毫秒再循环。S 模式也可以改间隔，例如填 100 就是每隔 100 毫秒按一次 S。保存新配置会结束当前动作，需回游戏再按 F8；实际节奏受系统与游戏响应影响，卡顿不补发。
 
 看到游戏下方显示“正在连按 / 按 F8 取消”，就是本次连按的状态提示。
 
@@ -382,6 +392,14 @@ Ctrl + T→输入中文、选语言→Enter 翻译→回游戏粘贴发送
 Esc、Enter、打开 Ctrl+T、按组合键或切出游戏，也会结束本次。Esc／Enter 只结束当前连按，不会阻止你松开按键后下一次单独按 F8 重新开始；切回游戏不会自动继续。右键仍由你自己操作；动作连按和连续开箱不能同时运行。
 
 聊天框开着时，S 或 Y＋S 会输入到聊天框。0.3.11 不再按是否打开聊天框或此前的 Enter／Esc 状态拦截 F8。可以用下方“按 F8 取消”提示判断是否启动，再按 F8 取消；如果要看游戏动作，再由自己关闭输入框并操作。连按按键效果由游戏决定，不保证提高攻击速度。
+
+07B · 自动选爱心天赋（本地 1.1.0）
+
+本地 1.1.0 测试包已包含这个功能；旧的公开包和本地 0.3.14 ZIP 不包含。默认关闭，不需要翻译 Key。
+先在游戏给各层天赋标好爱心，选中首选方案；“快速选择首选天赋”快捷键保持 Ctrl＋反引号（Esc 下方、数字 1 左边）。助手打开“天赋辅助”，勾选后回游戏，偏好会保存，换局自动重新识别。
+每层只尝试一次并回读确认，3 秒未确认时检查爱心和快捷键、手选本层；下一层继续检测。关开开关不会重试本层。关闭后停止读取和发送。
+切出游戏不发按键，后台低频只读以观察换局；开箱／连按／快捷输入期间延后，版本或身份未知时暂停。
+build 98348 霍格／克罗米试用、大厅退出再进、镜像归属已核对，克罗米一级实际自动选中。乱斗自然升级、连续多局、英文客户端待实机验证，观战／回放未验收。按各英雄实际层级读取，50 毫秒是轮询目标，不保证同一帧；游戏不可选的爱心不替换，回读只确认该层已选择，不独立核对爱心目标。
 
 08 · 在补给箱页面连续开箱
 
@@ -439,7 +457,7 @@ Ctrl+T 翻译了，游戏里却没发出去
 
 按 F8 没出现 s，或者连按没效果
 
-确认使用 0.3.13，关闭助手输入条，松开所有修饰键，再回游戏单独按 F8；游戏聊天输入框无需关闭，开着时会输入所选动作的 S 或 Y、S。此前按过 Enter／Esc 也不影响这次启动；运行中按 Enter／Esc 会结束当前连按，松开后可再按 F8 重开。如果改过快捷键，按你保存的那个键。用下方“按 F8 取消”提示判断是否启动；没有提示或有提示但无输入／动作，可分别反馈这两种情况。
+确认使用 0.3.14，关闭助手输入条，松开所有修饰键，再回游戏单独按 F8；游戏聊天输入框无需关闭，开着时会输入所选动作的 S 或 Y、S。此前按过 Enter／Esc 也不影响这次启动；运行中按 Enter／Esc 会结束当前连按，松开后可再按 F8 重开。如果改过快捷键，按你保存的那个键。用下方“按 F8 取消”提示判断是否启动；没有提示或有提示但无输入／动作，可分别反馈这两种情况。
 
 游戏里看不到译文，或者位置挡视线
 
@@ -508,12 +526,12 @@ RAM 控制台 · 创建 RAM 用户 · 创建 Key
 
 额度与收费规则
 
-助手用法按 0.3.13 的功能整理，2026-10-22 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。
+助手用法按 0.3.14 的功能整理，2026-10-23 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。
 
 复制全文的纯文字版
 复制全文</pre></details>
 </section>
-<footer>风暴英雄助手新手指南 · 0.3.13 · 修订于 2026-10-22。点评只保存在当前浏览器，需要自己复制或下载；请勿在点评里填写 Key 或私人聊天。</footer>
+<footer>风暴英雄助手新手指南 · 0.3.14 · 修订于 2026-10-23。点评只保存在当前浏览器，需要自己复制或下载；请勿在点评里填写 Key 或私人聊天。</footer>
 </main>
   </div>
   <aside id="reviewPanel" class="review-panel no-print" aria-labelledby="reviewPanelTitle" hidden>

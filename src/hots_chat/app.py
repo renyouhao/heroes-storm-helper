@@ -109,7 +109,8 @@ def main(argv=None):
         root=tk.Tk()
         if diagnostic_hooks is not None:diagnostic_hooks.attach_root(root)
         create_app(root,controller,WindowSettings.load(paths.preferences_file),
-                               display=TkDisplayRuntime(root),enable_repeat_hotkey=not args.demo)
+                               display=TkDisplayRuntime(root),enable_repeat_hotkey=not args.demo,
+                               enable_talent_helper=not args.demo)
         root.mainloop()
         return 0
     except (ConfigError,BudgetError) as failure:

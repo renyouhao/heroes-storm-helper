@@ -18,10 +18,12 @@ from ..loot import LootHelper, LootStatus
 from .loot_panel import LootPanel
 from ..repeat import RepeatHelper, RepeatStatus, validate_repeat_config
 from .repeat_panel import RepeatPanel
+from ..talent_service import TalentHelper
+from .talent_panel import TalentPanel
 
 
 class MainWindow:
-    def __init__(self,root,controller,settings,display=None,enable_repeat_hotkey=False):
+    def __init__(self,root,controller,settings,display=None,enable_repeat_hotkey=False,enable_talent_helper=False):
         self.root,self.controller,self.settings=root,controller,settings if isinstance(settings,WindowSettings) else WindowSettings()
         self.display=display
         self._layout_guard_timer=None
@@ -31,6 +33,7 @@ class MainWindow:
         self._pending_action=None
         self._repeat_hotkey_enabled=bool(enable_repeat_hotkey)
         self._repeat_listener_started=False
+        self._talent_runtime_enabled=bool(enable_talent_helper)
         self._layout_metrics=initial_metrics=self._read_display_metrics()
         if display is not None:self.settings.migrate_display(initial_metrics)
         self.vm=AppViewModel(); self.closed=False;self._rendered_rows={}
@@ -50,7 +53,7 @@ class MainWindow:
         ttk.Label(self.sidebar,text='风暴英雄助手',style='Brand.TLabel').pack(anchor='w',pady=(0,6))
         ttk.Label(self.sidebar,text='跨语言，聊得来',style='Surface.Muted.TLabel').pack(anchor='w',pady=(0,26))
         self.navigation={}
-        for key,label in (('chat','实时消息'),('phrases','常用短句'),('loot','开箱助手'),('repeat','动作连按')):
+        for key,label in (('chat','实时消息'),('phrases','常用短句'),('loot','开箱助手'),('repeat','动作连按'),('talent','天赋辅助')):
             button=ttk.Button(self.sidebar,text=label,style='Sidebar.TButton',
                               command=lambda page=key:self.select_section(page),width=0)
             button.pack(fill='x',pady=(0,8));self.navigation[key]=button
@@ -130,9 +133,14 @@ class MainWindow:
         self._repeat_binding=self.settings.repeat_hotkey
         self._repeat_action=self.settings.repeat_action
         self._repeat_interval_ms=self.settings.repeat_interval_ms
+        self._repeat_s_interval_ms=self.settings.repeat_s_interval_ms
         self.repeat_panel=RepeatPanel(self.notebook,on_prepare=self.prepare_repeat,on_cancel=self.cancel_repeat,
                                       settings=self.settings,metrics=initial_metrics,on_apply=self.apply_repeat_config)
         self.notebook.add(self.repeat_panel,text='动作连按')
+        self.talent_helper=TalentHelper(diagnostics=getattr(controller,'diagnostics',None))
+        self.talent_panel=TalentPanel(self.notebook,settings=self.settings,metrics=initial_metrics,
+                                      on_toggle=self.apply_talent_config)
+        self.notebook.add(self.talent_panel,text='天赋辅助')
         self.reply_panel=RoundedPanel(workspace,settings=self.settings,padding=12,fit_height=True)
         self.reply_panel.grid(row=4,column=0,sticky='ew',padx=16,pady=(0,3))
         send=self.reply_panel.body
@@ -185,18 +193,19 @@ class MainWindow:
 
     def select_section(self, section):
         page={'chat':self.chat_page,'phrases':getattr(self,'phrase_panel',self.chat_page),
-              'loot':self.loot_panel,'repeat':self.repeat_panel}.get(section,self.chat_page)
+              'loot':self.loot_panel,'repeat':self.repeat_panel,'talent':getattr(self,'talent_panel',self.chat_page)}.get(section,self.chat_page)
         self.notebook.select(page)
         self._sync_navigation()
 
     def _sync_navigation(self):
         selected=self.notebook.select()
-        current=('repeat' if hasattr(self,'repeat_panel') and selected==str(self.repeat_panel)
+        current=('talent' if hasattr(self,'talent_panel') and selected==str(self.talent_panel)
+                 else 'repeat' if hasattr(self,'repeat_panel') and selected==str(self.repeat_panel)
                  else 'loot' if hasattr(self,'loot_panel') and selected==str(self.loot_panel)
                  else 'phrases' if hasattr(self,'phrase_panel') and selected==str(self.phrase_panel) else 'chat')
-        self.section_title.set({'chat':'实时消息','phrases':'常用短句','loot':'开箱助手','repeat':'动作连按'}[current])
+        self.section_title.set({'chat':'实时消息','phrases':'常用短句','loot':'开箱助手','repeat':'动作连按','talent':'天赋辅助'}[current])
         if hasattr(self,'reply_panel'):
-            if current in ('loot','repeat'):self.reply_panel.grid_remove()
+            if current in ('loot','repeat','talent'):self.reply_panel.grid_remove()
             else:self.reply_panel.grid()
         for key,button in self.navigation.items():
             active=key==current
@@ -205,24 +214,60 @@ class MainWindow:
     def prepare_loot(self):
         self._prepare_action('loot')
 
+    def apply_talent_config(self,enabled):
+        previous=self.settings.talent_enabled
+        self.settings.talent_enabled=bool(enabled)
+        if not enabled:self.talent_helper.set_enabled(False)
+        try:self.save_settings()
+        except OSError as failure:
+            if enabled:self.settings.talent_enabled=previous
+            else:self.talent_panel.update_status('disabled','本次已关闭，但偏好未保存；请检查目录写入权限。')
+            raise OSError(('' if enabled else '本次已关闭，但未能保存关闭状态：')+str(failure)) from failure
+        self._sync_talent_gate()
+        if not self.talent_helper.set_enabled(bool(enabled) and self._talent_runtime_enabled):
+            self.settings.talent_enabled=previous
+            self.save_settings()
+            raise OSError('上次天赋线程正在退出，请稍后再试。')
+        self.talent_panel.apply_settings(self.settings,self._layout_metrics)
+        if not self._talent_runtime_enabled and enabled:
+            self.talent_panel.update_status('disabled','演示模式不读取游戏或发送按键。')
+
+    def _sync_talent_gate(self,quick_active=None):
+        helper=getattr(self,'talent_helper',None)
+        if helper is not None:
+            helper.set_suspended(bool(getattr(self,'_pending_action',None)
+                                      or getattr(self,'_loot_active',False)
+                                      or getattr(getattr(self,'loot_helper',None),'active',False)
+                                      or getattr(self,'_repeat_active',False)
+                                      or (getattr(getattr(self,'quick_input',None),'_visible',False)
+                                          if quick_active is None else quick_active)))
+
     def prepare_repeat(self):
         self._prepare_action('repeat')
 
     def _repeat_options(self):
-        if getattr(self.settings,'repeat_action','S')=='S':return {}
-        return dict(action=self.settings.repeat_action,interval_ms=self.settings.repeat_interval_ms)
+        if getattr(self.settings,'repeat_action','S')=='S':
+            interval=getattr(self.settings,'repeat_s_interval_ms',20)
+            if interval==20:return {}
+            return dict(action='S',interval_ms=interval)
+        return dict(action='YS',interval_ms=getattr(self.settings,'repeat_interval_ms',20))
 
     def apply_repeat_config(self,action,interval_ms):
         validate_repeat_config(action,interval_ms)
-        previous=(self.settings.repeat_action,self.settings.repeat_interval_ms)
+        interval_field='repeat_s_interval_ms' if action=='S' else 'repeat_interval_ms'
+        previous=(self.settings.repeat_action,getattr(self.settings,interval_field))
         self.cancel_repeat()
-        self.settings.repeat_action,self.settings.repeat_interval_ms=action,interval_ms
+        self.settings.repeat_action=action
+        setattr(self.settings,interval_field,interval_ms)
         try:self.save_settings()
         except OSError:
-            self.settings.repeat_action,self.settings.repeat_interval_ms=previous
+            self.settings.repeat_action=previous[0]
+            setattr(self.settings,interval_field,previous[1])
             raise
         self._repeat_binding=self.settings.repeat_hotkey
-        self._repeat_action,self._repeat_interval_ms=action,interval_ms
+        self._repeat_action=action
+        self._repeat_interval_ms=self.settings.repeat_interval_ms
+        self._repeat_s_interval_ms=self.settings.repeat_s_interval_ms
         if self._repeat_listener_started:self._start_repeat_listener()
         self.repeat_panel.apply_settings(self.settings,self._layout_metrics)
 
@@ -243,6 +288,7 @@ class MainWindow:
         if self.quick_input._visible:self.quick_input.cancel()
         revision=self._action_revision
         self._pending_action=kind
+        self._sync_talent_gate()
         emit=self.update_repeat_status if kind=='repeat' else self.update_loot_status
         status=RepeatStatus if kind=='repeat' else LootStatus
         emit(status('preparing','正在准备连按快捷操作…' if kind=='repeat' else '正在准备开箱快捷操作…'))
@@ -281,6 +327,7 @@ class MainWindow:
             self.update_repeat_status(RepeatStatus('idle','本次连按模式已结束。'))
 
     def _sync_action_visibility(self):
+        self._sync_talent_gate()
         self.overlay.set_input_active(getattr(self,'_loot_active',False)
                                       or getattr(self,'_repeat_active',False) or self.quick_input._visible)
 
@@ -361,6 +408,7 @@ class MainWindow:
         self._sync_action_visibility()
 
     def quick_visibility_changed(self,active):
+        self._sync_talent_gate(quick_active=active)
         self.overlay.set_input_active(active or self._loot_active or getattr(self,'_repeat_active',False))
 
     def _apply_shell(self,width):
@@ -398,6 +446,9 @@ class MainWindow:
 
     def start(self):
         if getattr(self,'_repeat_hotkey_enabled',False):self._start_repeat_listener()
+        if getattr(self,'_talent_runtime_enabled',False) and self.settings.talent_enabled:
+            self._sync_talent_gate()
+            self.talent_helper.set_enabled(True)
         self.controller.start_receiving()
     def stop(self): self.controller.stop_receiving()
 
@@ -540,14 +591,18 @@ class MainWindow:
         if hasattr(self,'phrase_panel'):self.phrase_panel.apply_metrics(metrics)
         try:self.loot_panel.apply_settings(self.settings,metrics)
         except (OSError,tk.TclError) as failure:self.loot_ui_failed(failure)
-        if ((self._repeat_binding,getattr(self,'_repeat_action','S'),getattr(self,'_repeat_interval_ms',200))
-                !=(self.settings.repeat_hotkey,self.settings.repeat_action,self.settings.repeat_interval_ms)):
+        if ((self._repeat_binding,getattr(self,'_repeat_action','S'),getattr(self,'_repeat_interval_ms',20),
+             getattr(self,'_repeat_s_interval_ms',20))
+                !=(self.settings.repeat_hotkey,self.settings.repeat_action,self.settings.repeat_interval_ms,
+                   self.settings.repeat_s_interval_ms)):
             self.cancel_repeat()
             self._repeat_binding=self.settings.repeat_hotkey
             self._repeat_action,self._repeat_interval_ms=self.settings.repeat_action,self.settings.repeat_interval_ms
+            self._repeat_s_interval_ms=self.settings.repeat_s_interval_ms
             if self._repeat_listener_started:self._start_repeat_listener()
         try:self.repeat_panel.apply_settings(self.settings,metrics)
         except (OSError,tk.TclError) as failure:self.repeat_ui_failed(failure)
+        if hasattr(self,'talent_panel'):self.talent_panel.apply_settings(self.settings,metrics)
         self.overlay.apply_settings(metrics)
         self.quick_input.refresh_layout(metrics,force=True)
         self.quick_button.configure(text='快捷输入')
@@ -682,6 +737,10 @@ class MainWindow:
         if helper is not None:
             for status in helper.drain_status():
                 if helper.accepts_status(status):self.update_repeat_status(status)
+        helper=getattr(self,'talent_helper',None)
+        if helper is not None:
+            for status in helper.drain_status():
+                if helper.accepts_status(status):self.talent_panel.update_status(status.state,status.detail)
         self._account_events()
         self.screen_ticks+=1
         if self.screen_ticks%20==0:
@@ -738,6 +797,8 @@ class MainWindow:
     def close(self):
         if self.closed:return
         self.closed=True
+        helper=getattr(self,'talent_helper',None)
+        if helper is not None:helper.set_enabled(False,wait=False)
         service=getattr(self.controller,'account_setup',None)
         if service is not None:service.close()
         if getattr(self,'setup_timer',None):self.root.after_cancel(self.setup_timer)
@@ -748,6 +809,8 @@ class MainWindow:
                   self.loot_helper.close,self.loot_panel.close,
                   lambda:getattr(self,'repeat_helper',None) and self.repeat_helper.close(),
                   lambda:getattr(self,'repeat_panel',None) and self.repeat_panel.close(),
+                  lambda:getattr(self,'talent_helper',None) and self.talent_helper.close(),
+                  lambda:getattr(self,'talent_panel',None) and self.talent_panel.close(),
                   self.hotkeys.stop,self.quick_input.close,self.overlay.close,self.save_settings,
                   self.controller.close,self.root.destroy)
         # 一个原生句柄/偏好写入失败，也必须继续释放其他线程与窗口。
@@ -756,5 +819,6 @@ class MainWindow:
             except (OSError,ValueError,tk.TclError):pass
 
 
-def create_app(root,controller,settings,display=None,enable_repeat_hotkey=False):
-    return MainWindow(root,controller,settings,display=display,enable_repeat_hotkey=enable_repeat_hotkey)
+def create_app(root,controller,settings,display=None,enable_repeat_hotkey=False,enable_talent_helper=False):
+    return MainWindow(root,controller,settings,display=display,enable_repeat_hotkey=enable_repeat_hotkey,
+                      enable_talent_helper=enable_talent_helper)

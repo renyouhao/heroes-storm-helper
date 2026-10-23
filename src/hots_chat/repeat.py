@@ -29,21 +29,20 @@ def validate_repeat_config(action, interval_ms):
     if action not in ('S', 'YS'):
         raise ValueError('连按动作只能选择 S 或 Y+S。')
     if type(interval_ms) is not int or not 20 <= interval_ms <= 5000:
-        raise ValueError('Y+S 间隔必须是 20–5000 毫秒的整数。')
+        raise ValueError('按键间隔必须是 20–5000 毫秒的整数。')
 
 
 class RepeatSession:
-    INTERVAL_NS = 20_000_000
     PREPARE_TIMEOUT = 30.
 
     def __init__(self, backend, emit, *, binding='F8', clock=monotonic,
                  can_start=lambda: True, can_send=lambda: True,
-                 action='S', interval_ms=200):
+                 action='S', interval_ms=20):
         validate_repeat_config(action, interval_ms)
         self.backend, self.emit, self.clock = backend, emit, clock
         self.action, self.interval_ms = action, interval_ms
         self.action_label = 'Y+S' if action == 'YS' else 'S'
-        self._interval_ns = interval_ms * 1_000_000 if action == 'YS' else self.INTERVAL_NS
+        self._interval_ns = interval_ms * 1_000_000
         self._step = 0
         # 默认直接使用整数单调时钟；注入的秒时钟只在边界处舍入一次。
         # 避免不同起点的浮点加法把恰好20ms的tick误判为尚未到期。
@@ -298,7 +297,7 @@ class RepeatHelper:
     def listening(self):
         return self._direct_mode and self.thread is not None and self.thread.is_alive()
 
-    def start_listening(self, binding='F8', *, action='S', interval_ms=200):
+    def start_listening(self, binding='F8', *, action='S', interval_ms=20):
         validate_repeat_config(action, interval_ms)
         binding = f'F{parse_repeat_key(binding) - 0x6f}'
         with self._lock:
@@ -311,7 +310,7 @@ class RepeatHelper:
             return False
         return self._launch(binding, direct=True, action=action, interval_ms=interval_ms)
 
-    def prepare(self, binding='F8', *, action='S', interval_ms=200):
+    def prepare(self, binding='F8', *, action='S', interval_ms=20):
         validate_repeat_config(action, interval_ms)
         vk = parse_repeat_key(binding)
         binding = f'F{vk - 0x6f}'
@@ -339,7 +338,7 @@ class RepeatHelper:
             return True
 
     def _run(self, generation, binding, cancelled, stopped, displayed, direct=False,
-             action='S', interval_ms=200):
+             action='S', interval_ms=20):
         session = None
         def emit(status):
             if direct:

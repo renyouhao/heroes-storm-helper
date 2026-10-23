@@ -26,9 +26,10 @@ _OVERLAY_HINT = {
 
 def _format_values(settings):
     action = 'Y+S' if getattr(settings, 'repeat_action', 'S') == 'YS' else 'S'
-    interval = getattr(settings, 'repeat_interval_ms', 200)
+    interval = (getattr(settings, 'repeat_interval_ms', 20) if action == 'Y+S'
+                else getattr(settings, 'repeat_s_interval_ms', 20))
     pacing = (f'Y → 间隔 {interval} 毫秒 → S → 间隔 {interval} 毫秒 → Y 循环。'
-              if action == 'Y+S' else '目标间隔 20 毫秒连按 S。')
+              if action == 'Y+S' else f'目标间隔 {interval} 毫秒连按 S。')
     return dict(hotkey=getattr(settings, 'repeat_hotkey', 'F8'), action=action, pacing=pacing)
 
 
@@ -156,11 +157,13 @@ class RepeatPanel(ttk.Frame):
                                          values=('S', 'Y+S'), state='readonly', width=10)
         self.action_combo.grid(row=0, column=1, sticky='ew')
         self.action_combo.bind('<<ComboboxSelected>>', self._action_selected)
-        self._label(self.config_frame, 'Y+S 间隔\n（毫秒）').grid(row=1, column=0, sticky='w', padx=(0, 10), pady=(10, 0))
-        self.interval_var = tk.StringVar(self, value='200')
+        self._label(self.config_frame, '按键间隔\n（毫秒）').grid(row=1, column=0, sticky='w', padx=(0, 10), pady=(10, 0))
+        self.interval_var = tk.StringVar(self, value='20')
+        self._draft_action = 'S'
+        self._interval_drafts = {'S': '20', 'Y+S': '20'}
         self.interval_entry = ttk.Entry(self.config_frame, textvariable=self.interval_var, width=10)
         self.interval_entry.grid(row=1, column=1, sticky='ew', pady=(10, 0))
-        self._label(self.content, 'Y+S 每个相邻按键之间使用同一间隔，范围 20–5000 毫秒，默认 200。S 固定为 20 毫秒。',
+        self._label(self.content, '两种动作都可设置 20–5000 毫秒，默认 20，分别保存。S 为两次 S 之间的间隔；Y+S 为每个相邻按键之间的间隔。',
                     tone='muted').pack(fill='x', pady=(8, 0))
         self.apply_button = ttk.Button(self.content, text='保存并应用', command=self._apply_action,
                                        style=self._style_prefix + 'Accent.TButton')
@@ -237,14 +240,18 @@ class RepeatPanel(ttk.Frame):
             self._on_cancel()
 
     def _action_selected(self, event=None):
-        self.interval_entry.state(['!disabled'] if self.action_var.get() == 'Y+S' else ['disabled'])
+        selected = self.action_var.get()
+        if selected in self._interval_drafts and selected != self._draft_action:
+            self._interval_drafts[self._draft_action] = self.interval_var.get()
+            self._draft_action = selected
+            self.interval_var.set(self._interval_drafts[selected])
 
     def _apply_action(self):
         if self._closed or self._on_apply is None:return
         text = self.interval_var.get().strip()
         try:
             if not text or not text.isdecimal():
-                raise ValueError('Y+S 间隔必须是 20–5000 毫秒的整数。')
+                raise ValueError('按键间隔必须是 20–5000 毫秒的整数。')
             interval = int(text)
             selected = self.action_var.get()
             if selected not in ('S', 'Y+S'):
@@ -316,11 +323,13 @@ class RepeatPanel(ttk.Frame):
         if metrics is not None:
             self.metrics = metrics
         colors = theme_colors(settings)
-        config = (getattr(settings, 'repeat_action', 'S'), getattr(settings, 'repeat_interval_ms', 200))
+        config = (getattr(settings, 'repeat_action', 'S'), getattr(settings, 'repeat_interval_ms', 20),
+                  getattr(settings, 'repeat_s_interval_ms', 20))
         if config != self._applied_config:
-            self.action_var.set('Y+S' if config[0] == 'YS' else 'S')
-            self.interval_var.set(str(config[1]))
-            self._action_selected()
+            self._interval_drafts = {'S': str(config[2]), 'Y+S': str(config[1])}
+            self._draft_action = 'Y+S' if config[0] == 'YS' else 'S'
+            self.action_var.set(self._draft_action)
+            self.interval_var.set(self._interval_drafts[self._draft_action])
             self._applied_config = config
         size = settings.font_size
         self._body_font.configure(size=size)

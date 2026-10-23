@@ -58,7 +58,9 @@ class WindowSettings:
     color_theme: str=DEFAULT_THEME
     repeat_hotkey: str='F8'
     repeat_action: str='S'
-    repeat_interval_ms: int=200
+    repeat_interval_ms: int=20
+    repeat_s_interval_ms: int=20
+    talent_enabled: bool=False
 
     def __post_init__(self):
         self.color_theme=normalize_theme(self.color_theme)
@@ -133,6 +135,8 @@ class WindowSettings:
                 data['overlay_placement']=('custom' if any(
                     name in data for name in ('overlay_x','overlay_y','overlay_anchor')) else 'bottom')
             s=cls(**data)
+            # 必须明确布尔同意；损坏的此项不丢弃其他外观偏好。
+            if type(s.talent_enabled) is not bool:s.talent_enabled=False
             from .hotkeys import parse_function_key
             try:
                 parse_function_key(s.repeat_hotkey)
@@ -140,7 +144,9 @@ class WindowSettings:
             except ValueError:s.repeat_hotkey='F8'
             from .repeat import validate_repeat_config
             try:validate_repeat_config(s.repeat_action,s.repeat_interval_ms)
-            except ValueError:s.repeat_action,s.repeat_interval_ms='S',200
+            except ValueError:s.repeat_action,s.repeat_interval_ms='S',20
+            try:validate_repeat_config('S',s.repeat_s_interval_ms)
+            except ValueError:s.repeat_s_interval_ms=20
             if s.mode not in ('normal','compact') or s.target_language not in ('ko','en') or not isinstance(s.hotkeys,dict):raise ValueError
             s.color_theme=normalize_theme(s.color_theme)
             if s.overlay_bottom_anchor is not None:
