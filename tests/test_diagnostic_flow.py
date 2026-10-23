@@ -90,9 +90,13 @@ class DiagnosticFlowTests(unittest.TestCase):
         self.wait_idle()
         self.controller.on_chat(ChatEvent('cached', 0, '团队', 'p', '00:01', 'hello'))
         self.controller.on_chat(ChatEvent('emoji', 0, '团队', 'p', '00:01', '[表情]'))
+        self.controller.on_chat(ChatEvent('chinese', 0, '团队', 'p', '00:01', '集合，注意！'))
+        self.controller.on_chat(ChatEvent('unsupported', 0, '团队', 'p', '00:01', 'ありがとう'))
         rows = self.rows()
         self.assertTrue(any(r.get('message_id') == 'cached' and r.get('outcome') == 'cache' for r in rows))
-        self.assertTrue(any(r.get('message_id') == 'emoji' and r.get('outcome') == 'unsupported_or_symbol' for r in rows))
+        for identifier in ('emoji', 'chinese'):
+            self.assertTrue(any(r.get('message_id') == identifier and r.get('outcome') == 'original_only' for r in rows))
+        self.assertTrue(any(r.get('message_id') == 'unsupported' and r.get('outcome') == 'unsupported' for r in rows))
 
     def test_source_states_do_not_copy_arbitrary_payload_text(self):
         self.controller.handle_source_event(AppEvent('capture_state', 0, 'sensitive-failure-path'))
