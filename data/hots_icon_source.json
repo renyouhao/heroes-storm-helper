@@ -1,6 +1,56 @@
 {
-  "source": "Original RT_GROUP_ICON and RT_ICON resources from HeroesOfTheStorm_x64.exe, build 98348",
-  "processing": "Lossless resource extraction; original image data and sizes retained",
-  "sizes": [16, 32, 48, 96, 256],
-  "sha256": "3ea3543bffe743cca37c5ec511a8353b9e069dc5a26ba4c89451fc0493f4c46e"
+  "source_type": "original_vector_artwork",
+  "source": "Project-authored hexagonal storm emblem with an assistant chat-bubble badge",
+  "inputs": [
+    "data/hots_helper.svg"
+  ],
+  "generator": "tools/build_app_icon.py",
+  "processing": "Python standard-library geometry rasterizer; 4x coverage sampling; PNG-compressed RGBA ICO frames",
+  "provenance": "Redrawn project geometry; no game raster data, executable resources, or private inputs are used",
+  "sizes": [
+    16,
+    24,
+    32,
+    48,
+    64,
+    96,
+    128,
+    256
+  ],
+  "sha256": "795eaa39bef9e705f8b3e9cc34bbc82154fdee0acdd58e04577c5e102fba1c05",
+  "source_sha256": "429f20fe304d60e391b9abbfd32c5b0dac350be953438240ee5c602f7297e562",
+  "frames": [
+    {
+      "size": 16,
+      "png_sha256": "314e4ce4a61a74fe0734d2fbb9927a41b77ff64d8f94afa665b43b8ecc581cfc"
+    },
+    {
+      "size": 24,
+      "png_sha256": "c986d45ba101b9885a124f63bf7db9fe0a3d4e3d3ceaae83f4c32bce705eaadd"
+    },
+    {
+      "size": 32,
+      "png_sha256": "e2727b1ff0236ef5bfccaad2cbff17b27a45afa755656e7879d717b35c74f765"
+    },
+    {
+      "size": 48,
+      "png_sha256": "b5cec2484a878f28c5e2cbf6013991ca29802733bfd5379f8aa561c5048d4451"
+    },
+    {
+      "size": 64,
+      "png_sha256": "93d327a22589dde98568e3f66aa161067b8bf8793e29e7af1949e387ac3e123b"
+    },
+    {
+      "size": 96,
+      "png_sha256": "968cad949c1f50dac9f461541743b26c7f69bdbd358a3b5cb8d83f9921583dda"
+    },
+    {
+      "size": 128,
+      "png_sha256": "fcd18281ef5c3609ceecc7e61cfeca925ef24f8f07667da4490ceba28c8ca311"
+    },
+    {
+      "size": 256,
+      "png_sha256": "4f357eb2ab306c093d53d03608bcd464a45500f6b76dd6aa1bf7cf77906f43b1"
+    }
+  ]
 }

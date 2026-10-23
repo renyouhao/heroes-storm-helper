@@ -335,3 +335,19 @@ class LootPanel(ttk.Frame):
     def _on_destroy(self, event):
         if event.widget is self:
             self.close()
+
+    def destroy(self):
+        if getattr(self, '_destroyed', False):return
+        self._destroyed = True
+        self.close()
+        descendants = []
+        pending = list(self.children.values())
+        while pending:
+            child = pending.pop()
+            descendants.append(child)
+            pending.extend(child.children.values())
+        super().destroy()
+        # 仅断开已销毁子树的父级引用，及时释放Tk变量与字体。
+        self._labels.clear()
+        for child in descendants:child.master = None
+        self.master = None

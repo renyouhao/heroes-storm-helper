@@ -1,6 +1,10 @@
 """三种桌面主题与独立的游戏内深色表面，所有控件共用语义颜色。"""
 import ctypes
+import math
+import struct
 import sys
+import tkinter as tk
+import zlib
 from tkinter import ttk
 
 from ..appearance import DEFAULT_THEME, THEME_NAMES, normalize_theme
@@ -8,25 +12,31 @@ from ..appearance import DEFAULT_THEME, THEME_NAMES, normalize_theme
 
 PALETTES = {
     'moonlight': {
-        'background': '#F4F6FA', 'surface': '#FFFFFF', 'panel': '#FFFFFF',
-        'field': '#FAFBFE', 'text': '#232B3C', 'muted': '#596477',
-        'accent': '#4E5ED2', 'on_accent': '#FFFFFF', 'secondary': '#5164AB',
-        'success': '#21734E', 'warning': '#865B12', 'danger': '#B42C48',
-        'border': '#D6DDE8', 'selection': '#E4E9FF',
+        'background': '#FFFFFF', 'surface': '#FFFFFF', 'panel': '#FFFFFF',
+        'field': '#F7F7F5', 'text': '#37352F', 'muted': '#706F6A',
+        'accent': '#3376AD', 'on_accent': '#FFFFFF', 'secondary': '#4E6B80',
+        'success': '#397A4B', 'warning': '#8C6B1A', 'danger': '#B5443D',
+        'border': '#E5E5E2', 'selection': '#E7F0F7', 'hover': '#F1F1EF',
+        'sidebar': '#F7F7F5', 'sidebar_text': '#37352F', 'sidebar_muted': '#706F6A',
+        'sidebar_hover': '#EBEBE8',
     },
     'graphite': {
-        'background': '#17191F', 'surface': '#232630', 'panel': '#20232C',
-        'field': '#1C1F27', 'text': '#F1F2F7', 'muted': '#A5ACBD',
-        'accent': '#B8A4F4', 'on_accent': '#222033', 'secondary': '#A99BCB',
-        'success': '#82D6AF', 'warning': '#E7BE7C', 'danger': '#FF9BAF',
-        'border': '#3E4556', 'selection': '#3B3550',
+        'background': '#191919', 'surface': '#202020', 'panel': '#202020',
+        'field': '#252525', 'text': '#E6E5E3', 'muted': '#A7A6A2',
+        'accent': '#82B5DF', 'on_accent': '#182430', 'secondary': '#A4B2C0',
+        'success': '#8DBD9D', 'warning': '#D4B57B', 'danger': '#E59B96',
+        'border': '#373737', 'selection': '#2F3B46', 'hover': '#2C2C2C',
+        'sidebar': '#202020', 'sidebar_text': '#E6E5E3', 'sidebar_muted': '#A7A6A2',
+        'sidebar_hover': '#2C2C2C',
     },
     'mint': {
-        'background': '#EAF3F1', 'surface': '#FCFEFD', 'panel': '#FCFEFD',
-        'field': '#F4FAF7', 'text': '#263D39', 'muted': '#526D65',
-        'accent': '#246D60', 'on_accent': '#FFFFFF', 'secondary': '#3A7669',
-        'success': '#286A49', 'warning': '#805A14', 'danger': '#B2394D',
-        'border': '#C2D9D1', 'selection': '#D7EAE5',
+        'background': '#F5F8F7', 'surface': '#FDFEFE', 'panel': '#FDFEFE',
+        'field': '#F0F5F3', 'text': '#303A35', 'muted': '#65726B',
+        'accent': '#44756A', 'on_accent': '#FFFFFF', 'secondary': '#536D65',
+        'success': '#3B7150', 'warning': '#826927', 'danger': '#AA4E49',
+        'border': '#DBE3DF', 'selection': '#E0EDE7', 'hover': '#E8EFEA',
+        'sidebar': '#EDF3EF', 'sidebar_text': '#303A35', 'sidebar_muted': '#65726B',
+        'sidebar_hover': '#E2EBE5',
     },
 }
 PALETTE_NAMES = THEME_NAMES
@@ -43,13 +53,427 @@ def overlay_colors(settings=DEFAULT_THEME):
     value = settings if isinstance(settings, str) else getattr(settings, 'color_theme', DEFAULT_THEME)
     name = normalize_theme(value)
     return {
-        'background': '#181C24', 'surface': '#222732', 'panel': '#222732',
-        'field': '#212631', 'text': '#F5F7FC', 'muted': '#BCC4D3',
-        'accent': {'moonlight': '#A7B5FF', 'graphite': '#B8A4F4', 'mint': '#84D7C7'}[name],
-        'on_accent': '#1D2430', 'secondary': '#AAB5C8',
-        'success': '#82D6AF', 'warning': '#E7BE7C', 'danger': '#FF9BAF',
-        'border': '#465264', 'selection': '#344156',
+        'background': '#191919', 'surface': '#242424', 'panel': '#242424',
+        'field': '#2B2B2B', 'text': '#F2F1EF', 'muted': '#BCBBB7',
+        'accent': {'moonlight': '#9EC1DF', 'graphite': '#ADBED0', 'mint': '#A1C8BA'}[name],
+        'on_accent': '#202824', 'secondary': '#B4BDBA',
+        'success': '#9BC5A9', 'warning': '#DCC18F', 'danger': '#E8A6A1',
+        'border': '#454545', 'selection': '#35413D', 'hover': '#303030',
     }
+
+
+_CHECKBOX_STATES = (
+    ('disabled_alternate', ('disabled', 'alternate')),
+    ('disabled_selected', ('disabled', 'selected')),
+    ('disabled', ('disabled',)),
+    ('pressed_alternate', ('pressed', 'alternate')),
+    ('pressed_selected', ('pressed', 'selected')),
+    ('pressed', ('pressed',)),
+    ('focus_alternate', ('focus', 'alternate')),
+    ('focus_selected', ('focus', 'selected')),
+    ('focus', ('focus',)),
+    ('active_alternate', ('active', 'alternate')),
+    ('active_selected', ('active', 'selected')),
+    ('active', ('active',)),
+    ('alternate', ('alternate',)),
+    ('selected', ('selected',)),
+)
+
+
+def _mix(first, second, amount):
+    values = [round(int(first[i:i + 2], 16) * (1 - amount)
+                    + int(second[i:i + 2], 16) * amount) for i in (1, 3, 5)]
+    return '#{:02X}{:02X}{:02X}'.format(*values)
+
+
+def _checkbox_pixels(size, colors, state):
+    """以几何笔画绘制勾和横线，不依赖系统字体或 clam 的 X 图元。"""
+    scale = size / 20
+    disabled = state.startswith('disabled')
+    selected = state.endswith('selected') or state.endswith('alternate')
+    border = _mix(colors['muted'], colors['field'], .5) if disabled else colors['muted']
+    fill = colors['field']
+    mark = colors['on_accent']
+    if selected:
+        border = fill = _mix(colors['accent'], colors['field'], .6) if disabled else colors['accent']
+        if disabled:
+            mark = colors['text']
+    if state.startswith('pressed'):
+        fill = _mix(fill, colors['text'], .15)
+        border = colors['accent']
+    elif state.startswith('active'):
+        fill = _mix(fill, colors['accent'], .12)
+        border = colors['accent']
+
+    def inside_box(x, y, inset, radius):
+        low, high = inset, 20 - inset
+        if not (low <= x <= high and low <= y <= high):
+            return False
+        cx = min(max(x, low + radius), high - radius)
+        cy = min(max(y, low + radius), high - radius)
+        return (x - cx) ** 2 + (y - cy) ** 2 <= radius ** 2
+
+    def on_segment(x, y, first, second):
+        dx, dy = second[0] - first[0], second[1] - first[1]
+        part = max(0, min(1, ((x - first[0]) * dx + (y - first[1]) * dy) / (dx * dx + dy * dy)))
+        return math.hypot(x - first[0] - part * dx, y - first[1] - part * dy) <= .9
+
+    pixels = bytearray()
+    for py in range(size):
+        pixels.append(0)  # PNG 行过滤器：无过滤。
+        for px in range(size):
+            x, y = px / scale, py / scale
+            color = None
+            if inside_box(x, y, 3, 2):
+                color = fill if inside_box(x, y, 4, 1) else border
+            if selected and color is not None:
+                if state.endswith('alternate'):
+                    if 6 <= x <= 14 and 9.2 <= y <= 10.8:
+                        color = mark
+                elif (on_segment(x, y, (6, 10), (9, 13))
+                      or on_segment(x, y, (9, 13), (14, 7))):
+                    color = mark
+            if state.startswith('focus') and inside_box(x, y, .5, 3):
+                if not inside_box(x, y, 1.5, 2):
+                    color = colors['accent']
+            if color is None:
+                pixels.extend((0, 0, 0, 0))
+            else:
+                pixels.extend(int(color[i:i + 2], 16) for i in (1, 3, 5))
+                pixels.append(255)
+
+    def chunk(kind, content):
+        return (struct.pack('!I', len(content)) + kind + content
+                + struct.pack('!I', zlib.crc32(kind + content)))
+
+    # 标准库编码透明 PNG，一次传入 Tk，避免逐像素跨 Tcl 调用。
+    return (b'\x89PNG\r\n\x1a\n'
+            + chunk(b'IHDR', struct.pack('!2I5B', size, size, 8, 6, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(pixels)) + chunk(b'IEND', b''))
+
+
+class _CheckboxAssets:
+    """每个 Tk 解释器持有两组固定图片，换肤/缩放原地更新，避免缓存增长。"""
+    def __init__(self, scope):
+        # 资产不能反向持有根窗口，否则 root -> assets -> root 会推迟到任意线程 GC。
+        self.element = f'Hots.{scope}.Checkbutton.indicator'
+        self.images = {}
+        self.signature = None
+
+    def update(self, style, colors, size):
+        signature = (size, *(colors[role] for role in (
+            'background', 'field', 'text', 'muted', 'border', 'accent', 'on_accent')))
+        if self.signature != signature:
+            for name in ('normal', *(name for name, _ in _CHECKBOX_STATES)):
+                pixels = _checkbox_pixels(size, colors, name)
+                image = self.images.get(name)
+                if image is None:
+                    image = self.images[name] = tk.PhotoImage(master=style.master, data=pixels, format='png')
+                else:
+                    image.configure(data=pixels, format='png')
+            self.signature = signature
+        if self.element not in style.element_names():
+            states = [(*states, self.images[name]) for name, states in _CHECKBOX_STATES]
+            style.element_create(self.element, 'image', self.images['normal'], *states,
+                                 border=0, sticky='')
+        return self.element
+
+    def dispose(self):
+        """在根窗口的 Destroy 事件中同步释放 Tcl 图片及解释器引用。"""
+        for image in self.images.values():
+            try:
+                if image.name:
+                    image.tk.call('image', 'delete', image.name)
+            except tk.TclError:
+                # 图元已由 Tcl 删除时，仍需断开外部 Python 图片持有的解释器引用。
+                pass
+            finally:
+                image.name = None
+                image.tk = None
+        self.images.clear()
+        self.signature = None
+
+
+def _release_checkbox_images(event):
+    owner = event.widget
+    if isinstance(owner, tk.Tk):
+        assets = owner.__dict__.pop('_hots_checkbox_assets', {})
+        for asset in assets.values():
+            asset.dispose()
+        assets.clear()
+
+
+def _configure_checkbutton_images(root, style, main, overlay):
+    owner = root._root()
+    assets = getattr(owner, '_hots_checkbox_assets', None)
+    if assets is None:
+        assets = owner._hots_checkbox_assets = {}
+        owner.bind('<Destroy>', _release_checkbox_images, add='+')
+    scale = max(.75, min(4, float(root.tk.call('tk', 'scaling')) * 72 / 96))
+    size = round(20 * scale)
+    for scope, colors, prefixes in (
+            ('main', main, ('', 'Surface.', 'Panel.', 'Toolbar.')),
+            ('overlay', overlay, ('Overlay.',))):
+        if scope not in assets:
+            assets[scope] = _CheckboxAssets(scope)
+        element = assets[scope].update(style, colors, size)
+        for prefix in prefixes:
+            style.layout(prefix + 'TCheckbutton', [
+                ('Checkbutton.padding', {'sticky': 'nswe', 'children': [
+                    (element, {'side': 'left', 'sticky': ''}),
+                    ('Checkbutton.focus', {'side': 'left', 'sticky': 'w', 'children': [
+                        ('Checkbutton.label', {'sticky': 'nswe'})]})]})])
+
+
+def refresh_theme_scale(root, theme=DEFAULT_THEME):
+    """DPI 变化只刷新主题图片；已有图片和控件均原地复用。"""
+    style = ttk.Style(root)
+    if style.theme_use() == 'clam':
+        _configure_checkbutton_images(root, style, theme_colors(theme), overlay_colors(theme))
+        _configure_rounded_controls(root, style, theme_colors(theme), overlay_colors(theme))
+
+
+_ROUNDED_BUTTON_STATES = (
+    ('disabled', ('disabled',)), ('pressed_focus', ('pressed', 'focus')),
+    ('active_focus', ('active', 'focus')), ('focus', ('focus',)),
+    ('pressed', ('pressed',)), ('active', ('active',)),
+)
+_ROUNDED_BUTTON_STYLES = {
+    'button': 'TButton', 'accent': 'Accent.TButton', 'nav': 'Nav.TButton',
+    'sidebar': 'Sidebar.TButton', 'sidebar_selected': 'Sidebar.Selected.TButton',
+    'overlay_button': 'Overlay.TButton', 'overlay_accent': 'Overlay.Accent.TButton',
+    'surface_button': 'Surface.TButton', 'surface_accent': 'Surface.Accent.TButton',
+    'surface_nav': 'Surface.Nav.TButton',
+}
+
+
+def _rgba_png(width, height, pixel):
+    data = bytearray()
+    for y in range(height):
+        data.append(0)
+        for x in range(width):
+            data.extend(pixel(x + .5, y + .5))
+
+    def chunk(kind, content):
+        return (struct.pack('!I', len(content)) + kind + content
+                + struct.pack('!I', zlib.crc32(kind + content)))
+
+    return (b'\x89PNG\r\n\x1a\n'
+            + chunk(b'IHDR', struct.pack('!2I5B', width, height, 8, 6, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(data)) + chunk(b'IEND', b''))
+
+
+def _rounded_png(radius, fill, border, stroke, backdrop):
+    """抗锯齿圆角九宫格；角区覆盖 ttk 预先铺好的矩形填充。"""
+    # Tk 8.6 的 image element 平铺中心区，不会把 1px 中心拉伸到控件大小。
+    # 保留 16px 中心，避免宽输入框退化为每像素一次 GDI 绘制。
+    size = radius * 2 + 16
+    fill = tuple(int(fill[i:i + 2], 16) for i in (1, 3, 5))
+    border = tuple(int(border[i:i + 2], 16) for i in (1, 3, 5))
+    backdrop = tuple(int(backdrop[i:i + 2], 16) for i in (1, 3, 5))
+
+    def coverage(x, y, inset):
+        half = size / 2 - inset
+        r = max(0, radius - inset)
+        qx = abs(x - size / 2) - (half - r)
+        qy = abs(y - size / 2) - (half - r)
+        distance = math.hypot(max(qx, 0), max(qy, 0)) + min(max(qx, qy), 0) - r
+        return max(0, min(1, .5 - distance))
+
+    def pixel(x, y):
+        outer = coverage(x, y, 0)
+        if not outer:
+            return (*backdrop, 255)
+        inner = min(outer, coverage(x, y, stroke)) if stroke else outer
+        color = tuple(round(f * inner + b * (outer - inner) + outside * (1 - outer))
+                      for f, b, outside in zip(fill, border, backdrop))
+        return (*color, 255)
+
+    return _rgba_png(size, size, pixel)
+
+
+def _arrow_png(scale, color, up):
+    width, height = max(1, round(14 * scale)), max(1, round(10 * scale))
+    color = tuple(int(color[i:i + 2], 16) for i in (1, 3, 5))
+
+    def pixel(x, y):
+        x, y = x / scale, y / scale
+        if up:
+            y = 10 - y
+        inside = 3 <= y <= 7 and abs(x - 7) <= (7 - y) * .75
+        return (*color, 255) if inside else (0, 0, 0, 0)
+
+    return _rgba_png(width, height, pixel)
+
+
+def _rounded_button_layout(element):
+    return [(element, {'sticky': 'nswe', 'children': [
+        ('Button.focus', {'sticky': 'nswe', 'children': [
+            ('Button.padding', {'sticky': 'nswe', 'children': [
+                ('Button.label', {'sticky': 'nswe'})]})]})]})]
+
+
+class _RoundedControlAssets:
+    """固定图片池和有界半径图元；只保存图片与字符串，不回指 Tk 根窗口。"""
+    def __init__(self):
+        self.images = {}
+        self.signatures = {}
+        self.elements = {}
+        self.aliases = {}
+        self.aliases_scanned = False
+        self.button_radius = 8
+
+    def _image(self, master, key, pixels):
+        if key in self.images:
+            self.images[key].configure(data=pixels, format='png')
+        else:
+            self.images[key] = tk.PhotoImage(master=master, data=pixels, format='png')
+
+    def rectangle(self, style, role, radius, specs, pixels, *, backdrop, field=False, framed=True):
+        signature = (radius, tuple(specs), backdrop)
+        if self.signatures.get(role) != signature:
+            for name, states, fill, border, stroke in specs:
+                key = (radius, fill, border, stroke, backdrop)
+                if key not in pixels:
+                    pixels[key] = _rounded_png(*key)
+                self._image(style.master, role + ':' + name, pixels[key])
+            self.signatures[role] = signature
+        if role not in self.elements:
+            self.elements[role] = {}
+            normal = self.images[role + ':normal']
+            states = [(*states, self.images[role + ':' + name]) for name, states, *_ in specs if states]
+            # ttk image 图元的九宫格 border 创建后不可修改。一次注册完整半径范围，
+            # DPI 切换只选择既有图元；所有半径共享同一组原地更新的图片。
+            for r in range(8 if field else 6, 41 if field else 33):
+                element = f'Hots.Rounded.{role}.R{r}'
+                inset = max(1, round(r / (10 if field else 8))) if framed else 0
+                style.element_create(element, 'image', normal, *states,
+                                     border=r, padding=inset, width=r * 2 + 1,
+                                     height=r * 2 + 1, sticky='nswe')
+                self.elements[role][r] = element
+        return self.elements[role][radius]
+
+    def arrow(self, style, scope, scale, colors, *, up=False):
+        role = scope + ('_up' if up else '_down')
+        signature = (scale, colors['text'], colors['muted'])
+        if self.signatures.get(role) != signature:
+            for state, color in (('normal', colors['text']), ('disabled', colors['muted'])):
+                self._image(style.master, role + ':' + state, _arrow_png(scale, color, up))
+            self.signatures[role] = signature
+        element = f'Hots.Rounded.{scope}.' + ('uparrow' if up else 'downarrow')
+        if role not in self.elements:
+            style.element_create(element, 'image', self.images[role + ':normal'],
+                                 ('disabled', self.images[role + ':disabled']), sticky='')
+            self.elements[role] = element
+        return element
+
+    def dispose(self):
+        for image in self.images.values():
+            try:
+                if image.name:
+                    image.tk.call('image', 'delete', image.name)
+            except tk.TclError:
+                pass
+            finally:
+                image.name = None
+                image.tk = None
+        self.images.clear()
+        self.signatures.clear()
+        self.elements.clear()
+        self.aliases.clear()
+
+
+def _release_rounded_images(event):
+    if isinstance(event.widget, tk.Tk):
+        assets = event.widget.__dict__.pop('_hots_rounded_assets', None)
+        if assets is not None:
+            assets.dispose()
+
+
+def _rounded_alias(style, assets, name):
+    if not name.startswith(('Repeat', 'Loot')):
+        return
+    role = ('helper_accent' if name.endswith('.Accent.TButton') else
+            'helper_cancel' if name.endswith('.Cancel.TButton') else None)
+    if role is not None:
+        assets.aliases[name] = role
+        style.layout(name, _rounded_button_layout(assets.elements[role][assets.button_radius]))
+
+
+def _configure_rounded_controls(root, style, main, overlay):
+    owner = root._root()
+    assets = getattr(owner, '_hots_rounded_assets', None)
+    if assets is None:
+        assets = owner._hots_rounded_assets = _RoundedControlAssets()
+        owner.bind('<Destroy>', _release_rounded_images, add='+')
+    scale = max(.75, min(4, float(root.tk.call('tk', 'scaling')) * 72 / 96))
+    button_radius, field_radius = round(8 * scale), round(10 * scale)
+    assets.button_radius = button_radius
+    stroke = max(1, round(scale))
+    pixels = {}  # 单次应用里复用相同像素，应用结束即释放，不累计主题/DPI缓存。
+    states = (('normal', ()), *_ROUNDED_BUTTON_STATES)
+    for role, name in _ROUNDED_BUTTON_STYLES.items():
+        framed = bool(int(style.lookup(name, 'borderwidth') or 0))
+        specs = []
+        for state, bits in states:
+            focused = 'focus' in bits
+            specs.append((state, bits, style.lookup(name, 'background', bits),
+                          style.lookup(name, 'focuscolor' if focused else 'bordercolor', bits),
+                          stroke if framed or focused else 0))
+        backdrop = (main['surface'] if role.startswith('surface_') else
+                    overlay['background'] if role.startswith('overlay_') else
+                    main['sidebar'] if role.startswith('sidebar') else main['background'])
+        element = assets.rectangle(style, role, button_radius, specs, pixels,
+                                   backdrop=backdrop, framed=framed)
+        style.layout(name, _rounded_button_layout(element))
+        if role.startswith('surface_'):
+            for family in ('Panel.', 'Toolbar.'):
+                style.layout(name.replace('Surface.', family), _rounded_button_layout(element))
+    # 两个辅助页覆盖了 Accent/Cancel 的填充；共享其各自的固定语义图片。
+    for role in ('helper_accent', 'helper_cancel'):
+        specs = []
+        for state, bits in states:
+            if role == 'helper_accent':
+                fill = main['surface'] if 'disabled' in bits else main['accent']
+                border = main['on_accent'] if 'focus' in bits else main['accent']
+            else:
+                fill = main['selection'] if 'active' in bits or 'pressed' in bits else main['surface']
+                border = main['accent'] if 'focus' in bits else main['border']
+            specs.append((state, bits, fill, border, stroke))
+        assets.rectangle(style, role, button_radius, specs, pixels, backdrop=main['background'])
+    for scope, prefix, colors, role, backdrop in (
+            ('main', '', main, 'field', main['background']),
+            ('main', 'Surface.', main, 'surface_field', main['surface']),
+            ('overlay', 'Overlay.', overlay, 'overlay_field', overlay['background'])):
+        specs = [(state, bits, style.lookup(prefix + 'TEntry', 'fieldbackground', bits),
+                  style.lookup(prefix + 'TEntry', 'bordercolor', bits), stroke)
+                 for state, bits in (('normal', ()), ('disabled', ('disabled',)), ('focus', ('focus',)))]
+        element = assets.rectangle(style, role, field_radius, specs, pixels, backdrop=backdrop, field=True)
+        down = assets.arrow(style, scope, scale, colors)
+        up = assets.arrow(style, scope, scale, colors, up=True)
+        style.layout(prefix + 'TEntry', [(element, {'sticky': 'nswe', 'children': [
+            ('Entry.padding', {'sticky': 'nswe', 'children': [('Entry.textarea', {'sticky': 'nswe'})]})]})])
+        style.layout(prefix + 'TCombobox', [(element, {'sticky': 'nswe', 'children': [
+            (down, {'side': 'right', 'sticky': ''}),
+            ('Combobox.padding', {'sticky': 'nswe', 'children': [('Combobox.textarea', {'sticky': 'nswe'})]})]})])
+        style.layout(prefix + 'TSpinbox', [(element, {'sticky': 'nswe', 'children': [
+            ('null', {'side': 'right', 'sticky': 'ns', 'children': [
+                (up, {'side': 'top', 'sticky': 'e'}), (down, {'side': 'bottom', 'sticky': 'e'})]}),
+            ('Spinbox.padding', {'sticky': 'nswe', 'children': [('Spinbox.textarea', {'sticky': 'nswe'})]})]})])
+        if prefix == 'Surface.':
+            for family in ('Panel.', 'Toolbar.'):
+                for control in ('TEntry', 'TCombobox', 'TSpinbox'):
+                    style.layout(family + control, style.layout(prefix + control))
+    for name in assets.aliases:
+        _rounded_alias(style, assets, name)
+    if not assets.aliases_scanned and owner.winfo_children():
+        pending = list(owner.winfo_children())
+        while pending:
+            widget = pending.pop()
+            pending.extend(widget.winfo_children())
+            if widget.winfo_class() == 'TButton':
+                _rounded_alias(style, assets, str(widget.cget('style')))
+        assets.aliases_scanned = True
 
 
 def _configure_controls(style, c, prefix=''):
@@ -60,16 +484,17 @@ def _configure_controls(style, c, prefix=''):
     style.configure(key('Muted.TLabel'), background=c['background'], foreground=c['muted'])
     style.configure(key('TButton'), background=c['surface'], foreground=c['text'],
                     bordercolor=c['border'], lightcolor=c['surface'], darkcolor=c['surface'],
-                    focuscolor=c['accent'], padding=(12, 7), relief='flat')
+                    focuscolor=c['accent'], padding=(10, 6), relief='flat', borderwidth=1)
     style.map(key('TButton'), background=[('disabled', c['field']), ('pressed', c['selection']),
-                                        ('active', c['selection'])],
+                                        ('active', c['hover'])],
               foreground=[('disabled', c['muted'])])
-    style.configure(key('Accent.TButton'), background=c['accent'], foreground=c['on_accent'],
-                    bordercolor=c['accent'], lightcolor=c['accent'], darkcolor=c['accent'],
-                    focuscolor=c['on_accent'], padding=(12, 7))
+    style.configure(key('Accent.TButton'), background=c['text'], foreground=c['surface'],
+                    bordercolor=c['text'], lightcolor=c['text'], darkcolor=c['text'],
+                    focuscolor=c['surface'], padding=(10, 6), relief='flat', borderwidth=1)
     style.map(key('Accent.TButton'),
-              background=[('disabled', c['surface']), ('pressed', c['accent']), ('active', c['accent'])],
-              foreground=[('disabled', c['muted']), ('!disabled', c['on_accent'])])
+              background=[('disabled', c['field']), ('pressed', _mix(c['text'], c['surface'], .18)),
+                          ('active', _mix(c['text'], c['surface'], .1))],
+              foreground=[('disabled', c['muted']), ('!disabled', c['surface'])])
     for widget in ('TCheckbutton', 'TRadiobutton'):
         style.configure(key(widget), background=c['background'], foreground=c['text'],
                         indicatorbackground=c['field'], indicatorforeground=c['accent'],
@@ -110,7 +535,8 @@ def apply_theme(root, theme=DEFAULT_THEME):
     root.option_add('*TCombobox*Listbox.background', c['field'])
     root.option_add('*TCombobox*Listbox.foreground', c['text'])
     style = ttk.Style(root)
-    style.theme_use('clam')
+    if style.theme_use() != 'clam':
+        style.theme_use('clam')
     style.configure('.', background=c['background'], foreground=c['text'],
                     bordercolor=c['border'], troughcolor=c['field'],
                     selectbackground=c['selection'], selectforeground=c['text'], font='TkDefaultFont')
@@ -118,42 +544,52 @@ def apply_theme(root, theme=DEFAULT_THEME):
               selectforeground=[('!focus', c['text'])])
     _configure_controls(style, c)
     _configure_controls(style, overlay, 'Overlay.')
+    _configure_checkbutton_images(root, style, c, overlay)
+    style.configure('Field.TFrame', background=c['field'])
     for family in ('Surface', 'Panel', 'Toolbar'):
         style.configure(f'{family}.TFrame', background=c['surface'])
         style.configure(f'{family}.TLabel', background=c['surface'], foreground=c['text'])
         style.configure(f'{family}.Muted.TLabel', background=c['surface'], foreground=c['muted'])
-        style.configure(f'{family}.TRadiobutton', background=c['surface'], foreground=c['text'],
-                        indicatorbackground=c['field'], indicatorforeground=c['accent'],
-                        focuscolor=c['accent'], padding=(2, 4))
-        style.map(f'{family}.TRadiobutton', background=[('active', c['surface'])],
-                  indicatorbackground=[('selected', c['accent'])],
-                  indicatorforeground=[('selected', c['on_accent'])],
-                  foreground=[('disabled', c['muted'])])
-    style.configure('Heading.TLabel', foreground=c['text'], font=('Microsoft YaHei UI', 14, 'bold'))
+        for control in ('TCheckbutton', 'TRadiobutton'):
+            style.configure(f'{family}.{control}', background=c['surface'], foreground=c['text'],
+                            indicatorbackground=c['field'], indicatorforeground=c['accent'],
+                            focuscolor=c['accent'], padding=(2, 4))
+            style.map(f'{family}.{control}', background=[('active', c['surface'])],
+                      indicatorbackground=[('selected', c['accent'])],
+                      indicatorforeground=[('selected', c['on_accent'])],
+                      foreground=[('disabled', c['muted'])])
+    style.configure('Heading.TLabel', foreground=c['text'], font=('Microsoft YaHei UI', 12, 'bold'))
     style.configure('Brand.TLabel', background=c['surface'], foreground=c['text'],
                     font=('Microsoft YaHei UI', 12, 'bold'))
     style.configure('PageTitle.TLabel', background=c['background'], foreground=c['text'],
                     font=('Microsoft YaHei UI', 17, 'bold'))
     style.configure('ComposerTitle.TLabel', background=c['surface'], foreground=c['text'],
                     font=('Microsoft YaHei UI', 10, 'bold'))
-    style.configure('Sidebar.TButton', background=c['surface'], foreground=c['muted'],
-                    padding=(12,12), anchor='w', borderwidth=0, relief='flat')
-    style.map('Sidebar.TButton', background=[('active',c['selection']),('pressed',c['selection'])],
-              foreground=[('active',c['text'])])
-    style.configure('Sidebar.Selected.TButton', background=c['selection'], foreground=c['text'],
-                    padding=(12,12), anchor='w', borderwidth=0, relief='flat')
-    style.map('Sidebar.Selected.TButton', background=[('active',c['selection']),('pressed',c['selection'])],
-              foreground=[('active',c['text'])])
+    style.configure('Sidebar.TFrame', background=c['sidebar'])
+    style.configure('Sidebar.TLabel', background=c['sidebar'], foreground=c['sidebar_text'])
+    style.configure('Sidebar.Muted.TLabel', background=c['sidebar'], foreground=c['sidebar_muted'])
+    style.configure('Sidebar.Brand.TLabel', background=c['sidebar'], foreground=c['sidebar_text'],
+                    font=('Microsoft YaHei UI', 11, 'bold'))
+    for name, background, foreground in (
+            ('Sidebar.TButton', c['sidebar'], c['sidebar_text']),
+            ('Sidebar.Selected.TButton', c['sidebar_hover'], c['sidebar_text'])):
+        style.configure(name, background=background, foreground=foreground,
+                        lightcolor=background, darkcolor=background, focuscolor=c['accent'],
+                        padding=(8, 6), anchor='w', borderwidth=0, relief='flat')
+        style.map(name, background=[('pressed', c['sidebar_hover']), ('active', c['sidebar_hover'])],
+                  foreground=[('disabled', c['sidebar_muted']), ('active', c['sidebar_text'])])
     style.configure('Nav.TButton', background=c['background'], foreground=c['muted'],
                     relief='flat', padding=(14, 10), borderwidth=0)
-    style.map('Nav.TButton', background=[('pressed', c['selection']), ('active', c['selection'])],
+    style.map('Nav.TButton', background=[('pressed', c['selection']), ('active', c['hover'])],
               foreground=[('active', c['text'])])
     style.configure('TLabelframe', background=c['background'], bordercolor=c['border'])
     style.configure('TLabelframe.Label', background=c['background'], foreground=c['muted'])
     style.configure('TNotebook', background=c['background'], borderwidth=0)
+    style.configure('Main.TNotebook', background=c['background'], bordercolor=c['background'],
+                    lightcolor=c['background'], darkcolor=c['background'])
     style.configure('TNotebook.Tab', background=c['background'], foreground=c['muted'],
                     padding=(16, 9), borderwidth=0)
-    style.map('TNotebook.Tab', background=[('selected', c['surface']), ('active', c['selection'])],
+    style.map('TNotebook.Tab', background=[('selected', c['surface']), ('active', c['hover'])],
               foreground=[('selected', c['text']), ('active', c['text'])])
     style.configure('Treeview', background=c['field'], fieldbackground=c['field'],
                     foreground=c['text'], borderwidth=0)
@@ -166,6 +602,7 @@ def apply_theme(root, theme=DEFAULT_THEME):
                         bordercolor=c['background'], troughcolor=c['field'])
     style.configure('TSeparator', background=c['border'])
     style.configure('Horizontal.TScale', background=c['background'], troughcolor=c['field'])
+    _configure_rounded_controls(root, style, c, overlay)
     pending = [(root, 'main')]
     while pending:
         widget, scope = pending.pop()
@@ -173,6 +610,8 @@ def apply_theme(root, theme=DEFAULT_THEME):
         colors = overlay if scope == 'overlay' else c
         pending.extend((child, scope) for child in widget.winfo_children())
         kind = widget.winfo_class()
+        if kind == 'TButton':
+            _rounded_alias(style, root._root()._hots_rounded_assets, str(widget.cget('style')))
         if kind in ('Text', 'Listbox', 'Entry'):
             options = dict(background=colors['field'], foreground=colors['text'],
                            selectbackground=colors['selection'], selectforeground=colors['text'],

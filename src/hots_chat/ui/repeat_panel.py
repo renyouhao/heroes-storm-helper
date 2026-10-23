@@ -418,3 +418,20 @@ class RepeatPanel(ttk.Frame):
     def _on_destroy(self, event):
         if event.widget is self:
             self.close()
+
+    def destroy(self):
+        if getattr(self, '_destroyed', False):return
+        self._destroyed = True
+        self.close()
+        descendants = []
+        pending = list(self.children.values())
+        while pending:
+            child = pending.pop()
+            descendants.append(child)
+            pending.extend(child.children.values())
+        super().destroy()
+        # Tk销毁后清理缓存与master回边，避免变量/字体拖到后台GC析构。
+        self._labels.clear()
+        self._hotkey_labels.clear()
+        for child in descendants:child.master = None
+        self.master = None

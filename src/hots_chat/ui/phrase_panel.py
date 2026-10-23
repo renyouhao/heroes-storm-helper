@@ -4,6 +4,7 @@ from tkinter import ttk,messagebox,filedialog,font as tkfont
 from pathlib import Path
 import uuid
 from ..phrases import Phrase
+from .widget_lifecycle import widget_descendants,detach_destroyed_tree,clear_variable_traces
 
 
 class PhrasePanel(ttk.Frame):
@@ -82,3 +83,12 @@ class PhrasePanel(ttk.Frame):
         if name:
             try:Path(name).write_text(self.book.export_json([p.id]),encoding='utf-8')
             except OSError:messagebox.showerror('导出失败','无法写入所选文件。',parent=self)
+
+    def destroy(self):
+        if getattr(self,'_destroyed',False):return
+        self._destroyed=True
+        clear_variable_traces(self.query)
+        self.on_use=self.on_change=None
+        descendants=widget_descendants(self)
+        super().destroy()
+        detach_destroyed_tree(self,descendants)

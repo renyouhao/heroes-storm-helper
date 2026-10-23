@@ -28,16 +28,16 @@ class OverlayHistoryTests(unittest.TestCase):
         self.assertIsNotNone(OverlayHistory,'需要实现悬浮消息生命周期')
         self.history=OverlayHistory()
 
-    def test_translation_update_does_not_extend_first_receipt_deadline(self):
+    def test_first_translation_gets_reading_time_without_repeated_extension(self):
         row=message('a',translated='')
         messages=OrderedDict(a=row)
         self.history.sync(messages,1,now=10,timeout=15)
         row.engine_translation='译文到达'
         self.history.sync(messages,1,now=24,timeout=15)
         self.assertEqual(self.history.entries['a'].message.engine_translation,'译文到达')
-        self.assertEqual(self.history.next_expiry,25)
-        self.history.expire(25)
-        self.history.sync(messages,1,now=26,timeout=15)
+        self.assertEqual(self.history.next_expiry,27)
+        self.history.expire(27)
+        self.history.sync(messages,1,now=28,timeout=15)
         self.assertFalse(self.history.entries)
         self.assertIsNone(self.history.next_expiry)
 
@@ -161,6 +161,40 @@ class OverlayWindowTests(unittest.TestCase):
         self.assertEqual(self.overlay._timer,first_timer)
         self.now=25
         self.overlay._expire()
+        self.assertEqual(self.overlay.window.state(),'withdrawn')
+        self.assertIsNone(self.overlay._timer)
+
+    def test_untranslated_row_shows_actual_route_state_instead_of_pending(self):
+        row=message('a',text='need help',translated='')
+        messages=OrderedDict(a=row)
+        for state,reason,label in (('untranslated','','未翻译'),('queued','','排队中'),
+                                   ('translating','','翻译中'),('failed','网络超时','翻译失败'),
+                                   ('skipped','自动翻译已暂停','自动翻译已暂停'),
+                                   ('skipped','翻译服务未配置','翻译服务未配置')):
+            with self.subTest(state=state,reason=reason):
+                row.translation_state=state;row.translation_reason=reason
+                self.overlay.sync(messages,1)
+                self.assertIn(label+'：need help',self.overlay.rows[0]['translation'].cget('text'))
+
+    def test_slow_translation_restores_three_seconds_without_timer_or_widget_churn(self):
+        self.settings.overlay_timeout=6
+        row=message('a',text='need help',translated='')
+        messages=OrderedDict(a=row)
+        self.overlay.sync(messages,1)
+        self.now=16;self.overlay._expire()
+        self.assertEqual(self.overlay.window.state(),'withdrawn')
+        self.assertIsNone(self.overlay._timer)
+        self.now=18;row.engine_translation='需要支援'
+        self.overlay.sync(messages,1)
+        self.assertEqual(self.overlay.history.next_expiry,21)
+        self.assertEqual(self.overlay.window.state(),'normal')
+        timer=self.overlay._timer
+        label=self.overlay.rows[0]['translation']
+        for _ in range(30):self.overlay.sync(messages,1)
+        self.assertEqual(self.overlay._timer,timer)
+        self.assertIs(self.overlay.rows[0]['translation'],label)
+        self.assertEqual(self.root.tk.splitlist(self.root.tk.call('after','info')),(timer,))
+        self.now=21;self.overlay._expire()
         self.assertEqual(self.overlay.window.state(),'withdrawn')
         self.assertIsNone(self.overlay._timer)
 

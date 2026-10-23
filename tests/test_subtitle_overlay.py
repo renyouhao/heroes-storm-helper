@@ -78,6 +78,149 @@ class SubtitleOverlayTests(unittest.TestCase):
             self.assertEqual(overlay.subtitle_canvas.winfo_manager(), 'pack')
             self.assertFalse(any(row['frame'].winfo_manager() for row in overlay.rows))
 
+    def test_slow_translation_gets_visible_priority_over_newer_original(self):
+        with self.overlay() as (root, overlay, settings, now):
+            a=message('a',original='A original');a.engine_translation=''
+            b=message('b',original='B original');b.engine_translation=''
+            messages=OrderedDict(a=a)
+            overlay.sync(messages,1)
+            now[0]=12;messages['b']=b;overlay.sync(messages,1)
+            self.assertIn('B original',self.foreground(overlay)[0])
+            now[0]=17;a.engine_translation='A 中文';overlay.sync(messages,1)
+            self.assertEqual(self.foreground(overlay),['队友：A 中文'])
+            now[0]=18;c=message('c',original='C original');c.engine_translation=''
+            messages['c']=c;overlay.sync(messages,1)
+            self.assertEqual(self.foreground(overlay),['队友：A 中文'])
+            now[0]=19.9;overlay._expire()
+            self.assertEqual(self.foreground(overlay),['队友：A 中文'])
+            now[0]=20;overlay._expire()
+            self.assertIn('C original',self.foreground(overlay)[0])
+
+    def test_waiting_translation_gets_three_seconds_from_actual_display(self):
+        with self.overlay() as (root, overlay, settings, now):
+            a=message('a',original='A original');a.engine_translation=''
+            b=message('b',original='B original');b.engine_translation=''
+            messages=OrderedDict(a=a)
+            overlay.sync(messages,1)
+            now[0]=12;messages['b']=b;overlay.sync(messages,1)
+            now[0]=17;a.engine_translation='A 中文';overlay.sync(messages,1)
+            now[0]=18;b.engine_translation='B 中文';overlay.sync(messages,1)
+            self.assertEqual(self.foreground(overlay),['队友：A 中文'])
+            now[0]=20;overlay._expire()
+            self.assertEqual(self.foreground(overlay),['队友：B 中文'])
+            now[0]=22.9;overlay._expire()
+            self.assertEqual(self.foreground(overlay),['队友：B 中文'])
+            now[0]=23;overlay._expire()
+            self.assertEqual(overlay.window.state(),'withdrawn')
+            self.assertIsNone(overlay._timer)
+
+    def test_translation_admitted_just_before_freshness_deadline_is_fully_readable(self):
+        with self.overlay() as (root, overlay, settings, now):
+            row=message('a');row.engine_translation=''
+            messages=OrderedDict(a=row)
+            overlay.sync(messages,1)
+            now[0]=24;row.engine_translation='最后一秒到达';overlay.sync(messages,1)
+            self.assertEqual(self.foreground(overlay),['队友：最后一秒到达'])
+            now[0]=26.9;overlay._expire()
+            self.assertEqual(self.foreground(overlay),['队友：最后一秒到达'])
+            now[0]=27;overlay._expire()
+            self.assertEqual(overlay.window.state(),'withdrawn')
+            overlay.sync(messages,1)
+            self.assertEqual(overlay.window.state(),'withdrawn')
+
+    def test_waiting_queue_keeps_latest_three_and_does_not_replay_discarded_results(self):
+        with self.overlay() as (root, overlay, settings, now):
+            a=message('a');a.engine_translation=''
+            messages=OrderedDict(a=a)
+            overlay.sync(messages,1)
+            now[0]=12
+            for key in 'bcde':
+                messages[key]=message(key);messages[key].engine_translation=''
+            overlay.sync(messages,1)
+            now[0]=17;a.engine_translation='A 中文';overlay.sync(messages,1)
+            for key,arrival in zip('bcde',(17.1,17.2,17.3,17.4)):
+                now[0]=arrival;messages[key].engine_translation=key.upper()+' 中文'
+                overlay.sync(messages,1)
+                self.assertEqual(self.foreground(overlay),['队友：A 中文'])
+            queued=[entry.message for entry in overlay.history._candidates.values()
+                    if entry.subtitle_state=='queued']
+            self.assertEqual([row.event.message_id for row in queued],list('cde'))
+            for switch,key in ((20,'C'),(23,'D'),(26,'E')):
+                now[0]=switch;overlay._expire()
+                self.assertEqual(self.foreground(overlay),['队友：'+key+' 中文'])
+                timer=overlay._timer
+                for _ in range(10):overlay.sync(messages,1)
+                self.assertEqual(overlay._timer,timer)
+                self.assertEqual(len(root.tk.splitlist(root.tk.call('after','info'))),1)
+            now[0]=28.9;overlay._expire()
+            self.assertEqual(self.foreground(overlay),['队友：E 中文'])
+            now[0]=29;overlay._expire();overlay.sync(messages,1)
+            self.assertEqual(overlay.window.state(),'withdrawn')
+            self.assertIsNone(overlay._timer)
+
+    def test_hide_and_settings_rollback_preserve_active_reading_deadline(self):
+        with self.overlay() as (root, overlay, settings, now):
+            a=message('a');a.engine_translation=''
+            b=message('b');b.engine_translation=''
+            messages=OrderedDict(a=a)
+            overlay.sync(messages,1)
+            now[0]=12;messages['b']=b;overlay.sync(messages,1)
+            now[0]=17;a.engine_translation='A 中文';overlay.sync(messages,1)
+            now[0]=18;b.engine_translation='B 中文';overlay.sync(messages,1)
+            entry=overlay.history._candidates['a']
+            self.assertEqual(entry.subtitle_read_until,20)
+            overlay.set_input_active(True)
+            now[0]=19;overlay.set_input_active(False)
+            self.assertEqual(self.foreground(overlay),['队友：A 中文'])
+            self.assertEqual(entry.subtitle_read_until,20)
+            snapshot=overlay.capture_settings_state()
+            settings.overlay_enabled=False;overlay.apply_settings()
+            settings.overlay_enabled=True;overlay.apply_settings()
+            overlay.restore_settings_state(snapshot)
+            overlay.apply_settings()
+            self.assertIs(overlay.history._candidates['a'],entry)
+            self.assertEqual(entry.subtitle_read_until,20)
+            self.assertEqual(self.foreground(overlay),['队友：A 中文'])
+            now[0]=20;overlay._expire()
+            self.assertEqual(self.foreground(overlay),['队友：B 中文'])
+            # 用户隐藏期间取消排队补时；B仍按18秒到达时的21秒截止。
+            self.assertEqual(overlay.history._candidates['b'].expires_at,21)
+            now[0]=21;overlay._expire()
+            self.assertEqual(overlay.window.state(),'withdrawn')
+
+    def test_waiting_translation_that_misses_freshness_window_never_replays(self):
+        with self.overlay() as (root, overlay, settings, now):
+            b=message('b');b.engine_translation=''
+            a=message('a');a.engine_translation=''
+            messages=OrderedDict(b=b)
+            overlay.sync(messages,1)
+            now[0]=12;messages['a']=a;overlay.sync(messages,1)
+            now[0]=24;a.engine_translation='A 中文';overlay.sync(messages,1)
+            now[0]=24.5;b.engine_translation='错过展示资格';overlay.sync(messages,1)
+            self.assertEqual(self.foreground(overlay),['队友：A 中文'])
+            now[0]=25;overlay._expire()
+            self.assertEqual(self.foreground(overlay),['队友：A 中文'])
+            now[0]=27;overlay._expire();overlay.sync(messages,1)
+            self.assertEqual(overlay.window.state(),'withdrawn')
+            self.assertIsNone(overlay._timer)
+
+    def test_history_eviction_cannot_interrupt_the_active_three_second_reading(self):
+        with self.overlay() as (root, overlay, settings, now):
+            messages=OrderedDict(a=message('a',text='正在阅读'))
+            overlay.sync(messages,1)
+            now[0]=11
+            messages.clear()
+            for index in range(500):
+                row=message(str(index));row.engine_translation=''
+                messages[str(index)]=row
+            overlay.sync(messages,1)
+            self.assertEqual(self.foreground(overlay),['队友：正在阅读'])
+            self.assertLessEqual(len(overlay.history._candidates),501)
+            now[0]=13;overlay._expire()
+            self.assertIn('499',self.foreground(overlay)[0])
+            self.assertNotIn('a',overlay.history._candidates)
+            self.assertLessEqual(len(overlay.history._candidates),500)
+
     def test_transparency_keeps_white_text_dark_outline_and_no_theme_border(self):
         with self.overlay() as (root, overlay, settings, now):
             overlay.sync(OrderedDict(a=message('a')), 1)
@@ -192,6 +335,41 @@ class SubtitleOverlayTests(unittest.TestCase):
             overlay.set_input_active(False)
             self.assertEqual(overlay.window.state(), 'withdrawn')
             self.assertFalse(overlay.history.entries)
+            self.assertIsNone(overlay._timer)
+
+    def test_input_resume_does_not_restart_expired_waiting_translations(self):
+        with self.overlay() as (root, overlay, settings, now):
+            messages=OrderedDict(a=message('a'))
+            overlay.sync(messages,1)
+            for key in 'bcd':messages[key]=message(key)
+            overlay.sync(messages,1)
+            self.assertEqual(sum(entry.subtitle_state=='queued'
+                                 for entry in overlay.history._candidates.values()),3)
+            deadline=overlay.history.next_expiry
+            overlay.set_input_active(True)
+            now[0]=12;overlay.set_input_active(False)
+            self.assertEqual(overlay.window.state(),'normal')
+            self.assertEqual(overlay.history.next_expiry,deadline)
+            overlay.set_input_active(True)
+            now[0]=deadline;overlay.set_input_active(False)
+            self.assertEqual(overlay.window.state(),'withdrawn')
+            self.assertFalse(overlay.history.entries)
+            self.assertIsNone(overlay._timer)
+
+    def test_translation_received_while_input_hidden_keeps_arrival_deadline_on_resume(self):
+        with self.overlay() as (root, overlay, settings, now):
+            row=message('a');row.engine_translation=''
+            messages=OrderedDict(a=row)
+            overlay.sync(messages,1)
+            overlay.set_input_active(True)
+            now[0]=16;overlay._expire()
+            now[0]=17;row.engine_translation='隐藏时到达';overlay.sync(messages,1)
+            self.assertEqual(overlay.history.next_expiry,20)
+            now[0]=19.5;overlay.set_input_active(False)
+            self.assertEqual(self.foreground(overlay),['队友：隐藏时到达'])
+            self.assertEqual(overlay.history.next_expiry,20)
+            now[0]=20;overlay._expire()
+            self.assertEqual(overlay.window.state(),'withdrawn')
             self.assertIsNone(overlay._timer)
 
     def test_calibration_has_hint_and_drag_then_returns_to_transparent_clickthrough(self):

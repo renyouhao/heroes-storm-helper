@@ -37,6 +37,11 @@ class TalentHelper:
         from .talent import TalentSession
         return TalentSession(backend)
 
+    @property
+    def running(self):
+        """只读运行意图与停止栅栏；不会等待工作线程或查询游戏。"""
+        return self._enabled and not self._closed and not self._stop.is_set()
+
     def _emit(self, state, detail='', tier_id=None, *, source_generation=None):
         with self._control:
             if source_generation is not None and source_generation != self._generation:return

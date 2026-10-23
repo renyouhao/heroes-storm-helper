@@ -21,6 +21,14 @@ from hots_chat.window_settings import WindowSettings
 from tests.test_scaled_popup_layout import OfflineOverlayNative
 
 
+def ignore_error_dialog(*args, **kwargs):
+    """无需核对弹窗调用时，不让 Mock 调用记录持有 parent 窗口。"""
+
+
+def disk_unavailable(*args, **kwargs):
+    raise OSError('disk unavailable')
+
+
 class SettingValue:
     def __init__(self, value):
         self.value = value
@@ -80,7 +88,7 @@ class SettingsTransactionTests(unittest.TestCase):
                     dialog.bindings['copy'] = SettingValue('CTRL+t')
                 else:
                     dialog.bindings['copy'] = SettingValue('T')
-                with patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
+                with patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
                     self.assertFalse(dialog.save())
                     self.assertEqual(path.read_bytes(), original)
                     self.assertEqual(settings.color_theme, 'graphite')
@@ -109,8 +117,8 @@ class SettingsTransactionTests(unittest.TestCase):
             applied.append(settings.color_theme)
 
         dialog.window.apply_settings = apply
-        with patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
-            with patch.object(Path, 'write_text', side_effect=OSError('disk unavailable')):
+        with patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
+            with patch.object(Path, 'write_text', new=disk_unavailable):
                 self.assertFalse(dialog.save(before_apply=preset))
             self.assertEqual(id(settings), identity)
             self.assertEqual(asdict(settings), previous)
@@ -133,7 +141,7 @@ class SettingsTransactionTests(unittest.TestCase):
             applied.append(settings.color_theme)
 
         dialog.window.apply_settings = apply
-        with patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
+        with patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
             self.assertFalse(dialog.save())
         self.assertEqual(asdict(settings), previous)
         self.assertEqual(path.read_bytes(), stored)
@@ -166,6 +174,8 @@ class SettingsPageTests(unittest.TestCase):
             choose_process=lambda: self.actions.append('process'),
             apply_settings=lambda: self.actions.append('apply'),
             save_settings=lambda: self.settings.save(self.path))
+        # 测试回调捕获 fixture；清理此出边后，已销毁的 Tk 不会落入后台 GC。
+        self.addCleanup(setattr, self, 'window', None)
         apply_theme(self.root, self.settings)
 
     def widgets(self, parent):
@@ -267,6 +277,7 @@ class RuntimeSettingsTransactionTests(unittest.TestCase):
         with patch('hots_chat.ui.main_window.screen_bounds', return_value=[self.metrics.work_area]), \
              patch('hots_chat.ui.overlay_window.Win32Window', return_value=OfflineOverlayNative()):
             self.window = create_app(root, controller, WindowSettings(x=10000, y=10000, hotkeys={}))
+        self.addCleanup(setattr, self, 'window', None)
         self.addCleanup(self.window.close)
         window = self.window
         window._read_display_metrics = lambda: self.metrics
@@ -307,8 +318,8 @@ class RuntimeSettingsTransactionTests(unittest.TestCase):
         deadline = window.overlay.history.next_expiry
         visible = window.overlay._visible
         pending = window.quick_input._pending
-        with patch.object(window, 'save_settings', side_effect=OSError('disk unavailable')), \
-             patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
+        with patch.object(window, 'save_settings', new=disk_unavailable), \
+             patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
             self.assertFalse(dialog.save())
         self.assertEqual(asdict(window.settings), previous)
         self.assertEqual(self.path.read_bytes(), stored)
@@ -338,8 +349,8 @@ class RuntimeSettingsTransactionTests(unittest.TestCase):
         previous = deepcopy(asdict(window.settings))
         geometry = window.overlay.window.geometry()
         entry = next(iter(window.overlay.history.entries.values()))
-        with patch.object(window, 'save_settings', side_effect=OSError('disk unavailable')), \
-             patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
+        with patch.object(window, 'save_settings', new=disk_unavailable), \
+             patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
             self.assertFalse(dialog.save(before_apply=window.overlay.use_chat_preset))
         self.assertEqual(asdict(window.settings), previous)
         self.assertEqual(window.overlay.window.geometry(), geometry)
@@ -370,8 +381,8 @@ class RuntimeSettingsTransactionTests(unittest.TestCase):
             window.overlay._clock = lambda: deadline + 1
             raise OSError('disk unavailable')
 
-        with patch.object(window, 'save_settings', side_effect=fail_after_expiry), \
-             patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
+        with patch.object(window, 'save_settings', new=fail_after_expiry), \
+             patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
             self.assertFalse(dialog.save())
         self.assertTrue(window.settings.overlay_enabled)
         self.assertEqual(list(window.overlay.history.entries), [])
@@ -397,8 +408,8 @@ class RuntimeSettingsTransactionTests(unittest.TestCase):
             if len(calls) == 1:
                 raise ValueError('UI application failed')
 
-        with patch.object(window, 'apply_settings', side_effect=fail_after_apply), \
-             patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
+        with patch.object(window, 'apply_settings', new=fail_after_apply), \
+             patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
             self.assertFalse(dialog.save())
         self.assertEqual(asdict(window.settings), previous)
         self.assertEqual(self.path.read_bytes(), stored)
