@@ -56,7 +56,7 @@ def main(argv=None):
     command.append(str(ROOT/'packaging'/'launcher.py'))
     subprocess.run(command,cwd=ROOT,check=True)
     bundle=work/'dist'/NAME
-    note=(f'{NAME} {VERSION} · Windows x64 免安装测试版\n\n'
+    note=(f'{NAME} {VERSION} · Windows x64 免安装版\n\n'
           f'解压整个文件夹，双击“{NAME}.exe”，无需安装Python。\n'
           '首次使用先在阿里云开通机器翻译通用版并给RAM用户翻译权限；助手使用AccessKey，不填写阿里云网页登录账号密码。\n'
           '填入自己的AccessKey ID/Secret，点击一次“连接并开始使用”：自动验证身份、测试翻译“你好”，成功后加密保存并启用翻译。\n'
@@ -124,7 +124,7 @@ def main(argv=None):
           '1K/2K/4K与100%–200%缩放已有隔离模拟验证，2K/4K物理显示仍待验收。\n'
           '换局保留最近500条运行期历史，退出程序释放。\n'
           '支持中文客户端98348；游戏更新后需重新验证采集。\n'
-          '当前是本地构建测试版；游戏遮挡/输入法候选窗/远程焦点、实际分辨率切换与分场景性能仍待实机验收。\n')
+          '发行编号v1.1，程序内版本1.1.0；游戏遮挡/输入法候选窗/远程焦点、实际分辨率切换与分场景性能仍待实机验收。\n')
     (bundle/'使用说明.txt').write_text(note,encoding='utf-8-sig')
     guide=ROOT/'artifacts'/'风暴英雄助手新手指南.html'
     if guide.is_file():shutil.copy2(guide,bundle/guide.name)

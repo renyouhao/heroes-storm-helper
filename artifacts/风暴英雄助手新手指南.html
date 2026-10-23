@@ -50,7 +50,7 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
     </aside>
     <main class="content" id="reportContent">
 <header class="hero" id="start">
-  <p class="eyebrow">第一次使用也能照着做 · 适用本地 1.1.0</p>
+  <p class="eyebrow">第一次使用也能照着做 · 适用 v1.1（程序 1.1.0）</p>
   <h1 data-review-id="beginner:title">风暴英雄助手<br><span class="marker">从申请 Key 到上手使用</span></h1>
   <p class="lead">你只要做三件事：在阿里云准备好自己的翻译 Key，填进助手，再回到游戏里使用。下面按顺序来，不需要会写代码。</p>
   <div class="meta"><span>文档修订：2026-10-23</span><span>阿里云官网核对：2026-10-21</span><span>面向：Windows 上第一次使用助手的玩家</span></div>
@@ -160,8 +160,8 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <div class="callout"><strong>聊天框开着时，S 或 Y＋S 会输入到聊天框。</strong>0.3.11 不再按是否打开聊天框或此前的 Enter／Esc 状态拦截 F8。可以用下方“按 F8 取消”提示判断是否启动，再按 F8 取消；如果要看游戏动作，再由自己关闭输入框并操作。连按按键效果由游戏决定，不保证提高攻击速度。</div></article>
 </section>
 
-<section class="section" id="talent"><h2>07B · 自动选爱心天赋（本地 1.1.0）</h2>
-<article class="card" data-review-id="beginner:talent"><p>本地 1.1.0 测试包已包含这个功能；旧的公开包和本地 0.3.14 ZIP 不包含。它不需要翻译 Key，默认关闭。</p><ol class="steps">
+<section class="section" id="talent"><h2>07B · 自动选爱心天赋（v1.1）</h2>
+<article class="card" data-review-id="beginner:talent"><p>v1.1 发行包已包含这个功能；v1.0 及更早的包不包含。它不需要翻译 Key，默认关闭。</p><ol class="steps">
 <li>先在游戏里给各层想用的天赋标好<strong>爱心</strong>，选中自己要用的首选方案。</li>
 <li>游戏内“快速选择首选天赋”快捷键保持为 <strong>Ctrl＋反引号</strong>。反引号在 Esc 下方、数字 1 左边。</li>
 <li>助手打开<strong>天赋辅助</strong>，勾选“自动选择游戏内的爱心天赋”，再回游戏。开关会保存，下一局自动重新识别；不用每把准备。</li>
@@ -171,7 +171,7 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 </section>
 
 <section class="section" id="broadcast"><h2>07C · Tab 双击，告诉队友你点的那一项</h2>
-<article class="card" data-review-id="beginner:broadcast"><p>本轮“综合测试-1.1.0-20261023”统一包包含双击播报稳定性修复、对局聊天来源与换局探测修复，以及用量账本移除和额度查询入口；保留此前的提速、点击识别、客户端更新和自动首选天赋。先退出旧助手，再启动新文件夹里的 EXE。公开 v1.0 和更早的 1.1.0 包还没有双击播报。</p><ol class="steps">
+<article class="card" data-review-id="beginner:broadcast"><p>v1.1 发行包包含双击播报稳定性修复、对局聊天来源与换局探测修复，以及用量账本移除和额度查询入口；保留此前的提速、点击识别、客户端更新和自动首选天赋。先退出旧助手，再启动新文件夹里的 EXE。v1.0 及更早的公开包不包含双击播报。</p><ol class="steps">
 <li>在助手打开<strong>双击播报</strong>，勾选“开启 Tab 双击播报，自动发送到己方团队”。默认关闭，开启后会记住。</li>
 <li>回游戏打开 Tab。双击<strong>天赋页里一个已选的天赋</strong>，会说明玩家、英雄、真实天赋等级、名称和一句效果。</li>
 <li>双击<strong>统计页里一个具体数字</strong>，就只说那一项。例如点英雄伤害，只发“【我方】玩家（安度因）｜英雄伤害：12,345”，不会顺带说死亡次数。</li>
@@ -203,7 +203,7 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <details class="faq-item" data-review-id="beginner:faq-cloud"><summary>身份验证通过，翻译测试或保存阶段失败</summary><p>身份验证成功只说明 Key 能确认身份。翻译测试失败时，检查是否开通“机器翻译通用版”、是否给刚才那个 RAM 用户加了翻译权限，以及阿里云是否有欠费或服务限制。保存阶段可核对当前 Windows 用户和写入权限。看窗口显示的阶段和安全提示排查，等结果后再重试；每次翻译测试均会调用云服务。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-month"><summary>旧版本的用量文件需要处理吗？</summary><p>不用处理。旧 usage.sqlite3 和 usage.sqlite3.initialized 保留原样，当前版本不读取、不新建、不迁移或修复；旧账本缺失或损坏不影响启动、配置或翻译。凭据、语言资料、偏好和日志继续使用原来的 HotsChatHelper 用户目录。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-copy"><summary>Ctrl+T 翻译了，游戏里却没发出去</summary><p>它只帮你复制。请回到游戏打开聊天框，Ctrl+V 粘贴，再按 Enter 发送。输入法还在选字时，先确定汉字，再按一次 Enter 提交翻译。快捷键无反应可以从助手主界面的“快捷输入”按钮打开。</p></details>
-<details class="faq-item" data-review-id="beginner:faq-repeat"><summary>按 F8 没出现 s，或者连按没效果</summary><p>确认使用 0.3.14，关闭助手输入条，松开所有修饰键，再回游戏单独按 F8；游戏聊天输入框无需关闭，开着时会输入所选动作的 S 或 Y、S。此前按过 Enter／Esc 也不影响这次启动；运行中按 Enter／Esc 会结束当前连按，松开后可再按 F8 重开。如果改过快捷键，按你保存的那个键。用下方“按 F8 取消”提示判断是否启动；没有提示或有提示但无输入／动作，可分别反馈这两种情况。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-repeat"><summary>按 F8 没出现 s，或者连按没效果</summary><p>确认使用 v1.1（程序 1.1.0），关闭助手输入条，松开所有修饰键，再回游戏单独按 F8；游戏聊天输入框无需关闭，开着时会输入所选动作的 S 或 Y、S。此前按过 Enter／Esc 也不影响这次启动；运行中按 Enter／Esc 会结束当前连按，松开后可再按 F8 重开。如果改过快捷键，按你保存的那个键。用下方“按 F8 取消”提示判断是否启动；没有提示或有提示但无输入／动作，可分别反馈这两种情况。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-overlay"><summary>游戏里看不到译文，或者位置挡视线</summary><p>先在主界面确认确实有新的译文。字幕显示时间较短，可在“设置 → 游戏内”调整；用无边框窗口化，重新拖动浮窗位置。透明字幕模式主要显示文字，想要底色可改为半透明面板。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-word"><summary>某个短词翻译不符合语境</summary><p>主界面保留原文，可以对照着看；需要时选择消息再点“重试所选”。短词缺少上下文时仍可能有多种意思，重试也会调用云翻译，别连续刷同一句。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-diagnostics"><summary>怎么把日志发给开发者排查？</summary><p>诊断默认完全关闭。遇到问题时，正式模式打开<strong>设置 → 诊断 → 开启诊断日志</strong>，复现一次，再点<strong>一键导出诊断日志</strong>，选择位置保存 ZIP，然后自己发给开发者，并说明出问题的大致时间。开启后的基础日志只记录关键阶段、耗时、错误和编号，不保存聊天正文，也不调用云服务。开关仅本次运行有效，下次启动仍关闭；关闭后已有日志仍可导出。</p><p>排查错译或表情时，可先勾选“详细诊断”，复现一次再导出；十分钟后会自动关闭。正文、译文各最多记录 256 字，已配置密钥始终脱敏，分享前仍需检查正文里其他私人信息。不要另外附带 .env、credentials.dpapi 或用户数据库。日志后台有界写入，约 2 MiB × 5 份、保留 7 天；繁忙时允许丢弃诊断并计数。</p></details>
@@ -235,8 +235,8 @@ Key、Secret 自己保管，截图和反馈都别带上它们。</pre></article>
 <li><a href="https://ram.console.aliyun.com/">RAM 控制台</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/create-a-ram-user">创建 RAM 用户</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair">创建 Key</a></li>
 <li><a href="https://help.aliyun.com/zh/machine-translation/getting-started/ram-user-authorization">翻译权限说明</a> · <a href="https://help.aliyun.com/zh/ram/create-a-custom-policy">创建自定义权限策略</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user">给用户授权</a></li>
 <li><a href="https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview">额度与收费规则</a></li>
-</ul><p class="small">助手用法按 0.3.14 的功能整理，2026-10-23 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。</p></article>
-<details class="card step-card no-print"><summary>复制全文的纯文字版</summary><button type="button" data-copy-target="originalMarkdown">复制全文</button><pre id="originalMarkdown">第一次使用也能照着做 · 适用本地 1.1.0
+</ul><p class="small">助手用法按 v1.1 的功能整理，2026-10-23 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。</p></article>
+<details class="card step-card no-print"><summary>复制全文的纯文字版</summary><button type="button" data-copy-target="originalMarkdown">复制全文</button><pre id="originalMarkdown">第一次使用也能照着做 · 适用 v1.1（程序 1.1.0）
 
 风暴英雄助手
 从申请 Key 到上手使用
@@ -399,9 +399,9 @@ Esc、Enter、打开 Ctrl+T、按组合键或切出游戏，也会结束本次�
 
 聊天框开着时，S 或 Y＋S 会输入到聊天框。0.3.11 不再按是否打开聊天框或此前的 Enter／Esc 状态拦截 F8。可以用下方“按 F8 取消”提示判断是否启动，再按 F8 取消；如果要看游戏动作，再由自己关闭输入框并操作。连按按键效果由游戏决定，不保证提高攻击速度。
 
-07B · 自动选爱心天赋（本地 1.1.0）
+07B · 自动选爱心天赋（v1.1）
 
-本地 1.1.0 测试包已包含这个功能；旧的公开包和本地 0.3.14 ZIP 不包含。默认关闭，不需要翻译 Key。
+v1.1 发行包已包含这个功能；v1.0 及更早的包不包含。默认关闭，不需要翻译 Key。
 先在游戏给各层天赋标好爱心，选中首选方案；“快速选择首选天赋”快捷键保持 Ctrl＋反引号（Esc 下方、数字 1 左边）。助手打开“天赋辅助”，勾选后回游戏，偏好会保存，换局自动重新识别。
 先按下 Ctrl 约 80 毫秒，再按住反引号约 80 毫秒后释放；主键发送前再次核验待选状态与游戏前台。每层只尝试一次并回读确认，3 秒未确认时检查爱心和快捷键、手选本层；下一层继续检测。关开开关不会重试本层。关闭后停止读取和发送。
 切出游戏不发按键，后台低频只读以观察换局；开箱／连按／快捷输入期间延后，版本或身份未知时暂停。
@@ -409,7 +409,7 @@ build 98348 霍格／克罗米试用、大厅退出再进、镜像归属已核�
 
 07C · Tab 双击，告诉队友你点的那一项
 
-本轮“综合测试-1.1.0-20261023”统一包包含双击播报稳定性修复、对局聊天来源与换局探测修复，以及用量账本移除和额度查询入口；保留此前的提速、点击识别、客户端更新和自动首选天赋。先退出旧助手，再启动新文件夹里的 EXE。公开 v1.0 和更早的 1.1.0 包还没有双击播报。
+v1.1 发行包包含双击播报稳定性修复、对局聊天来源与换局探测修复，以及用量账本移除和额度查询入口；保留此前的提速、点击识别、客户端更新和自动首选天赋。先退出旧助手，再启动新文件夹里的 EXE。v1.0 及更早的公开包不包含双击播报。
 在助手打开“双击播报”，勾选“开启 Tab 双击播报，自动发送到己方团队”。默认关闭，开启后会记住。
 回游戏打开 Tab。双击天赋页里一个已选的天赋，会说明玩家、英雄、真实天赋等级、名称和一句效果。双击统计页里一个具体数字，就只说那一项。例如点英雄伤害，只发“【我方】玩家（安度因）｜英雄伤害：12,345”，不会顺带说死亡次数。
 击杀、助攻、死亡、英雄伤害、攻城伤害、治疗、自我治疗、经验贡献都按各自一格处理。0 可以说，“—”不说，不给玩家排名或评好坏。自己、队友、对手都能提示，内容发到己方团队。
@@ -480,7 +480,7 @@ Ctrl+T 翻译了，游戏里却没发出去
 
 按 F8 没出现 s，或者连按没效果
 
-确认使用 0.3.14，关闭助手输入条，松开所有修饰键，再回游戏单独按 F8；游戏聊天输入框无需关闭，开着时会输入所选动作的 S 或 Y、S。此前按过 Enter／Esc 也不影响这次启动；运行中按 Enter／Esc 会结束当前连按，松开后可再按 F8 重开。如果改过快捷键，按你保存的那个键。用下方“按 F8 取消”提示判断是否启动；没有提示或有提示但无输入／动作，可分别反馈这两种情况。
+确认使用 v1.1（程序 1.1.0），关闭助手输入条，松开所有修饰键，再回游戏单独按 F8；游戏聊天输入框无需关闭，开着时会输入所选动作的 S 或 Y、S。此前按过 Enter／Esc 也不影响这次启动；运行中按 Enter／Esc 会结束当前连按，松开后可再按 F8 重开。如果改过快捷键，按你保存的那个键。用下方“按 F8 取消”提示判断是否启动；没有提示或有提示但无输入／动作，可分别反馈这两种情况。
 
 游戏里看不到译文，或者位置挡视线
 
@@ -558,12 +558,12 @@ RAM 控制台 · 创建 RAM 用户 · 创建 Key
 
 额度与收费规则
 
-助手用法按 0.3.14 的功能整理，2026-10-23 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。
+助手用法按 v1.1 的功能整理，2026-10-23 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。
 
 复制全文的纯文字版
 复制全文</pre></details>
 </section>
-<footer>风暴英雄助手新手指南 · 0.3.14 · 修订于 2026-10-23。点评只保存在当前浏览器，需要自己复制或下载；请勿在点评里填写 Key 或私人聊天。</footer>
+<footer>风暴英雄助手新手指南 · v1.1（程序 1.1.0） · 修订于 2026-10-23。点评只保存在当前浏览器，需要自己复制或下载；请勿在点评里填写 Key 或私人聊天。</footer>
 </main>
   </div>
   <aside id="reviewPanel" class="review-panel no-print" aria-labelledby="reviewPanelTitle" hidden>
