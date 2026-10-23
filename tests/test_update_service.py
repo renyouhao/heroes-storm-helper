@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import unittest
 
 from hots_chat.update_service import UpdateService
+from hots_chat import __version__
 from hots_chat.updater import download_update, discard_update
 from tests.test_updater import Response, archive_fixture, check_fixture, release_payload
 
@@ -54,7 +55,7 @@ class UpdateServiceTests(unittest.TestCase):
         service.thread.join(2)
         self.assertEqual(service.latest.state, 'downloaded')
         self.assertIs(service.latest.staged, staged)
-        self.assertEqual(calls, [('check', '1.1.0'), ('download', release)])
+        self.assertEqual(calls, [('check', __version__), ('download', release)])
 
     def test_cancelled_late_check_cannot_overwrite_status_or_start_download(self):
         started, release = threading.Event(), threading.Event()

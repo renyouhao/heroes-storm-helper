@@ -28,10 +28,11 @@ def check_installation(output,*,display_mode=None):
             root.update();window.pump()
             catalog=TalentCatalog()
             catalog_ok=catalog.hero_count==91 and catalog.talent_count==1941
-            result={'passed':blank_ok and len(window.vm.messages)==3 and len(controller.phrases.list())==12 and catalog_ok,
+            result={'passed':blank_ok and len(window.vm.messages)==3 and len(controller.phrases.list())==12 and catalog_ok and window.icon_loaded,
                     'demo_messages':len(window.vm.messages),'public_phrases':len(controller.phrases.list()),
                     'cloud_requests':0,'game_access':False,'real_credentials_read':False,'tk_available':True,
                     'sdk_import_available':Client is not None}
+            result['application_icon_set']=window.icon_loaded
             result['public_talent_catalog']={'available':catalog_ok,'heroes':catalog.hero_count,
                                              'talents':catalog.talent_count}
             result['blank_user_raw_mode']=blank_ok

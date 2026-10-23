@@ -48,6 +48,13 @@ class MainWindow:
         self.vm=AppViewModel(); self.closed=False;self._rendered_rows={}
         self.credential_dialog=None
         root.title(APP_NAME); root.geometry('1080x720'); root.minsize(540,420)
+        icon_root=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parents[3]))
+        self.icon_loaded=False
+        try:
+            root.iconbitmap(default=str(icon_root/'data'/'hots.ico'))
+            self.icon_loaded=True
+        except (tk.TclError,OSError):
+            pass
         root.columnconfigure(0,weight=1);root.rowconfigure(0,weight=1)
         style=apply_theme(root,self.settings)
         self._applied_theme=self.settings.color_theme
