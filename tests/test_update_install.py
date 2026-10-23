@@ -15,6 +15,11 @@ from tests.test_updater import Response, archive_fixture, check_fixture, exe_fix
 
 class InstallTests(unittest.TestCase):
     def setUp(self):
+        # This transaction fixture upgrades a simulated 1.1 installation to 1.2,
+        # independently of the package version used to run the test suite.
+        version = patch.object(update_install, '__version__', '1.1.0')
+        version.start()
+        self.addCleanup(version.stop)
         # Windows places TemporaryDirectory beneath real LocalAppData. Isolate the
         # protection boundary too, so every target remains a disposable fixture.
         protected = tempfile.TemporaryDirectory()
@@ -56,6 +61,16 @@ class InstallTests(unittest.TestCase):
             self.assertTrue((plan.helper_executable.parent / '_internal/old.dll').is_file())
             self.assertEqual((target / 'old.txt').read_text(), 'original')
             self.assertTrue(plan.path.is_file())
+
+    def test_prepare_rejects_same_or_older_version_for_a_valid_bundle(self):
+        from dataclasses import replace
+        with tempfile.TemporaryDirectory() as tmp:
+            target, executable, staged = self.setup_case(tmp)
+            for version in ('1.1.0', '1.0.0'):
+                with self.subTest(version=version), self.assertRaises(UpdateError):
+                    candidate = replace(staged, release=replace(staged.release, version=version))
+                    self.prepare(target, executable, candidate)
+            self.assertEqual((target / 'old.txt').read_text(), 'original')
 
     def test_source_mode_and_executable_mismatch_cannot_replace_a_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
