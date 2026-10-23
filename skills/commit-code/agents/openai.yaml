@@ -1,0 +1,4 @@
+interface:
+  display_name: "提交代码、打包与版本发布"
+  short_description: "规范分支与 Tag，写清提交更新，发行打包前判断大小版本并核验产物一致性"
+  default_prompt: "使用 $commit-code 处理本次分支、提交或发行任务，说明具体更新，确定版本并核对源码与产物；按授权完成同步或发布。"
