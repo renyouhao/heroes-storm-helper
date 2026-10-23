@@ -162,8 +162,10 @@ class BoardHelper:
                 if marker != INPUT_MARKER and down:
                     self._enqueue('cancel',invalidate=True)
                 return False
-            def mouse(x, y, down, button, injected):
-                if not injected:
+            def mouse(x, y, down, button, injected, marker=0):
+                # Windows的注入位不能区分用户桌面输入与助手自身输入。
+                # 保留原始标记，只过滤本助手的事件；后续仍复核前台与面板。
+                if marker != INPUT_MARKER:
                     self._enqueue('mouse', (x,y,down,button),invalidate=bool(down))
                 return False
             def hooks():
@@ -175,6 +177,13 @@ class BoardHelper:
             hook_thread.start()
             snapshot = target = point = None
             pending_revision = None
+            last_status = None
+
+            def publish_status():
+                nonlocal last_status
+                if session.status != last_status:
+                    last_status = session.status
+                    self._emit(last_status.state,last_status.detail,generation)
 
             def fresh():
                 nonlocal snapshot, target
@@ -193,15 +202,18 @@ class BoardHelper:
                 if kind == 'cancel':
                     session.cancel()
                     pending_revision = None
+                    publish_status()
                 elif kind == 'mouse':
                     x,y,down,button = args
                     if button != 'left':
                         session.cancel('其他鼠标操作已取消本次播报。')
                         pending_revision = None
+                        publish_status()
                         continue
                     if not 0 <= self.clock()-event_at <= .25:
                         session.cancel('点击处理超时，请重新双击。')
                         pending_revision = None
+                        publish_status()
                         continue
                     if down:
                         point = (x,y)
@@ -209,6 +221,7 @@ class BoardHelper:
                     else:hit,context = None,InputContext()
                     previous = session._pending
                     session.mouse(x,y,down,hit,context,self.clock(),button=button,event_at=event_at)
+                    publish_status()
                     if down and session._pending is not None and session._pending is not previous:
                         pending_revision = event_revision
                 if session._pending is None:
@@ -217,9 +230,11 @@ class BoardHelper:
                 if pending_revision is None or pending_revision != self._revision:
                     session.cancel('点击后的输入操作已取消本次播报。')
                     pending_revision = None
+                    publish_status()
                     continue
                 if self._suspended or self.busy_provider():
                     session.cancel('其他输入操作正在进行，请稍后重新双击。')
+                    publish_status()
                     continue
                 if not backend.input_idle():continue
                 locks = []
@@ -238,8 +253,8 @@ class BoardHelper:
                     hit, context = fresh()
                     action = session.tick(hit,context,self.clock())
                     if action is not None:
-                        status = session.dispatch(action,sender,hit,context,self.clock(),allowed=allowed)
-                        self._emit(status.state,status.detail,generation)
+                        session.dispatch(action,sender,hit,context,self.clock(),allowed=allowed)
+                    publish_status()
                 finally:
                     self._busy.clear()
                     for lock in reversed(locks):lock.release()

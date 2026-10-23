@@ -78,9 +78,51 @@ class BoardServiceTests(unittest.TestCase):
         self.assertEqual(self.sent[0].message, '【我方】玩家（安度因）｜英雄伤害：12,345')
         self.assertTrue(all(name=='board-worker' for name in self.reads))
 
-    def test_injected_clicks_and_two_overlapping_candidates_never_send(self):
+    def test_external_injected_desktop_clicks_still_reach_broadcast(self):
         self.enable()
-        self.backend.mouse(120,120,True,'left',True)
+        for _ in range(2):
+            self.backend.mouse(120,120,True,'left',True)
+            self.backend.mouse(120,120,False,'left',True)
+        self.assertTrue(until(lambda:len(self.sent)==1),
+                        'Windows标为注入的用户双击不应被整批过滤')
+        self.assertEqual(self.sent[0].metric_id,'hero_damage')
+
+    def test_unrecognized_click_publishes_the_cancellation_reason(self):
+        original = self.reader.poll
+        def unrecognized(pid,hwnd,now):
+            snapshot = original(pid,hwnd,now)
+            snapshot.hits = ()
+            return snapshot
+        self.reader.poll = unrecognized
+        self.enable()
+        self.helper.drain_status()
+        self.click()
+        statuses = []
+        def cancelled():
+            statuses.extend(self.helper.drain_status())
+            return bool(statuses and statuses[-1].state=='cancelled')
+        self.assertTrue(until(cancelled),'识别失败必须能在界面中看到原因')
+        self.assertEqual(statuses[-1].state,'cancelled')
+        self.assertTrue(statuses[-1].detail)
+        self.assertEqual(self.sent,[])
+
+    def test_rate_limit_publishes_why_a_second_broadcast_is_not_sent(self):
+        self.enable();self.click();self.click()
+        self.assertTrue(until(lambda:len(self.sent)==1))
+        self.helper.drain_status()
+        self.click();self.click()
+        statuses = []
+        def limited():
+            statuses.extend(self.helper.drain_status())
+            return bool(statuses and statuses[-1].state=='limited')
+        self.assertTrue(until(limited),'限频必须能在界面中看到原因')
+        self.assertEqual(statuses[-1].state,'limited')
+        self.assertEqual(len(self.sent),1)
+
+    def test_own_clicks_and_two_overlapping_candidates_never_send(self):
+        self.enable()
+        self.backend.mouse(120,120,True,'left',True,self.module.INPUT_MARKER)
+        self.backend.mouse(120,120,True,'left',False,self.module.INPUT_MARKER)
         self.assertEqual(self.reads, [])
         original = self.reader.poll
         def overlapping(pid,hwnd,now):

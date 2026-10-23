@@ -64,10 +64,20 @@ class BoardNativeTests(unittest.TestCase):
                               lambda: click(0x204), lambda: click(0x201, 1), (0x12, 0)]
         self.backend.run(lambda *args:False, lambda *args:events.append(args) or True,
                          lambda:True, lambda:None, threading.Event())
-        self.assertEqual(events, [(220, 290, True, 'left', False),
-                                  (220, 290, False, 'left', False),
-                                  (220, 290, True, 'right', False),
-                                  (220, 290, True, 'left', True)])
+        self.assertEqual(events, [(220, 290, True, 'left', False, 0),
+                                  (220, 290, False, 'left', False, 0),
+                                  (220, 290, True, 'right', False, 0),
+                                  (220, 290, True, 'left', True, 0)])
+        self.assertEqual(self.user.sent, [])
+
+    def test_mouse_observer_preserves_external_injection_marker(self):
+        events = []
+        event = self.native.MSLLHOOKSTRUCT()
+        event.pt.x, event.pt.y, event.flags = 220, 290, 1
+        event.dwExtraInfo = 0x12345
+        self.backend._dispatch_mouse(lambda *args: events.append(args), 0x201,
+                                     ctypes.addressof(event))
+        self.assertEqual(events, [(220, 290, True, 'left', True, 0x12345)])
         self.assertEqual(self.user.sent, [])
 
     def test_team_chord_holds_ctrl_before_enter_and_cleans_up(self):

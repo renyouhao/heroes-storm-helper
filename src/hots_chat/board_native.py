@@ -37,7 +37,7 @@ class Win32BoardBackend(Win32TalentBackend):
                   0x207:'middle', 0x208:'middle'}.get(message, 'other')
         down = message not in (0x202, 0x205, 0x208, 0x20C)
         on_mouse(int(event.pt.x), int(event.pt.y), down, button,
-                 bool(event.flags & 3))
+                 bool(event.flags & 3), int(event.dwExtraInfo))
 
     def double_click_settings(self):
         return (int(self.user.GetDoubleClickTime()),
