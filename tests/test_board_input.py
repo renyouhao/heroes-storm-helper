@@ -150,6 +150,35 @@ class BoardInputTests(unittest.TestCase):
         self.memory.mutation = (0x200010000, b'abd')
         self.assertIsNone(self.inspect().text)
 
+    def test_changing_draft_preserves_verified_chat_menu_and_team(self):
+        self.open_team()
+        self.text('abc', heap=True)
+        self.memory.mutation = (0x200010000, b'abd')
+        state = self.inspect()
+        self.assertEqual((state.chat_active, state.menu_active, state.channel, state.text),
+                         (True, False, 'team', None))
+        self.assertEqual(self.inspect().text, 'abd')
+
+    def test_chat_visibility_transition_preserves_stable_menu_state(self):
+        self.memory.mutation = (self.chat + 0x48, b'\x7b')
+        state = self.inspect()
+        self.assertEqual((state.chat_active, state.menu_active, state.channel, state.text),
+                         (None, False, None, None))
+
+    def test_menu_visibility_transition_preserves_verified_chat_and_team(self):
+        self.open_team()
+        self.memory.mutation = (self.menu + 0x48, b'\x7b')
+        state = self.inspect()
+        self.assertEqual((state.chat_active, state.menu_active, state.channel, state.text),
+                         (True, None, 'team', ''))
+
+    def test_object_binding_change_during_capture_invalidates_all_fields(self):
+        self.open_team()
+        self.memory.mutation = (self.base + 0x338b2e8, struct.pack('<Q', self.root + 8))
+        state = self.inspect()
+        self.assertEqual((state.chat_active, state.menu_active, state.channel, state.text),
+                         (None, None, None, None))
+
     def test_missing_visibility_does_not_default_to_closed(self):
         self.memory.data.pop(self.menu + 0x48)
         self.assertEqual(self.reader.read(self.memory, self.base, self.root), (None, None))

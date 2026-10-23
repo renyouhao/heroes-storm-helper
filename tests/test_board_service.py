@@ -2,6 +2,7 @@
 from dataclasses import replace
 import importlib
 import gc
+import queue
 import threading
 import time
 from types import SimpleNamespace
@@ -118,6 +119,60 @@ class BoardServiceTests(unittest.TestCase):
         self.assertTrue(until(limited),'限频必须能在界面中看到原因')
         self.assertEqual(statuses[-1].state,'limited')
         self.assertEqual(len(self.sent),1)
+
+    def enable_with_worker_barrier(self):
+        outer = self
+        self.barrier = threading.Event()
+
+        class ProbeQueue(queue.Queue):
+            def get(self, *args, **kwargs):
+                event = super().get(*args, **kwargs)
+                if event[0] == 'test_barrier':
+                    outer.barrier.set()
+                return event
+
+        with patch.object(self.module.queue, 'Queue', ProbeQueue):
+            self.enable()
+
+    def flush_worker(self):
+        self.barrier.clear()
+        self.helper._enqueue('test_barrier')
+        self.assertTrue(self.barrier.wait(2))
+
+    def test_success_status_survives_mouse_clicks_after_returning_to_assistant(self):
+        self.enable_with_worker_barrier()
+        self.click();self.click()
+        self.assertTrue(until(lambda:len(self.sent)==1))
+        self.target = None
+        self.click()
+        self.flush_worker()
+        statuses = self.helper.drain_status()
+        self.assertEqual(statuses[-1].state, 'sent')
+
+    def test_terminal_status_is_not_replaced_by_keys_without_a_pending_gesture(self):
+        self.enable_with_worker_barrier()
+        self.click();self.click()
+        self.assertTrue(until(lambda:len(self.sent)==1))
+        self.backend.key(0x53, True, 0)
+        self.flush_worker()
+        self.assertEqual(self.helper.drain_status()[-1].state, 'sent')
+
+    def test_leftover_chat_editor_explains_why_a_later_double_click_is_blocked(self):
+        original = self.reader.poll
+
+        def open_chat(pid, hwnd, now):
+            snapshot = original(pid, hwnd, now)
+            snapshot.chat_active = True
+            return snapshot
+
+        self.reader.poll = open_chat
+        self.enable_with_worker_barrier()
+        self.click();self.click()
+        self.flush_worker()
+        status = self.helper.drain_status()[-1]
+        self.assertIn('聊天框', status.detail)
+        self.assertIn('Esc', status.detail)
+        self.assertEqual(self.sent, [])
 
     def test_own_clicks_and_two_overlapping_candidates_never_send(self):
         self.enable()

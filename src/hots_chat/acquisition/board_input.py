@@ -114,7 +114,11 @@ class BoardInputReader:
         try:
             first = self._capture(memory, base, root, with_text=with_text)
             second = self._capture(memory, base, root, with_text=with_text)
-            return first if first == second else BoardInputObservation()
+            # 草稿或可见性变化只使对应字段未知，独立且一致的观察仍然有效。
+            fields = ('chat_active', 'menu_active', 'channel', 'text')
+            return BoardInputObservation(*(
+                getattr(first, field) if getattr(first, field) == getattr(second, field) else None
+                for field in fields))
         except (OSError, ValueError, TypeError, UnicodeError, struct.error):
             return BoardInputObservation()
 

@@ -4,6 +4,7 @@ import queue
 import threading
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 from hots_chat.board_native import Win32BoardBackend
 from hots_chat.board_service import BoardHelper
@@ -39,6 +40,14 @@ class MessagePumpUser(FakeUser):
         self.posted.append((thread, message))
         self.pending.put((message, wparam))
         return 1
+
+
+class WorkerQueue(queue.Queue):
+    def get(self, *args, **kwargs):
+        event = super().get(*args, **kwargs)
+        if event[0] == 'test_barrier':
+            event[1][0].set()
+        return event
 
 
 class ControlledClock:
@@ -128,7 +137,8 @@ class BoardInputFlowTests(unittest.TestCase):
             sender_factory=lambda backend, reader: sender,
             clock=self.clock, diagnostics=self.recorder)
         self.addCleanup(self.close_helper)
-        self.assertTrue(self.helper.set_enabled(True))
+        with patch('hots_chat.board_service.queue.Queue', WorkerQueue):
+            self.assertTrue(self.helper.set_enabled(True))
         self.assertTrue(self.recorder.wait('idle', 0), self.recorder.states)
 
     def close_helper(self):
@@ -181,15 +191,16 @@ class BoardInputFlowTests(unittest.TestCase):
         self.assertTrue(self.recorder.wait(state, after), self.recorder.states)
 
     def cancel_barrier(self):
-        """键盘取消事件不读游戏；其状态发布证明前面的输入队列已处理。"""
-        after = self.recorder.position()
+        """递送真实键盘事件后等待队列栅栏，不依赖覆盖已完成状态。"""
 
         def dispatch():
             event = KBDLLHOOKSTRUCT(0x53, 0, 0, 0, 0)
             return self.user.hooks[13](0, 0x100, ctypes.addressof(event))
 
         self.on_hook_thread(dispatch)
-        self.expect_state('cancelled', after)
+        complete = threading.Event()
+        self.helper._enqueue('test_barrier', (complete,))
+        self.assertTrue(complete.wait(2))
 
     def test_external_injected_double_click_reaches_fake_sender_once(self):
         after = self.recorder.position()

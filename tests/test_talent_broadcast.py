@@ -295,6 +295,21 @@ class TalentBroadcastTests(unittest.TestCase):
                 self.assertEqual(len(attempts), 1)
                 self.assertIsNone(self.ready(start=10.4))
 
+    def test_detailed_sender_result_preserves_actionable_failure_reason(self):
+        action = self.ready()
+        detail = '未确认完整正文，未提交；请按 Esc 关闭草稿后重试。'
+        status = self.dispatch(action, sender=lambda *args, **kwargs:
+            self.module.BroadcastSendResult(state='failed', code='draft_unconfirmed', detail=detail))
+        self.assertEqual(status.state, 'error')
+        self.assertEqual(status.detail, detail)
+
+    def test_rate_limit_explains_both_the_global_and_same_item_intervals(self):
+        self.dispatch(self.ready())
+        self.hit = replace(self.hit, player_slot=4, observed_at=10.4, valid_until=11.4)
+        self.assertIsNone(self.ready(start=10.4))
+        self.assertIn('2秒', self.session.status.detail)
+        self.assertIn('3秒', self.session.status.detail)
+
     def test_sender_gate_is_invalidated_by_disable_or_cancel_during_send(self):
         for operation in ('cancel', 'stop'):
             with self.subTest(operation=operation):

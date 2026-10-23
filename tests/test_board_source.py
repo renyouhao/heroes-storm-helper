@@ -203,6 +203,94 @@ class BoardReaderTests(unittest.TestCase):
         self.assertIsNone(state.chat_active)
         self.assertIsNone(state.menu_active)
 
+    def test_changing_draft_preserves_match_token_and_verified_input_fields(self):
+        board = self.poll()
+        fields = iter(((True, False, 'team', 'prefix'),
+                       (True, False, 'team', 'prefix-complete')))
+        self.reader.input_state_provider = lambda *_: next(fields)
+        state = self.reader.inspect_input(123, 77)
+        self.assertEqual(state.match_token, board.match_token)
+        self.assertEqual((state.chat_active, state.menu_active, state.channel, state.text),
+                         (True, False, 'team', None))
+        self.assertFalse(self.memory.closed)
+
+    def test_input_transition_only_invalidates_fields_that_changed(self):
+        board = self.poll()
+        cases = (
+            ((False, False, None, None), (True, False, None, None),
+             (None, False, None, None)),
+            ((True, False, 'team', 'same'), (True, True, 'team', 'same'),
+             (True, None, 'team', 'same')),
+            ((True, False, 'team', 'same'), (True, False, None, 'same'),
+             (True, False, None, 'same')),
+        )
+        for first, second, expected in cases:
+            with self.subTest(first=first, second=second):
+                fields = iter((first, second))
+                self.reader.input_state_provider = lambda *_: next(fields)
+                state = self.reader.inspect_input(123, 77)
+                self.assertEqual(state.match_token, board.match_token)
+                self.assertEqual((state.chat_active, state.menu_active, state.channel, state.text),
+                                 expected)
+
+    def inspect_input_with_changing_fields(self, change, *, change_on=1):
+        fields = iter(((True, False, 'team', 'prefix'),
+                       (True, False, 'team', 'prefix-complete')))
+        calls = 0
+
+        def provider(*_):
+            nonlocal calls
+            value = next(fields)
+            calls += 1
+            if calls == change_on:
+                change()
+            return value
+
+        self.reader.input_state_provider = provider
+        return self.reader.inspect_input(123, 77)
+
+    def assert_unknown_input_identity(self, state):
+        self.assertEqual(state.match_token, '')
+        self.assertEqual((state.chat_active, state.menu_active, state.channel, state.text),
+                         (None, None, None, None))
+
+    def test_draft_changes_do_not_mask_changed_root_identity(self):
+        replacement = self.memory.frame(0x2653738)
+        state = self.inspect_input_with_changing_fields(
+            lambda: self.memory.pack(self.memory.base + 0x338b2e8, 'Q', replacement))
+        self.assert_unknown_input_identity(state)
+
+    def test_draft_changes_do_not_mask_changed_game_guards(self):
+        state = self.inspect_input_with_changing_fields(
+            lambda: self.memory.put(self.memory.base + 0x35c8cd9, b'\x02'))
+        self.assert_unknown_input_identity(state)
+
+    def test_root_change_during_final_input_capture_invalidates_identity(self):
+        replacement = self.memory.frame(0x2653738)
+        state = self.inspect_input_with_changing_fields(
+            lambda: self.memory.pack(self.memory.base + 0x338b2e8, 'Q', replacement),
+            change_on=2)
+        self.assert_unknown_input_identity(state)
+
+    def test_guards_change_during_final_input_capture_invalidates_identity(self):
+        state = self.inspect_input_with_changing_fields(
+            lambda: self.memory.put(self.memory.base + 0x35c8cd9, b'\x02'), change_on=2)
+        self.assert_unknown_input_identity(state)
+
+    def test_draft_changes_do_not_mask_changed_match_binding(self):
+        def change_match():
+            self.binding = replace(self.binding, session_token=('match-2',))
+
+        state = self.inspect_input_with_changing_fields(change_match)
+        self.assert_unknown_input_identity(state)
+
+    def test_draft_changes_do_not_mask_changed_process_generation(self):
+        def change_process():
+            self.memory.creation += 1
+
+        state = self.inspect_input_with_changing_fields(change_process)
+        self.assert_unknown_input_identity(state)
+
     def test_native_alliance_masks_distinguish_trial_enemy_despite_equal_team(self):
         self.binding=replace(self.binding,slot=4)
         self.memory.pack(self.memory.base+0x35a1c50+3*4,'I',0)

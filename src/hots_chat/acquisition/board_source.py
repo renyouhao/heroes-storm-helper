@@ -200,13 +200,17 @@ class BoardReader:
                 root = memory.u64(base + ROOT_RVA)
                 _vtable(memory, base, root, ROOT_VTABLE)
                 fields = self._input_fields(memory, base, root)
+                if _guards(memory, base) != guards or memory.u64(base + ROOT_RVA) != root:
+                    raise _Unknown('输入读取期间游戏UI会话正在变化')
                 return guards, root, fields
 
             first, second = capture(), capture()
-            if (first != second or self._reader._resolve(memory, base, process_token) != binding
+            if (first[:2] != second[:2] or self._reader._resolve(memory, base, process_token) != binding
                     or self._reader.creation_token_finder(self._reader._game) != created):
                 raise _Unknown('输入状态或游戏会话正在变化')
-            return ChatInputState(pid, hwnd, self._token(process_token, binding), *second[2])
+            fields = tuple(before if before == after else None
+                           for before, after in zip(first[2], second[2]))
+            return ChatInputState(pid, hwnd, self._token(process_token, binding), *fields)
         except (OSError, ValueError, RuntimeError, TypeError, UnicodeError, struct.error):
             self.close()
             return ChatInputState(target_pid, hwnd, '', None, None, None, None)

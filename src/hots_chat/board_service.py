@@ -61,11 +61,11 @@ class BoardHelper:
         return BoardReader(text_provider=TalentCatalog().resolve,
             viewport_converter=backend.viewport_converter, input_state_provider=inputs.inspect)
 
-    @staticmethod
-    def _new_sender(backend, reader):
+    def _new_sender(self, backend, reader):
         from .board_sender import TeamChatSender
         return lambda action, **kwargs:TeamChatSender(backend,
-            inspect=lambda:reader.inspect_input(action.pid, action.hwnd)).send(action, **kwargs)
+            inspect=lambda:reader.inspect_input(action.pid, action.hwnd),
+            diagnostics=self.diagnostics).send_result(action, **kwargs)
 
     @property
     def busy(self):return self._busy.is_set()
@@ -185,6 +185,9 @@ class BoardHelper:
                     last_status = session.status
                     self._emit(last_status.state,last_status.detail,generation)
 
+            def has_gesture():
+                return session._pending is not None or session._first_click is not None
+
             def fresh():
                 nonlocal snapshot, target
                 target = backend.foreground_target()
@@ -200,15 +203,17 @@ class BoardHelper:
                 try:kind,args,event_at,event_revision = self._inputs.get(timeout=.05)
                 except queue.Empty:kind,args,event_at,event_revision = '',(),self.clock(),self._revision
                 if kind == 'cancel':
-                    session.cancel()
-                    pending_revision = None
-                    publish_status()
+                    if has_gesture():
+                        session.cancel()
+                        pending_revision = None
+                        publish_status()
                 elif kind == 'mouse':
                     x,y,down,button = args
                     if button != 'left':
-                        session.cancel('其他鼠标操作已取消本次播报。')
-                        pending_revision = None
-                        publish_status()
+                        if has_gesture():
+                            session.cancel('其他鼠标操作已取消本次播报。')
+                            pending_revision = None
+                            publish_status()
                         continue
                     if not 0 <= self.clock()-event_at <= .25:
                         session.cancel('点击处理超时，请重新双击。')
@@ -218,6 +223,17 @@ class BoardHelper:
                     if down:
                         point = (x,y)
                         hit, context = fresh()
+                        if not context.foreground:
+                            if has_gesture():
+                                session.cancel('已离开游戏，本次播报取消。')
+                                pending_revision = None
+                                publish_status()
+                            continue
+                        if context.chat_active is True:
+                            session.cancel('游戏聊天框仍打开，请先按 Esc 关闭，再重新双击。')
+                            pending_revision = None
+                            publish_status()
+                            continue
                     else:hit,context = None,InputContext()
                     previous = session._pending
                     session.mouse(x,y,down,hit,context,self.clock(),button=button,event_at=event_at)

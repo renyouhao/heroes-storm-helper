@@ -97,6 +97,13 @@ class TalentBroadcastStatus:
 
 
 @dataclass(frozen=True)
+class BroadcastSendResult:
+    state: str
+    code: str = ''
+    detail: str = ''
+
+
+@dataclass(frozen=True)
 class DispatchAction:
     token: int
     pid: int
@@ -340,7 +347,7 @@ class TalentBroadcastSession:
             return False
         self._first_click = None
         if self._limited(hit, now):
-            self._status('limited', '播报正在限频或已在3秒内播报过。')
+            self._status('limited', '播报限频中：任意两次需间隔2秒，同一项需间隔3秒。')
             return False
         self._token += 1
         is_stat = isinstance(hit, StatHitSnapshot)
@@ -388,7 +395,7 @@ class TalentBroadcastSession:
         return pending.action
 
     def dispatch(self, action, sender, hit, context, now, *, allowed=lambda: True):
-        """sender(action, allowed=栅栏) -> 'sent'；其他结果均保守记录为发送失败。
+        """sender返回'sent'或BroadcastSendResult；失败结果保留可操作的原因。
 
         allowed 应实时复核前台、聊天与其他输入所有者，并由 sender 在每次输入前调用。
         外部已接管动作但未调用 sender 时，可稍后手动重试 dispatch；不会重复交出动作。
@@ -408,13 +415,16 @@ class TalentBroadcastSession:
             return self.cancel('发送前栅栏已取消本次播报。')
         if self._limited(hit, now):
             self._pending = None
-            return self._status('limited', '播报正在限频或已在3秒内播报过。')
+            return self._status('limited', '播报限频中：任意两次需间隔2秒，同一项需间隔3秒。')
         self._pending = self._first_click = None
         self._attempts[_dedupe_key(hit)] = self._last_attempt = now
         try:
             outcome = sender(action, allowed=can_send)
         except Exception:
             outcome = 'failed'
-        if outcome != 'sent':
-            return self._status('error', '聊天发送未完整确认；已记录本次尝试，不自动重试。')
+        result = outcome.state if isinstance(outcome, BroadcastSendResult) else outcome
+        if result != 'sent':
+            detail = outcome.detail if isinstance(outcome, BroadcastSendResult) else ''
+            return self._status('error', detail if isinstance(detail, str) and detail else
+                                '聊天发送未完整确认；已记录本次尝试，不自动重试。')
         return self._status('sent', '已发送到己方团队。')
