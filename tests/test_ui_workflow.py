@@ -26,7 +26,7 @@ class WorkflowTests(unittest.TestCase):
         self.root.update()
         self.window.pump()
         self.assertEqual([self.window.notebook.tab(tab,'text') for tab in self.window.notebook.tabs()],
-                         ['实时消息','常用短句','开箱助手','动作连按','天赋辅助'])
+                         ['实时消息','常用短句','开箱助手','动作连按','天赋辅助','双击播报'])
         self.assertEqual(len(self.window.vm.messages),3)
         self.assertTrue(self.controller.paused,'未知额度不得调用云')
 

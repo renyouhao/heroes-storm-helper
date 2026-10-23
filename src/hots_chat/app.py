@@ -73,9 +73,13 @@ def main(argv=None):
     mode=parser.add_mutually_exclusive_group()
     mode.add_argument('--demo',action='store_true',help='离线演示，不读取游戏或凭据')
     mode.add_argument('--check-installation',type=Path,metavar='REPORT',help='隔离安装自检并写入报告，不连接游戏或云')
+    mode.add_argument('--apply-update',type=Path,metavar='PLAN',help='运行独立升级事务，不打开助手或连接游戏')
     mode.add_argument('--check-cloud-configuration',type=Path,nargs=2,metavar=('CREDENTIALS','REPORT'),
                       help='显式使用指定凭据文件，在临时目录测试一键配置和重载翻译；共 4 字符，不访问游戏或现用配置')
     args=parser.parse_args(argv)
+    if args.apply_update:
+        from .update_install import apply_update
+        return apply_update(args.apply_update)
     if args.check_cloud_configuration:
         from .cloud_diagnostic import check_cloud_configuration
         return check_cloud_configuration(*args.check_cloud_configuration)

@@ -23,12 +23,65 @@ class TalentNativeTests(unittest.TestCase):
             importlib.reload(self.native)
         self.assertEqual(self.user.sent, [])
 
-    def test_chord_is_single_marked_sendinput_with_correct_order(self):
-        self.assertEqual(self.backend.select_favorite(self.target), 'sent')
-        self.assertEqual(self.user.sent, [(4, 40, [
-            (1, 0x11, 0, 0x484F5453), (1, 0xC0, 0, 0x484F5453),
-            (1, 0xC0, 2, 0x484F5453), (1, 0x11, 2, 0x484F5453)])])
+    def test_game_observes_ctrl_before_main_key_and_both_remain_down(self):
+        held, sampled = set(), set()
+        accepted = []
+        original = self.user.SendInput.implementation
+        def consume(count, inputs, size):
+            for event in inputs[:count]:
+                key = event.ki.wVk
+                if event.ki.dwFlags & 2:
+                    held.discard(key)
+                else:
+                    if key == 0xC0:
+                        accepted.append(0x11 in sampled)
+                    held.add(key)
+            return original(count, inputs, size)
+        def game_frame(delay):
+            sampled.clear()
+            sampled.update(held)
+            self.user.keys = set(held)
+            self.assertGreaterEqual(delay, .05)
+        self.user.SendInput.implementation = consume
+        with patch('time.sleep', side_effect=game_frame):
+            self.assertEqual(self.backend.select_favorite(self.target), 'sent')
+        self.assertEqual(accepted, [True], '游戏收到主键前必须已观察到 Ctrl 按下')
+        self.assertEqual(held, set())
+        self.assertEqual(self.user.sent, [
+            (1, 40, [(1, 0x11, 0, 0x484F5453)]),
+            (1, 40, [(1, 0xC0, 0, 0x484F5453)]),
+            (2, 40, [(1, 0xC0, 2, 0x484F5453), (1, 0x11, 2, 0x484F5453)])])
         self.assertEqual(self.user.installed, [])
+
+    def test_cancel_or_focus_change_during_ctrl_lead_releases_without_main_key(self):
+        for action in ('cancel', 'focus', 'modifier', 'manual_pick'):
+            with self.subTest(action=action):
+                self.setUp()
+                permitted = [True]
+                valid = [True]
+                def change(delay):
+                    if action == 'cancel':permitted[0] = False
+                    elif action == 'focus':self.user.hwnd += 1
+                    elif action == 'modifier':self.user.keys.add(0x10)
+                    else:valid[0] = False
+                with patch('time.sleep', side_effect=change):
+                    result = self.backend.select_favorite(self.target,
+                        allowed=lambda:permitted[0], validate=lambda:valid[0])
+                self.assertEqual(result, 'deferred')
+                self.assertEqual(self.user.sent, [
+                    (1, 40, [(1, 0x11, 0, 0x484F5453)]),
+                    (1, 40, [(1, 0x11, 2, 0x484F5453)])])
+
+    def test_cancel_after_main_key_retains_attempt_and_only_releases(self):
+        permitted, waits = [True], []
+        def cancel_after_main(delay):
+            waits.append(delay)
+            if len(waits) == 2:permitted[0] = False
+        with patch('time.sleep', side_effect=cancel_after_main):
+            result = self.backend.select_favorite(self.target, allowed=lambda:permitted[0])
+        self.assertEqual(result, 'sent', '主键已发后不能 deferred 使状态机再次发送')
+        self.assertEqual(self.user.sent[-1], (2, 40, [
+            (1, 0xC0, 2, 0x484F5453), (1, 0x11, 2, 0x484F5453)]))
 
     def test_rejects_wrong_window_or_pid_and_never_focuses_window(self):
         self.user.hwnd += 1
@@ -80,17 +133,38 @@ class TalentNativeTests(unittest.TestCase):
         self.assertEqual(self.user.sent, [])
 
     def test_partial_insert_releases_only_keys_possibly_still_down(self):
-        expected = {0: [], 1: [(1, 0x11, 2, 0x484F5453)],
-                    2: [(1, 0xC0, 2, 0x484F5453), (1, 0x11, 2, 0x484F5453)],
-                    3: [(1, 0x11, 2, 0x484F5453)]}
-        for count, release in expected.items():
-            with self.subTest(count=count):
+        cases = (
+            ([0], [0x11], []),
+            ([1, 0], [0x11, 0xC0], [[0x11]]),
+            ([1, OSError('main failed')], [0x11, 0xC0], [[0xC0, 0x11]]),
+            ([1, 1, 0], [0x11, 0xC0], [[0xC0, 0x11], [0xC0, 0x11]]),
+            ([1, 1, 1], [0x11, 0xC0], [[0xC0, 0x11], [0x11]]),
+        )
+        for results, downs, releases in cases:
+            with self.subTest(results=results):
                 self.user.sent.clear()
-                self.user.send_results = [count]
-                self.assertEqual(self.backend.select_favorite(self.target), 'failed')
-                self.assertEqual(len(self.user.sent), 2 if release else 1)
-                if release:
-                    self.assertEqual(self.user.sent[1], (len(release), 40, release))
+                self.user.send_results = list(results)
+                with patch('time.sleep'):
+                    self.assertEqual(self.backend.select_favorite(self.target), 'failed')
+                actual_downs = [key for _, _, events in self.user.sent
+                                for _, key, flags, _ in events if flags == 0]
+                actual_releases = [[key for _, key, flags, _ in events] for _, _, events
+                                   in self.user.sent if all(flags == 2 for _, _, flags, _ in events)]
+                self.assertEqual(actual_downs, downs)
+                self.assertEqual(actual_releases, releases)
+
+    def test_wait_failure_releases_only_owned_keys(self):
+        for fail_at, released in ((1, [0x11]), (2, [0xC0, 0x11])):
+            with self.subTest(fail_at=fail_at):
+                self.user.sent.clear()
+                waits = []
+                def fail(delay):
+                    waits.append(delay)
+                    if len(waits) == fail_at:raise OSError('wait interrupted')
+                with patch('time.sleep', side_effect=fail):
+                    self.assertEqual(self.backend.select_favorite(self.target), 'failed')
+                self.assertEqual([event[1] for event in self.user.sent[-1][2]], released)
+                self.assertTrue(all(event[2] == 2 for event in self.user.sent[-1][2]))
 
     def test_cancel_during_last_physical_key_query_cannot_send(self):
         gate = [True]
@@ -117,9 +191,9 @@ class TalentNativeTests(unittest.TestCase):
     def test_api_exception_only_sends_keyups_and_cleanup_failure_does_not_retry_down(self):
         self.user.send_results = [OSError('input failed'), OSError('cleanup failed')]
         self.assertEqual(self.backend.select_favorite(self.target), 'failed')
-        self.assertEqual(self.user.sent[1], (2, 40, [
-            (1, 0xC0, 2, 0x484F5453), (1, 0x11, 2, 0x484F5453)]))
-        self.assertEqual(len(self.user.sent), 2)
+        self.assertEqual(self.user.sent[1:], [
+            (1, 40, [(1, 0x11, 2, 0x484F5453)]),
+            (1, 40, [(1, 0x11, 2, 0x484F5453)])])
 
 
 if __name__ == '__main__':

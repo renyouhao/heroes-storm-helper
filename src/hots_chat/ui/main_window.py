@@ -1,4 +1,6 @@
 import tkinter as tk
+from pathlib import Path
+import sys
 from tkinter import ttk,messagebox,simpledialog,font as tkfont
 from .. import APP_NAME
 from .viewmodel import AppViewModel
@@ -20,6 +22,9 @@ from ..repeat import RepeatHelper, RepeatStatus, validate_repeat_config
 from .repeat_panel import RepeatPanel
 from ..talent_service import TalentHelper
 from .talent_panel import TalentPanel
+from ..update_service import UpdateService
+from ..board_service import BoardHelper
+from .board_panel import BoardPanel
 
 
 class MainWindow:
@@ -34,6 +39,11 @@ class MainWindow:
         self._repeat_hotkey_enabled=bool(enable_repeat_hotkey)
         self._repeat_listener_started=False
         self._talent_runtime_enabled=bool(enable_talent_helper)
+        self._update_installing=False
+        preferences=getattr(controller,'preferences_path',None)
+        self.update_service=UpdateService(staging_root=Path(preferences).parent/'updates' if preferences else None)
+        self.updates_can_install=bool(getattr(sys,'frozen',False))
+        self.update_dialog=None
         self._layout_metrics=initial_metrics=self._read_display_metrics()
         if display is not None:self.settings.migrate_display(initial_metrics)
         self.vm=AppViewModel(); self.closed=False;self._rendered_rows={}
@@ -53,7 +63,7 @@ class MainWindow:
         ttk.Label(self.sidebar,text='风暴英雄助手',style='Brand.TLabel').pack(anchor='w',pady=(0,6))
         ttk.Label(self.sidebar,text='跨语言，聊得来',style='Surface.Muted.TLabel').pack(anchor='w',pady=(0,26))
         self.navigation={}
-        for key,label in (('chat','实时消息'),('phrases','常用短句'),('loot','开箱助手'),('repeat','动作连按'),('talent','天赋辅助')):
+        for key,label in (('chat','实时消息'),('phrases','常用短句'),('loot','开箱助手'),('repeat','动作连按'),('talent','天赋辅助'),('broadcast','双击播报')):
             button=ttk.Button(self.sidebar,text=label,style='Sidebar.TButton',
                               command=lambda page=key:self.select_section(page),width=0)
             button.pack(fill='x',pady=(0,8));self.navigation[key]=button
@@ -74,6 +84,8 @@ class MainWindow:
         ttk.Label(toolbar,textvariable=self.section_title,style='PageTitle.TLabel').pack(side='left')
         self.settings_button=ttk.Button(toolbar,text='设置',command=self.window_options,style='Nav.TButton')
         self.settings_button.pack(side='right')
+        self.update_button=ttk.Button(toolbar,text='检查更新',command=self.open_updates,style='Nav.TButton')
+        self.update_button.pack(side='right',padx=(6,0))
         self.quick_button=ttk.Button(toolbar,text='快捷输入',command=self.open_quick_input,style='Accent.TButton')
         self.quick_button.pack(side='right',padx=(8,8))
         self.automatic=tk.BooleanVar(value=self.settings.auto_translate)
@@ -141,6 +153,12 @@ class MainWindow:
         self.talent_panel=TalentPanel(self.notebook,settings=self.settings,metrics=initial_metrics,
                                       on_toggle=self.apply_talent_config)
         self.notebook.add(self.talent_panel,text='天赋辅助')
+        self.board_helper=BoardHelper(busy_provider=self._other_input_busy,
+            input_locks=(self.talent_helper._dispatch,self.repeat_helper._dispatch),
+            diagnostics=getattr(controller,'diagnostics',None))
+        self.board_panel=BoardPanel(self.notebook,settings=self.settings,metrics=initial_metrics,
+                                    on_toggle=self.apply_board_config)
+        self.notebook.add(self.board_panel,text='双击播报')
         self.reply_panel=RoundedPanel(workspace,settings=self.settings,padding=12,fit_height=True)
         self.reply_panel.grid(row=4,column=0,sticky='ew',padx=16,pady=(0,3))
         send=self.reply_panel.body
@@ -193,19 +211,21 @@ class MainWindow:
 
     def select_section(self, section):
         page={'chat':self.chat_page,'phrases':getattr(self,'phrase_panel',self.chat_page),
-              'loot':self.loot_panel,'repeat':self.repeat_panel,'talent':getattr(self,'talent_panel',self.chat_page)}.get(section,self.chat_page)
+              'loot':self.loot_panel,'repeat':self.repeat_panel,'talent':getattr(self,'talent_panel',self.chat_page),
+              'broadcast':getattr(self,'board_panel',self.chat_page)}.get(section,self.chat_page)
         self.notebook.select(page)
         self._sync_navigation()
 
     def _sync_navigation(self):
         selected=self.notebook.select()
-        current=('talent' if hasattr(self,'talent_panel') and selected==str(self.talent_panel)
+        current=('broadcast' if hasattr(self,'board_panel') and selected==str(self.board_panel)
+                 else 'talent' if hasattr(self,'talent_panel') and selected==str(self.talent_panel)
                  else 'repeat' if hasattr(self,'repeat_panel') and selected==str(self.repeat_panel)
                  else 'loot' if hasattr(self,'loot_panel') and selected==str(self.loot_panel)
                  else 'phrases' if hasattr(self,'phrase_panel') and selected==str(self.phrase_panel) else 'chat')
-        self.section_title.set({'chat':'实时消息','phrases':'常用短句','loot':'开箱助手','repeat':'动作连按','talent':'天赋辅助'}[current])
+        self.section_title.set({'chat':'实时消息','phrases':'常用短句','loot':'开箱助手','repeat':'动作连按','talent':'天赋辅助','broadcast':'双击播报'}[current])
         if hasattr(self,'reply_panel'):
-            if current in ('loot','repeat','talent'):self.reply_panel.grid_remove()
+            if current in ('loot','repeat','talent','broadcast'):self.reply_panel.grid_remove()
             else:self.reply_panel.grid()
         for key,button in self.navigation.items():
             active=key==current
@@ -214,7 +234,39 @@ class MainWindow:
     def prepare_loot(self):
         self._prepare_action('loot')
 
+    def open_updates(self):
+        if self.closed:return
+        dialog=getattr(self,'update_dialog',None)
+        if dialog is not None and not dialog._closed:
+            dialog.dialog.deiconify()
+            return
+        self.cancel_loot();self.cancel_repeat()
+        from .update_dialog import UpdateDialog
+        self.update_dialog=UpdateDialog(self)
+
+    @staticmethod
+    def _prepare_update(staged):
+        from ..update_install import prepare_install,launch_install
+        plan=prepare_install(staged)
+        return launch_install(plan)
+
+    def install_update(self):
+        if self.closed or getattr(self,'_update_installing',False):return False
+        if not getattr(sys,'frozen',False):
+            self.update_dialog.detail.set('当前从源码运行，请手动使用新发行包；源码目录不会被替换。')
+            return False
+        self._update_installing=True
+        self.cancel_loot();self.cancel_repeat()
+        if self.quick_input._visible:self.quick_input.cancel()
+        self._sync_talent_gate()
+        if not self.update_service.install(self._prepare_update):
+            self._update_installing=False
+            self._sync_talent_gate()
+            return False
+        return True
+
     def apply_talent_config(self,enabled):
+        if enabled and getattr(self,'_update_installing',False):raise ValueError('正在准备升级，请等待助手重启。')
         previous=self.settings.talent_enabled
         self.settings.talent_enabled=bool(enabled)
         if not enabled:self.talent_helper.set_enabled(False)
@@ -233,14 +285,40 @@ class MainWindow:
             self.talent_panel.update_status('disabled','演示模式不读取游戏或发送按键。')
 
     def _sync_talent_gate(self,quick_active=None):
+        busy=self._other_input_busy(quick_active=quick_active)
+        board=getattr(self,'board_helper',None)
+        if board is not None:board.set_suspended(busy)
         helper=getattr(self,'talent_helper',None)
         if helper is not None:
-            helper.set_suspended(bool(getattr(self,'_pending_action',None)
-                                      or getattr(self,'_loot_active',False)
-                                      or getattr(getattr(self,'loot_helper',None),'active',False)
-                                      or getattr(self,'_repeat_active',False)
-                                      or (getattr(getattr(self,'quick_input',None),'_visible',False)
-                                          if quick_active is None else quick_active)))
+            helper.set_suspended(busy or bool(board is not None and board.busy))
+
+    def _other_input_busy(self,quick_active=None):
+        return bool(getattr(self,'closed',False) or getattr(self,'_pending_action',None)
+                    or getattr(self,'_update_installing',False)
+                    or getattr(self,'_loot_active',False)
+                    or getattr(getattr(self,'loot_helper',None),'active',False)
+                    or getattr(self,'_repeat_active',False)
+                    or getattr(getattr(self,'repeat_helper',None),'active',False)
+                    or (getattr(getattr(self,'quick_input',None),'_visible',False)
+                        if quick_active is None else quick_active))
+
+    def apply_board_config(self,enabled):
+        if enabled and getattr(self,'_update_installing',False):raise ValueError('正在准备升级，请等待助手重启。')
+        previous=self.settings.board_broadcast_enabled
+        self.settings.board_broadcast_enabled=bool(enabled)
+        if not enabled:self.board_helper.set_enabled(False)
+        try:self.save_settings()
+        except OSError:
+            if enabled:self.settings.board_broadcast_enabled=previous
+            raise
+        self._sync_talent_gate()
+        if not self.board_helper.set_enabled(bool(enabled) and self._talent_runtime_enabled):
+            self.settings.board_broadcast_enabled=previous
+            self.save_settings()
+            raise OSError('上次播报线程正在退出，请稍后再试。')
+        self.board_panel.apply_settings(self.settings,self._layout_metrics)
+        if enabled and not self._talent_runtime_enabled:
+            self.board_panel.update_status('disabled','演示模式不会监听双击、读取游戏或发送聊天。')
 
     def prepare_repeat(self):
         self._prepare_action('repeat')
@@ -280,7 +358,7 @@ class MainWindow:
             self._action_timer=None
 
     def _prepare_action(self, kind):
-        if self.closed:return
+        if self.closed or getattr(self,'_update_installing',False):return
         self._cancel_action_request()
         if getattr(self.loot_helper,'active',False) or self._loot_active:self.cancel_loot()
         if (getattr(getattr(self,'repeat_helper',None),'active',False)
@@ -347,7 +425,7 @@ class MainWindow:
                             source=getattr(self.settings,'repeat_action','S'),generation=status.generation)
         if status.state=='requested':
             if self.closed or not self.repeat_helper.accepts_status(status):return
-            if self.quick_input._visible:
+            if self.quick_input._visible or getattr(self,'_update_installing',False):
                 self.cancel_repeat()
                 return
         try:self.repeat_panel.update_status(status.state,status.detail)
@@ -449,6 +527,9 @@ class MainWindow:
         if getattr(self,'_talent_runtime_enabled',False) and self.settings.talent_enabled:
             self._sync_talent_gate()
             self.talent_helper.set_enabled(True)
+        if getattr(self,'_talent_runtime_enabled',False) and self.settings.board_broadcast_enabled:
+            self._sync_talent_gate()
+            self.board_helper.set_enabled(True)
         self.controller.start_receiving()
     def stop(self): self.controller.stop_receiving()
 
@@ -467,6 +548,7 @@ class MainWindow:
         self.save_settings()
 
     def open_quick_input(self):
+        if getattr(self,'_update_installing',False):return
         self.cancel_loot()
         self.cancel_repeat()
         try:self.quick_input.open()
@@ -603,6 +685,7 @@ class MainWindow:
         try:self.repeat_panel.apply_settings(self.settings,metrics)
         except (OSError,tk.TclError) as failure:self.repeat_ui_failed(failure)
         if hasattr(self,'talent_panel'):self.talent_panel.apply_settings(self.settings,metrics)
+        if hasattr(self,'board_panel'):self.board_panel.apply_settings(self.settings,metrics)
         self.overlay.apply_settings(metrics)
         self.quick_input.refresh_layout(metrics,force=True)
         self.quick_button.configure(text='快捷输入')
@@ -731,6 +814,14 @@ class MainWindow:
             if not self.closed:self.timer=self.root.after(100,self.pump)
 
     def _pump_events(self):
+        if getattr(self,'_update_installing',False):
+            update=self.update_service.latest
+            if update.state=='restarting':
+                self.close()
+                return
+            if update.state in ('error','cancelled'):
+                self._update_installing=False
+                self._sync_talent_gate()
         for status in self.loot_helper.drain_status():
             if self.loot_helper.accepts_status(status):self.update_loot_status(status)
         helper=getattr(self,'repeat_helper',None)
@@ -741,6 +832,10 @@ class MainWindow:
         if helper is not None:
             for status in helper.drain_status():
                 if helper.accepts_status(status):self.talent_panel.update_status(status.state,status.detail)
+        helper=getattr(self,'board_helper',None)
+        if helper is not None:
+            for status in helper.drain_status():self.board_panel.update_status(status.state,status.detail)
+        self._sync_talent_gate()
         self._account_events()
         self.screen_ticks+=1
         if self.screen_ticks%20==0:
@@ -797,7 +892,15 @@ class MainWindow:
     def close(self):
         if self.closed:return
         self.closed=True
+        updates=getattr(self,'update_service',None)
+        if updates is not None:updates.close(wait=False)
+        dialog=getattr(self,'update_dialog',None)
+        if dialog is not None:
+            dialog.close()
+            self.update_dialog=None
         helper=getattr(self,'talent_helper',None)
+        if helper is not None:helper.set_enabled(False,wait=False)
+        helper=getattr(self,'board_helper',None)
         if helper is not None:helper.set_enabled(False,wait=False)
         service=getattr(self.controller,'account_setup',None)
         if service is not None:service.close()
@@ -811,6 +914,8 @@ class MainWindow:
                   lambda:getattr(self,'repeat_panel',None) and self.repeat_panel.close(),
                   lambda:getattr(self,'talent_helper',None) and self.talent_helper.close(),
                   lambda:getattr(self,'talent_panel',None) and self.talent_panel.close(),
+                  lambda:getattr(self,'board_helper',None) and self.board_helper.close(),
+                  lambda:getattr(self,'board_panel',None) and self.board_panel.close(),
                   self.hotkeys.stop,self.quick_input.close,self.overlay.close,self.save_settings,
                   self.controller.close,self.root.destroy)
         # 一个原生句柄/偏好写入失败，也必须继续释放其他线程与窗口。

@@ -1,5 +1,6 @@
 """自动天赋Win32组合键边界；导入不加载DLL、不安装hook、不创建线程。"""
 import ctypes
+import time
 
 from .loot_native import GameTarget, INPUT, Win32LootBackend
 
@@ -12,51 +13,77 @@ _PHYSICAL_KEYS = (0x10, CTRL, 0x12, 0x5B, 0x5C,
 class Win32TalentBackend(Win32LootBackend):
     """复用已核验的前台进程身份和INPUT布局；只显式发送一次组合键。"""
 
-    def _physical_key_held(self):
-        return any(self.key_down(key) for key in _PHYSICAL_KEYS)
+    def _physical_key_held(self, *, owned_ctrl=False):
+        return any(self.key_down(key) for key in _PHYSICAL_KEYS
+                   if not owned_ctrl or key not in (CTRL, 0xA2))
 
-    def _release_partial(self, inserted):
-        # SendInput按数组顺序插入。只清理尚未收到keyup的自有keydown。
-        keys = {0: (), 1: (CTRL,), 2: (OEM3, CTRL), 3: (CTRL,)}.get(
-            inserted, (OEM3, CTRL))
-        if not keys:
-            return
-        releases = (INPUT * len(keys))(*(self._key_input(key, up=True) for key in keys))
+    def _send_keys(self, keys, *, up=False):
+        events = (INPUT * len(keys))(*(self._key_input(key, up=up) for key in keys))
+        return self.user.SendInput(len(keys), events, ctypes.sizeof(INPUT))
+
+    def _release_keys(self, keys):
+        """释放失败时仅补发尚未确认的 keyup，绝不重发 keydown。"""
         try:
-            self.user.SendInput(len(keys), releases, ctypes.sizeof(INPUT))
+            inserted = self._send_keys(keys, up=True)
+            if inserted == len(keys):
+                return True
+            remaining = keys[inserted:] if type(inserted) is int and 0 <= inserted < len(keys) else keys
+        except Exception:
+            remaining = keys
+        try:
+            self._send_keys(remaining, up=True)
         except Exception:
             pass
+        return False
 
-    def select_favorite(self, target, *, allowed=None, validate=None):
-        """validate可读游戏；allowed必须是无IO的快速取消门。
-
-        慢核验完成后再检查前台和物理键；最后仅查询快速取消门。
-        返回sent/deferred/failed；部分失败只释放，不重试keydown。
-        """
+    def _ready(self, target, allowed, validate, *, owned_ctrl=False):
         if not isinstance(target, GameTarget) or self.foreground_target() != target:
-            return 'deferred'
-        if self._physical_key_held() or (allowed is not None and not allowed()):
-            return 'deferred'
+            return False
+        if self._physical_key_held(owned_ctrl=owned_ctrl) or (allowed is not None and not allowed()):
+            return False
         if validate is not None and not validate():
-            return 'deferred'
+            return False
         # allowed可能跨线程取消或改变窗口；发送前再次核对，不抢焦点。
-        if self.foreground_target() != target or self._physical_key_held():
-            return 'deferred'
+        if self.foreground_target() != target or self._physical_key_held(owned_ctrl=owned_ctrl):
+            return False
         if allowed is not None and not allowed():
-            return 'deferred'
-        if self._foreground_identity() != target or self._physical_key_held():
-            return 'deferred'
+            return False
+        if self._foreground_identity() != target or self._physical_key_held(owned_ctrl=owned_ctrl):
+            return False
         # 最后的原生查询也可能阻塞；取消请求必须在所有查询之后再次可见。
         if allowed is not None and not allowed():
+            return False
+        return True
+
+    def select_favorite(self, target, *, allowed=None, validate=None):
+        """Ctrl先被游戏观察，再按主键；取消与失败只释放自有按键。
+
+        validate可读游戏；allowed必须是无IO的快速取消门。只有主键尚未
+        注入且释放成功时才允许deferred，防止会话误以为可以再次发送。
+        """
+        if not self._ready(target, allowed, validate):
             return 'deferred'
-        chord = (INPUT * 4)(self._key_input(CTRL), self._key_input(OEM3),
-                            self._key_input(OEM3, up=True), self._key_input(CTRL, up=True))
-        inserted = None
+        held, outcome = [CTRL], 'failed'
         try:
-            inserted = self.user.SendInput(4, chord, ctypes.sizeof(INPUT))
-            if inserted == 4:
-                return 'sent'
+            inserted = self._send_keys((CTRL,))
+            if inserted == 0:
+                held.clear()
+            elif inserted == 1:
+                # 同批注入Ctrl与主键时，游戏可能尚未更新修饰键状态。
+                time.sleep(.08)
+                if not self._ready(target, allowed, validate, owned_ctrl=True):
+                    outcome = 'deferred'
+                else:
+                    held.insert(0, OEM3)
+                    inserted = self._send_keys((OEM3,))
+                    if inserted == 0:
+                        held.remove(OEM3)
+                    elif inserted == 1:
+                        time.sleep(.08)
+                        outcome = 'sent'
         except Exception:
             pass
-        self._release_partial(inserted)
-        return 'failed'
+        finally:
+            if held and not self._release_keys(held):
+                outcome = 'failed'
+        return outcome

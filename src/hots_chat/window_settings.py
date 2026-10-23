@@ -61,6 +61,7 @@ class WindowSettings:
     repeat_interval_ms: int=20
     repeat_s_interval_ms: int=20
     talent_enabled: bool=False
+    board_broadcast_enabled: bool=False
 
     def __post_init__(self):
         self.color_theme=normalize_theme(self.color_theme)
@@ -137,6 +138,7 @@ class WindowSettings:
             s=cls(**data)
             # 必须明确布尔同意；损坏的此项不丢弃其他外观偏好。
             if type(s.talent_enabled) is not bool:s.talent_enabled=False
+            if type(s.board_broadcast_enabled) is not bool:s.board_broadcast_enabled=False
             from .hotkeys import parse_function_key
             try:
                 parse_function_key(s.repeat_hotkey)

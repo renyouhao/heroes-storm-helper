@@ -1,10 +1,13 @@
+import gc
 from pathlib import Path
 import tempfile
 import threading
 import time
 import tkinter as tk
 from tkinter import ttk
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 import zipfile
 
 from hots_chat.diagnostics import DiagnosticRecorder
@@ -18,16 +21,38 @@ class DiagnosticUITests(unittest.TestCase):
         self.root = tk.Tk()
         self.root.withdraw()
         self.addCleanup(self.close_root)
-        self.tick = 0.0
-        self.recorder = DiagnosticRecorder(Path(self.tmp.name) / 'logs', monotonic=lambda: self.tick, enabled=True)
-        self.addCleanup(self.recorder.close)
+        clock = self.clock = SimpleNamespace(tick=0.0)
+        self.recorder = DiagnosticRecorder(Path(self.tmp.name) / 'logs', monotonic=lambda: clock.tick, enabled=True)
+        exports = self._export_threads = []
+        start_thread = threading.Thread.start
+        def start(thread):
+            if thread.name == 'diagnostic-export':
+                exports.append(thread)
+            return start_thread(thread)
+        observer = patch.object(threading.Thread, 'start', start)
+        observer.start()
+        self.addCleanup(observer.stop)
         self.panel = DiagnosticsPanel(self.root, self.recorder, root=self.root)
         self.panel.pack()
         self.root.update_idletasks()
 
     def close_root(self):
-        self.root.update_idletasks()
-        self.root.destroy()
+        root, recorder = self.root, getattr(self, 'recorder', None)
+        try:
+            for worker in getattr(self, '_export_threads', ()):
+                worker.join(3)
+                self.assertFalse(worker.is_alive(), '诊断导出线程未结束')
+            if recorder is not None:
+                recorder.close()
+                if recorder.thread is not None:
+                    self.assertFalse(recorder.thread.is_alive(), '诊断写入线程未结束')
+        finally:
+            root.update_idletasks()
+            root.destroy()
+            # destroy 移除 Tcl 控件，但 Python 控件/变量仍可能相互引用。
+            # 用例先释放所有 Tk 字段，再由创建解释器的主线程回收这些环。
+            self.panel = self.root = self.recorder = None
+            gc.collect()
 
     def wait(self, predicate):
         deadline = time.monotonic() + 3
@@ -50,7 +75,7 @@ class DiagnosticUITests(unittest.TestCase):
     def test_details_switch_expires_without_persisting_setting(self):
         self.panel.details_button.invoke()
         self.assertTrue(self.recorder.snapshot()['details_enabled'])
-        self.tick = 600
+        self.clock.tick = 600
         self.panel.refresh_status()
         self.assertFalse(self.panel.details.get())
         self.assertFalse(self.recorder.snapshot()['details_enabled'])
@@ -86,7 +111,6 @@ class DiagnosticUITests(unittest.TestCase):
         self.panel.destroy()
         self.recorder.close()
         self.recorder=DiagnosticRecorder(Path(self.tmp.name)/'off')
-        self.addCleanup(self.recorder.close)
         self.panel=DiagnosticsPanel(self.root,self.recorder,root=self.root)
         self.assertFalse(self.panel.enabled_var.get())
         self.assertTrue(self.panel.details_button.instate(['disabled']))
