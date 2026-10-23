@@ -1,6 +1,8 @@
 from collections import OrderedDict
 from dataclasses import dataclass
 
+from ..routing import incoming_translation_route
+
 
 @dataclass
 class MessageView:
@@ -14,6 +16,7 @@ class MessageView:
     @property
     def translation_label(self):
         if self.engine_translation:return '已翻译'
+        if self.translation_state=='original_only':return ''
         return {'queued':'排队中','translating':'翻译中','failed':'翻译失败',
                 'suppressed':'防刷屏已暂缓'}.get(self.translation_state,
                     self.translation_reason or '未翻译')
@@ -43,7 +46,10 @@ class AppViewModel:
                 while history_key in self.messages: history_key='history:'+history_key
                 self.messages=OrderedDict((history_key if key==p.message_id else key,value)
                                           for key,value in self.messages.items())
-            self.messages[p.message_id]=MessageView(p)
+            message=MessageView(p)
+            if incoming_translation_route(p.text)=='original_only':
+                message.translation_state='original_only'; message.status=''
+            self.messages[p.message_id]=message
             while len(self.messages)>500: self.messages.popitem(last=False)
             return 'applied'
         elif (event.kind=='result' and p['message_id'] in self.messages

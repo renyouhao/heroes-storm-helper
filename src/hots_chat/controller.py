@@ -9,7 +9,7 @@ from .models import AppEvent,TranslationJob,TranslationResult
 from .cache import BoundedTranslationCache
 from .scheduler import PendingQueue
 from .spam import AutomaticGuard
-from .routing import incoming_source_language
+from .routing import incoming_source_language,incoming_translation_route
 from .translation.base import TranslationError
 from .clock import now as real_now
 from .context import LocalContext
@@ -99,17 +99,23 @@ class ChatController:
             self.context.add(event)
             while len(self.messages)>500: self.messages.popitem(last=False)
             self._emit(AppEvent('chat',event.generation,event))
-            source=incoming_source_language(event.text)
+            route=incoming_translation_route(event.text)
             self._trace('message.received',message_id=event.message_id,channel=event.channel,
                         characters=len(event.text),original=event.text)
-            reason=('翻译服务未配置' if not getattr(self,'cloud_configured',True) else
+            if route=='original_only':
+                self._trace('translation.route',message_id=event.message_id,outcome='original_only')
+                self._emit(AppEvent('translation_state',event.generation,
+                           {'message_id':event.message_id,'state':'original_only','reason':''}))
+                return
+            source=route if route in ('en','ko') else None
+            reason=('不支持的语言' if source is None else
+                    '翻译服务未配置' if not getattr(self,'cloud_configured',True) else
                     '配置处理中' if self.configuration_held else
                     '云翻译已关闭' if self.paused else
-                    '自动翻译已暂停' if self.automatic_paused else
-                    '不支持的语言或符号' if source is None else '')
+                    '自动翻译已暂停' if self.automatic_paused else '')
             if reason:
                 self._trace('translation.route',message_id=event.message_id,
-                            outcome='unsupported_or_symbol' if source is None else 'paused')
+                            outcome='unsupported' if source is None else 'paused')
                 self._emit(AppEvent('translation_state',event.generation,
                            {'message_id':event.message_id,'state':'skipped','reason':reason}))
                 return
