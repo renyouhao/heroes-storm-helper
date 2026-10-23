@@ -1,13 +1,12 @@
 import tkinter as tk
 from pathlib import Path
 import sys
+import webbrowser
 from tkinter import ttk,messagebox,simpledialog,font as tkfont
 from .. import APP_NAME
 from .viewmodel import AppViewModel
 from ..models import AppEvent
 from ..channels import CHANNEL_PRESETS
-from ..clock import month_key
-from ..usage import BudgetError
 from ..window_settings import WindowSettings,screen_bounds
 from ..hotkeys import HotkeyManager
 from ..appearance import normalize_theme
@@ -92,12 +91,14 @@ class MainWindow:
         service_row=ttk.Frame(workspace,padding=(18,0,18,5));service_row.grid(row=1,column=0,sticky='ew')
         self.service_row=service_row
         service_row.columnconfigure(0,weight=1)
-        self.usage_label=ttk.Label(service_row,text='额度未确认 · 继续接收原文',style='Muted.TLabel',width=1)
-        self.usage_label.grid(row=0,column=0,sticky='ew')
+        self.service_label=ttk.Label(service_row,text='翻译服务：未配置 · 接收原文',style='Muted.TLabel',width=1)
+        self.service_label.grid(row=0,column=0,sticky='ew')
         self.account_button=None
         if hasattr(controller,'account_setup'):
             self.account_button=ttk.Button(service_row,text='个人密钥' if controller.cloud_configured else '配置云翻译',command=self.configure_account,style='Nav.TButton')
             self.account_button.grid(row=0,column=1,padx=(8,0))
+        self.quota_button=ttk.Button(service_row,text='查询剩余额度',command=self.open_cloud_quota,style='Nav.TButton')
+        self.quota_button.grid(row=0,column=2,padx=(8,0))
         self.cloud=tk.BooleanVar(value=False)
         controller.pause_translation(True)
         controller.pause_automatic(not self.automatic.get())
@@ -185,7 +186,7 @@ class MainWindow:
         self._sidebar_visible=None
         self._tabs_hidden=None
         self.status_var=tk.StringVar(value=self.vm.status); ttk.Label(workspace,textvariable=self.status_var,padding=(18,6),style='Muted.TLabel',width=1).grid(row=5,column=0,sticky='ew')
-        self.refresh_usage()
+        self.refresh_service_status()
         self.hotkeys=HotkeyManager(diagnostics=getattr(controller,'diagnostics',None))
         self.screen_ticks=0;self.monitor_bounds=[]
         from .overlay_window import OverlayWindow
@@ -196,7 +197,7 @@ class MainWindow:
                                    metrics=initial_metrics,position_provider=lambda:self.overlay.input_position(),
                                    on_visibility_changed=self.quick_visibility_changed)
         self.apply_settings()
-        self.enable_confirmed_cloud()
+        self.enable_configured_cloud()
         root.bind('<Configure>',self.moved)
         root.protocol('WM_DELETE_WINDOW',self.close)
         self.timer=root.after(100,self.pump)
@@ -533,9 +534,9 @@ class MainWindow:
         self.controller.start_receiving()
     def stop(self): self.controller.stop_receiving()
 
-    def enable_confirmed_cloud(self):
-        self.refresh_usage()
-        enabled=(self.vm.can_translate and getattr(self.controller,'cloud_configured',True)
+    def enable_configured_cloud(self):
+        self.refresh_service_status()
+        enabled=(getattr(self.controller,'cloud_configured',False)
                  and not getattr(self.controller,'configuration_held',False))
         self.cloud.set(enabled)
         self.controller.pause_translation(not enabled)
@@ -543,8 +544,6 @@ class MainWindow:
     def toggle_automatic(self):
         self.settings.auto_translate=self.automatic.get()
         self.controller.pause_automatic(not self.automatic.get())
-        if self.automatic.get() and not self.vm.can_translate:
-            self.status_var.set('额度未确认：在设置中确认本月用量后即可翻译，原文继续接收。')
         self.save_settings()
 
     def open_quick_input(self):
@@ -720,7 +719,7 @@ class MainWindow:
         for event in service.poll():
             if event['kind'] in ('ready','removed'):
                 self.clear_draft();self.quick_input.cancel()
-                self.enable_confirmed_cloud()
+                self.enable_configured_cloud()
                 self.account_button.configure(text='个人密钥' if self.controller.cloud_configured else '配置云翻译')
             if self.credential_dialog is not None:self.credential_dialog.handle(event)
             if event['kind']=='error':self.status_var.set(event['message'])
@@ -736,30 +735,27 @@ class MainWindow:
         self.overlay.restore_settings_state(snapshot)
 
     def toggle_cloud(self):
-        self.refresh_usage()
-        if self.cloud.get() and not self.vm.can_translate:
-            self.cloud.set(False); messagebox.showinfo('用量未确认','请先在阿里云控制台核对本月其他用量，再确认基线。',parent=self.root)
-        self.controller.pause_translation(not self.cloud.get())
+        enabled=(self.cloud.get() and getattr(self.controller,'cloud_configured',False)
+                 and not getattr(self.controller,'configuration_held',False))
+        self.cloud.set(enabled)
+        self.controller.pause_translation(not enabled)
+        self.refresh_service_status()
 
-    def confirm_usage(self):
-        if not getattr(self.controller,'cloud_configured',True):
-            self.configure_account();return
-        value=simpledialog.askinteger('确认本月其他调用量','填写本月此主账号在本助手之外已使用的字符数。\n请先核对阿里云用量；未知时取消。\n同月基线只可增加，助手本身预留量无需重复填写。',minvalue=0,parent=self.root)
-        if value is None: return
-        try:
-            self.controller.ledger.confirm_baseline(self.controller.account,month_key(self.controller.clock()),value,self.controller.clock())
-            self.enable_confirmed_cloud()
-        except BudgetError as failure: messagebox.showerror('用量保护',str(failure),parent=self.root)
+    def refresh_service_status(self):
+        configured=getattr(self.controller,'cloud_configured',False)
+        self.service_label.configure(text='翻译服务：已配置' if configured else '翻译服务：未配置 · 接收原文')
 
-    def refresh_usage(self):
+    def open_cloud_quota(self):
+        url='https://mt.console.aliyun.com/service'
         try:
-            snap=self.controller.ledger.snapshot(self.controller.account,self.controller.clock())
-            self.vm.apply(AppEvent('usage',self.vm.generation,snap))
-            self.usage_label.configure(text=(f'本月剩余 {snap.remaining:,} 字符 · 用量已确认' if snap.confirmed
-                                             else '用量未确认 · 原文继续接收，可在设置中确认本月用量'))
-            if not getattr(self.controller,'cloud_configured',True):
-                self.usage_label.configure(text='尚未配置个人密钥 ｜ 继续接收原文；点击“配置云翻译”即可启用。')
-        except BudgetError as failure: self.status_var.set(str(failure))
+            opened=webbrowser.open(url)
+        except (OSError,webbrowser.Error):
+            opened=False
+        if opened:
+            self.status_var.set('已请求打开阿里云控制台，请在浏览器登录后查看剩余额度与实际用量。')
+        else:
+            self.status_var.set('无法打开默认浏览器，请手动访问：'+url)
+        return bool(opened)
 
     def translate(self):
         try:
@@ -858,7 +854,6 @@ class MainWindow:
                 self.capture_state.set('采集：'+str(event.payload))
             if event.kind in ('chat','result','error','generation','suppressed'): changed=True
             if event.kind in ('manual_result','generation'):self.render_manual_preview()
-            if event.kind=='usage': self.refresh_usage()
             if event.kind in ('status','gap','error','generation'): self.status_var.set(self.vm.status)
             if event.kind=='conflict':self.status_var.set('热键注册失败或已被占用：'+str(event.payload['action']))
             if event.kind=='hotkey':

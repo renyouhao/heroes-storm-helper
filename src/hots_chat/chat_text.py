@@ -34,3 +34,8 @@ def normalize_chat_text(text):
     if len(text.encode('utf-8')) > _MAX_BODY_BYTES:
         return text
     return _IMAGE_TAG.sub(_replace_image, text)
+
+
+def character_count(text):
+    """按 UTF-16 代码单元统计文本，用于请求长度与短时限流。"""
+    return max(len(text), len(text.encode('utf-16-le')) // 2)

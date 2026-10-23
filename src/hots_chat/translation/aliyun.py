@@ -74,7 +74,7 @@ class AliyunEngine:
                 raise _provider_failure(code) from None
             if isinstance(failure, TimeoutError):
                 raise TranslationError('timeout','翻译请求超时，请检查网络后重试。') from None
-            raise TranslationError('network','翻译请求失败或超时；本机预留用量已保留，可手动重试。') from None
+            raise TranslationError('network','翻译请求失败或超时，请检查网络后手动重试。') from None
 
     def close(self):
         self.client = None

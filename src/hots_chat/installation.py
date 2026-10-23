@@ -16,12 +16,12 @@ def check_installation(output,*,display_mode=None):
     with tempfile.TemporaryDirectory(prefix='hots-installation-check-') as tmp:
         base=Path(tmp)
         blank=base/'blank'
-        actual=build_controller(AppPaths(blank/'.env',blank/'usage.db',blank/'language.db',blank/'preferences.json'))
+        actual=build_controller(AppPaths(blank/'.env',blank/'language.db',blank/'preferences.json'))
         try:
             blank_ok=not actual.cloud_configured and actual.paused and actual.account=='unconfigured'
         finally:
             actual.account_setup.close();actual.close()
-        controller=build_controller(AppPaths(base/'.env',base/'usage.db',base/'language.db',base/'preferences.json'),True)
+        controller=build_controller(AppPaths(base/'.env',base/'language.db',base/'preferences.json'),True)
         root=tk.Tk();root.withdraw();window=None
         try:
             window=create_app(root,controller,WindowSettings(hotkeys={},overlay_enabled=False),display=TkDisplayRuntime(root))

@@ -1,4 +1,4 @@
-"""One-click configuration uses real controller/ledger with offline cloud boundaries."""
+"""One-click configuration uses real controller with offline cloud boundaries."""
 import threading
 import unittest
 from types import SimpleNamespace
@@ -13,56 +13,22 @@ class OneClickSetupTests(unittest.TestCase):
     setUp = fixtures.AccountSetupTests.setUp
     wait_for = fixtures.AccountSetupTests.wait_for
 
-    def connect(self, external=None):
+    def connect(self):
         self.assertTrue(callable(getattr(self.setup, 'connect', None)),
                         '配置服务尚不支持一次点击完成验证、测试和保存')
-        self.setup.connect(self.credentials, external)
+        self.setup.connect(self.credentials)
 
-    def snapshot(self):
-        return self.ledger.snapshot('123456789', self.controller.clock())
-
-    def test_one_click_defaults_to_zero_saves_and_enables_cloud(self):
+    def test_one_click_saves_and_enables_cloud_without_usage_configuration(self):
         self.connect()
         events = self.wait_for('ready')
         self.assertEqual(self.store.value.credentials, self.credentials)
         self.assertTrue(self.controller.cloud_configured)
         self.assertFalse(self.controller.paused)
         self.assertFalse(self.controller.configuration_held)
-        self.assertEqual(self.snapshot().external_used, 0)
-        self.assertEqual(self.snapshot().local_reserved, 2)
-        self.assertTrue(self.snapshot().confirmed)
         self.assertEqual(len(self.engines[0].calls), 1)
         stages = [event['stage'] for event in events if event['kind'] == 'progress']
         self.assertLess(stages.index('identity'), stages.index('translation'))
         self.assertLess(stages.index('translation'), stages.index('save'))
-
-    def test_explicit_external_usage_is_confirmed_in_same_click(self):
-        self.connect(57); self.wait_for('ready')
-        self.assertEqual(self.snapshot().external_used, 57)
-
-    def test_default_does_not_erase_existing_nonzero_usage(self):
-        self.ledger.confirm_baseline('123456789', self.snapshot().month, 57, self.controller.clock())
-        self.connect(); self.wait_for('ready')
-        self.assertEqual(self.snapshot().external_used, 57)
-
-    def test_explicit_lower_baseline_fails_before_cloud_without_erasing_usage(self):
-        self.ledger.confirm_baseline('123456789', self.snapshot().month, 57, self.controller.clock())
-        self.connect(0)
-        error = next(event for event in self.wait_for('error') if event['kind'] == 'error')
-        self.assertEqual(error['stage'], 'usage')
-        self.assertIn('不能调低', error['message'])
-        self.assertEqual(self.engines, [])
-        self.assertIsNone(self.store.value)
-
-    def test_invalid_external_usage_never_starts_identity(self):
-        entered = []
-        self.setup.identity = SimpleNamespace(resolve=lambda credentials: entered.append(True))
-        for value in (-1, True, '0', 1.5):
-            with self.subTest(value=value):
-                self.assertTrue(callable(getattr(self.setup, 'connect', None)), '缺少一键配置入口')
-                with self.assertRaises(ValueError): self.setup.connect(self.credentials, value)
-        self.assertEqual(entered, [])
-        self.assertFalse(self.controller.configuration_held)
 
     def test_duplicate_connect_cannot_start_second_identity_request(self):
         entered, release = threading.Event(), threading.Event()
@@ -87,7 +53,7 @@ class OneClickSetupTests(unittest.TestCase):
         self.assertNotIn(self.credentials.access_key_secret, str(events))
         self.assertEqual(self.engines, [])
 
-    def test_translation_failure_reports_safe_actionable_error_and_retains_reservation(self):
+    def test_translation_failure_reports_safe_actionable_error(self):
         engine = fixtures.Engine(self.credentials)
         engine.translate = lambda job: (_ for _ in ()).throw(TranslationError('permission', 'unsafe provider text'))
         self.setup.engine_factory = lambda credentials: engine
@@ -97,7 +63,6 @@ class OneClickSetupTests(unittest.TestCase):
         self.assertEqual(error['stage'], 'translation')
         self.assertIn('权限', error['message'])
         self.assertNotIn('unsafe provider', str(events))
-        self.assertEqual(self.snapshot().local_reserved, 2)
         self.assertIsNone(self.store.value)
 
     def test_save_failure_is_distinguished_from_successful_translation(self):
@@ -107,7 +72,6 @@ class OneClickSetupTests(unittest.TestCase):
         self.assertEqual(error['stage'], 'save')
         self.assertIn('加密保存', error['message'])
         self.assertNotIn('private-path', str(error))
-        self.assertEqual(self.snapshot().local_reserved, 2)
         self.assertEqual(self.controller.account, 'unconfigured')
 
     def test_cancel_during_identity_never_reaches_translation_or_save(self):

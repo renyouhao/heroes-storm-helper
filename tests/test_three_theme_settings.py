@@ -161,7 +161,7 @@ class SettingsPageTests(unittest.TestCase):
             controller=SimpleNamespace(account_setup=object(), source=SimpleNamespace(
                 reconnect=lambda: self.actions.append('reconnect'))),
             configure_account=lambda: self.actions.append('account'),
-            confirm_usage=lambda: self.actions.append('usage'),
+            open_cloud_quota=lambda: self.actions.append('quota'),
             stop=lambda: self.actions.append('stop'), start=lambda: self.actions.append('start'),
             choose_process=lambda: self.actions.append('process'),
             apply_settings=lambda: self.actions.append('apply'),
@@ -242,14 +242,14 @@ class SettingsPageTests(unittest.TestCase):
                     self.assertGreater(canvas.yview()[0], 0)
                 dialog.cancel()
 
-    def test_account_usage_and_connection_actions_remain_reachable(self):
+    def test_account_and_connection_actions_remain_reachable(self):
         dialog = SettingsDialog(self.window)
         buttons = {str(w.cget('text')): w for w in self.widgets(dialog.dialog)
                    if isinstance(w, ttk.Button)}
-        for label in ('个人阿里云密钥', '确认本月其他用量', '手动重新连接',
+        for label in ('个人阿里云密钥', '查询剩余额度', '手动重新连接',
                       '停止采集', '恢复采集', '选择游戏进程'):
             buttons[label].invoke()
-        self.assertEqual(self.actions, ['account', 'usage', 'reconnect', 'stop', 'start', 'process'])
+        self.assertEqual(self.actions, ['account', 'quota', 'reconnect', 'stop', 'start', 'process'])
         dialog.cancel()
 
 
@@ -260,8 +260,7 @@ class RuntimeSettingsTransactionTests(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         base = Path(folder.name)
         self.path = base / 'settings.json'
-        controller = build_controller(AppPaths(base / '.env', base / 'usage.db',
-                                               base / 'language.db', self.path), True)
+        controller = build_controller(AppPaths(base / '.env', base / 'language.db', self.path), True)
         root = tk.Tk()
         root.withdraw()
         self.metrics = DisplayMetrics((10000, 10000, 11920, 11020), 1)

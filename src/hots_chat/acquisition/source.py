@@ -8,6 +8,9 @@ from .discovery import discover, DiscoveryCancelled, DiscoveryPending, Increment
 from ..models import AppEvent, ChatEvent
 
 
+MATCH_CHANNELS = ('团队', '所有玩家')
+
+
 class ChatSource:
     def __init__(self, selected_pid=None, process_finder=find_game_processes, game_factory=ReadOnlyGame, clock=None):
         self.selected_pid = selected_pid
@@ -50,7 +53,6 @@ class ChatSource:
         capture_state = None
         probe = None
         census = True
-        last_activity = self.clock()
         next_probe = 0.
         recent_locations = ()
 
@@ -139,7 +141,8 @@ class ChatSource:
                                 self._stop.wait(.5);continue
                             if locator is None:
                                 ignored={root:cursor for (process,root),cursor in cursors.items() if process==pid} if skip_unchanged else {}
-                                locator=IncrementalDiscovery(game,self._stop,ignore_snapshots=ignored,preferred_addresses=recent_locations)
+                                locator=IncrementalDiscovery(game,self._stop,ignore_snapshots=ignored,
+                                    preferred_addresses=recent_locations,channels=MATCH_CHANNELS)
                             calibrated=locator.step()
                             if calibrated is None:
                                 if locator.finished:
@@ -148,11 +151,11 @@ class ChatSource:
                         else:
                             transition('正在接入；首次有限补收最近 5 条聊天，随后持续接收。')
                             state('正在连接游戏聊天')
-                            calibrated=discover(game,self._stop)
+                            calibrated=discover(game,self._stop,channels=MATCH_CHANNELS)
                         if self._stop.is_set():break
 
                         reader=HistoryReader(game,calibrated.root,initial_tail=5,
-                                             channels=('团队','所有玩家'))
+                                             channels=MATCH_CHANNELS)
                         cursor=cursors.get((pid,reader.root))
                         if cursor:
                             reader.last_head,reader.last_stamp=cursor
@@ -162,7 +165,7 @@ class ChatSource:
                             raise HistoryInvalid('校准时历史变化，自动重试')
                         has_baseline=True
                         locator=None
-                        probe=None;last_activity=self.clock()
+                        probe=None
                         remember()
                         state('已连接')
                         emit(AppEvent('status',self.generation,'已连接，等待新的游戏内聊天。'))
@@ -170,23 +173,21 @@ class ChatSource:
                     if result is None:result=reader.poll()
                     publish(result)
                     if not result.retry:remember()
-                    if result.messages:
-                        last_activity=self.clock()
-                        if not census:probe=None
                     # A readable old tree can outlive a match. Inventory other
-                    # existing roots once, then probe only after quiet periods.
-                    if census or (not result.messages and self.clock()-last_activity>=10 and self.clock()>=next_probe):
+                    # roots on a bounded schedule even while this tree is active.
+                    # Activity must not reset an in-progress scan or starve a new match.
+                    if census or self.clock()>=next_probe:
                         if probe is None:
                             remember()
                             ignored={root:cursor for (process,root),cursor in cursors.items() if process==pid}
-                            probe=IncrementalDiscovery(game,self._stop,ignore_snapshots=ignored,preferred_addresses=recent_locations)
+                            probe=IncrementalDiscovery(game,self._stop,ignore_snapshots=ignored,
+                                preferred_addresses=recent_locations,channels=MATCH_CHANNELS)
                         candidate=probe.step()
                         if candidate is not None:
                             if candidate.root==reader.root:
                                 # The main reader owns this cursor. Any append seen by
                                 # discovery is delivered by its next poll, exactly once.
                                 probe.ignore_snapshots[reader.root]=(reader.last_head,reader.last_stamp)
-                                if not census:probe=None;next_probe=self.clock()+30
                             elif census:
                                 check=HistoryReader(game,reader.root)
                                 checked=check.poll()
@@ -196,7 +197,7 @@ class ChatSource:
                                     raise HistoryCleared('History cleared during inventory')
                                 try:
                                     baseline=HistoryReader(game,candidate.root,initial_tail=5,
-                                                           channels=('团队','所有玩家'))
+                                                           channels=MATCH_CHANNELS)
                                     cursor=cursors.get((pid,candidate.root))
                                     if cursor:
                                         baseline.last_head,baseline.last_stamp=cursor
@@ -215,17 +216,24 @@ class ChatSource:
                                 remember()
                                 cursor=cursors.get((pid,candidate.root))
                                 replacement=HistoryReader(game,candidate.root,initial_tail=5,
-                                                          channels=('团队','所有玩家'))
+                                                          channels=MATCH_CHANNELS)
                                 if cursor:
                                     replacement.last_head,replacement.last_stamp=cursor
                                     replacement.initialized=True
                                 try:recovered=replacement.poll()
                                 except (HistoryInvalid,OSError,ValueError,RuntimeError):recovered=None
                                 if recovered is not None and not recovered.retry:
-                                    reader=replacement;recovering=True;probe=None
-                                    last_activity=self.clock();next_probe=self.clock()+30
-                                    transition('已自动切换对局聊天，历史消息保留。')
-                                    publish(recovered)
+                                    if recovered.messages:
+                                        reader=replacement;recovering=True;probe=None
+                                        next_probe=self.clock()+30
+                                        transition('已自动切换对局聊天，历史消息保留。')
+                                        publish(recovered)
+                                    else:
+                                        # An old mixed tree may change only in lobby channels.
+                                        # Commit that empty delta without replacing the live match.
+                                        snapshot=(replacement.last_head,replacement.last_stamp)
+                                        probe.ignore_snapshots[candidate.root]=snapshot
+                                        save_cursor(candidate.root,*snapshot)
                         elif probe.finished:
                             census=False;probe=None;next_probe=self.clock()+30
                 except DiscoveryCancelled:

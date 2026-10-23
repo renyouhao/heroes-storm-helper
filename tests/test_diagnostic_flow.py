@@ -13,7 +13,6 @@ import zipfile
 from hots_chat.controller import ChatController
 from hots_chat.diagnostics import DiagnosticRecorder
 from hots_chat.models import AppEvent, ChatEvent, TranslationResult
-from hots_chat.usage import BudgetLedger
 from hots_chat.translation.base import TranslationError
 from tests.test_controller import Source
 
@@ -43,10 +42,8 @@ class DiagnosticFlowTests(unittest.TestCase):
         self.recorder = DiagnosticRecorder(self.base / 'logs', enabled=True)
         self.addCleanup(self.recorder.close)
         self.now = datetime(2026, 10, 22, tzinfo=timezone.utc)
-        ledger = BudgetLedger(self.base / 'usage.db')
-        ledger.confirm_baseline('main', '2026-10', 0, self.now)
         self.engine = FlowEngine()
-        self.controller = ChatController(Source(), self.engine, ledger, 'main', lambda: self.now,
+        self.controller = ChatController(Source(), self.engine, 'main', lambda: self.now,
                                          diagnostics=self.recorder)
         self.addCleanup(self.controller.close)
 
@@ -60,16 +57,17 @@ class DiagnosticFlowTests(unittest.TestCase):
             return [json.loads(line) for name in archive.namelist() if name.startswith('helper.log')
                     for line in archive.read(name).decode().splitlines()]
 
-    def test_request_reservation_settlement_and_result_share_identifiers(self):
+    def test_request_and_result_share_identifiers_without_usage_events(self):
         self.controller.on_chat(ChatEvent('fixture-message', 0, '团队', 'private-name', '00:01', 'hello'))
         self.wait_idle()
         rows = self.rows()
         events = {row['event'] for row in rows}
         self.assertTrue({'message.received', 'translation.submitted', 'translation.request',
-                         'usage.reserve', 'usage.settle', 'translation.result'} <= events)
+                         'translation.result'} <= events)
+        self.assertFalse(any(event.startswith('usage.') for event in events))
         submitted = next(r for r in rows if r['event'] == 'translation.submitted')
         self.assertEqual(submitted['message_id'], 'fixture-message')
-        for kind in ('translation.request', 'usage.reserve', 'usage.settle', 'translation.result'):
+        for kind in ('translation.request', 'translation.result'):
             self.assertTrue(any(r['event'] == kind and r['job_id'] == submitted['job_id'] for r in rows))
         result = next(r for r in rows if r['event'] == 'translation.result')
         self.assertEqual(result['request_id'], 'request-123')
@@ -163,7 +161,7 @@ class DiagnosticFlowTests(unittest.TestCase):
         from hots_chat.paths import AppPaths
         saved = SimpleNamespace(credentials=Credentials('fixture-key-id', 'fixture-old-secret'), account='fixture-account')
         store = SimpleNamespace(load=lambda: saved)
-        paths = AppPaths(self.base / '.env', self.base / 'startup.db', self.base / 'language.db', self.base / 'preferences.json')
+        paths = AppPaths(self.base / '.env', self.base / 'language.db', self.base / 'preferences.json')
         with patch('hots_chat.credentials.CredentialStore', return_value=store):
             controller = build_controller(paths, diagnostics=self.recorder)
         try:

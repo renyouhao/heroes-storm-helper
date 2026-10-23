@@ -15,12 +15,9 @@ class MessageView:
 
 class AppViewModel:
     def __init__(self):
-        self.generation=0; self.messages=OrderedDict(); self.usage_snapshot=None
-        self.status='就绪；开始前请确认本月用量。'
+        self.generation=0; self.messages=OrderedDict()
+        self.status='就绪。'
         self.expected_job=None; self.copy_text=''; self.manual_provenance=''
-
-    @property
-    def can_translate(self): return bool(self.usage_snapshot and self.usage_snapshot.confirmed)
 
     def apply(self,event):
         if event.kind=='generation':
@@ -58,9 +55,6 @@ class AppViewModel:
             self.status=p['error']
             message=self.messages.get(p.get('message_id'))
             if message and message.event.generation==event.generation: message.status=p['error']
-            return 'applied'
-        elif event.kind=='usage':
-            self.usage_snapshot=p
             return 'applied'
         elif event.kind in ('status','gap'):
             self.status=str(p)

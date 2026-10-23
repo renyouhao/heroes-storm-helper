@@ -9,7 +9,7 @@ class ViewModelTests(unittest.TestCase):
         vm.apply(AppEvent('result',0,{'message_id':'509','translated':'你好','engine_translation':'你好'}))
         self.assertEqual(len(vm.messages),500)
         self.assertEqual(vm.messages['509'].engine_translation,'你好')
-        self.assertFalse(vm.can_translate)
+        self.assertFalse(hasattr(vm, 'usage_snapshot'))
     def test_copy_uses_translation_and_stale_generation_rejected(self):
         vm=AppViewModel(); vm.expected_job='new'
         vm.apply(AppEvent('manual_result',0,{'job_id':'old','translated':'wrong'}))
@@ -93,3 +93,86 @@ class ViewModelTests(unittest.TestCase):
         self.assertEqual(len(vm.messages),500)
         self.assertEqual(next(iter(vm.messages.values())).original,'old 1')
         self.assertEqual(next(reversed(vm.messages.values())).original,'new 500')
+
+
+class TranslationConfigurationTests(unittest.TestCase):
+    def test_configured_translation_does_not_require_a_usage_ledger(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from hots_chat.ui.main_window import MainWindow
+        window = MainWindow.__new__(MainWindow)
+        window.controller = SimpleNamespace(cloud_configured=True, configuration_held=False,
+                                            pause_translation=Mock())
+        window.cloud = Mock()
+        window.service_label = Mock()
+        self.assertTrue(callable(getattr(window, "enable_configured_cloud", None)))
+        window.enable_configured_cloud()
+        window.cloud.set.assert_called_once_with(True)
+        window.controller.pause_translation.assert_called_once_with(False)
+        window.service_label.configure.assert_called_with(text='翻译服务：已配置')
+
+    def test_missing_credentials_keeps_original_text_mode(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from hots_chat.ui.main_window import MainWindow
+        window = MainWindow.__new__(MainWindow)
+        window.controller = SimpleNamespace(cloud_configured=False, configuration_held=False,
+                                            pause_translation=Mock())
+        window.cloud = Mock()
+        window.service_label = Mock()
+        self.assertTrue(callable(getattr(window, "enable_configured_cloud", None)))
+        window.enable_configured_cloud()
+        window.cloud.set.assert_called_once_with(False)
+        window.controller.pause_translation.assert_called_once_with(True)
+        window.service_label.configure.assert_called_with(text='翻译服务：未配置 · 接收原文')
+
+    def test_configuration_hold_keeps_cloud_switch_disabled(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from hots_chat.ui.main_window import MainWindow
+        window = MainWindow.__new__(MainWindow)
+        window.controller = SimpleNamespace(cloud_configured=True, configuration_held=True,
+                                            pause_translation=Mock())
+        window.cloud = Mock(get=lambda: True)
+        window.service_label = Mock()
+        window.toggle_cloud()
+        window.cloud.set.assert_called_once_with(False)
+        window.controller.pause_translation.assert_called_once_with(True)
+
+
+class CloudQuotaLinkTests(unittest.TestCase):
+    def window(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from hots_chat.ui.main_window import MainWindow
+        window = MainWindow.__new__(MainWindow)
+        # No engine, identity, or account service exists: this is only a browser link.
+        window.controller = SimpleNamespace(cloud_configured=False)
+        window.status_var = Mock()
+        self.assertTrue(callable(getattr(window, 'open_cloud_quota', None)))
+        return window
+
+    def test_unconfigured_user_can_open_exact_console_url_without_cloud_calls(self):
+        from unittest.mock import patch
+        window = self.window()
+        with patch('webbrowser.open', return_value=True) as browser:
+            self.assertTrue(window.open_cloud_quota())
+        browser.assert_called_once_with('https://mt.console.aliyun.com/service')
+        text = window.status_var.set.call_args.args[0]
+        self.assertIn('登录', text)
+        self.assertNotIn('查询成功', text)
+
+    def test_browser_failure_shows_manual_url_and_allows_retry(self):
+        from unittest.mock import patch
+        for failure in (False, OSError('no browser')):
+            with self.subTest(failure=failure):
+                window = self.window()
+                kwargs = {'side_effect': failure} if isinstance(failure, Exception) else {'return_value': failure}
+                with patch('webbrowser.open', **kwargs):
+                    self.assertFalse(window.open_cloud_quota())
+                text = window.status_var.set.call_args.args[0]
+                self.assertIn('https://mt.console.aliyun.com/service', text)
+                self.assertIn('手动', text)
+                with patch('webbrowser.open', return_value=True) as browser:
+                    self.assertTrue(window.open_cloud_quota())
+                browser.assert_called_once_with('https://mt.console.aliyun.com/service')

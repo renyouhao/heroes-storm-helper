@@ -12,7 +12,6 @@ from hots_chat.acquisition.memory import GameProcess
 from hots_chat.acquisition.source import ChatSource
 from hots_chat.controller import ChatController
 from hots_chat.models import TranslationResult
-from hots_chat.usage import BudgetLedger
 from test_history import FakeMemory, chat_line
 from test_lobby_recovery_latency import VirtualStop
 from test_party_whisper_acquisition import party_out, whisper_out
@@ -36,7 +35,7 @@ class FirstChatCaptureTests(unittest.TestCase):
                             game_factory=lambda pid: game, clock=lambda: clock[0])
         source._stop = VirtualStop(clock, deadline, advance)
         with patch('hots_chat.acquisition.source.discover',
-                   side_effect=discovery or (lambda *args: SimpleNamespace(root=game.root))):
+                   side_effect=discovery or (lambda *args, **kwargs: SimpleNamespace(root=game.root))):
             source._run(events.append)
         self.assertTrue(game.closed)
         return source, events
@@ -123,7 +122,7 @@ class FirstChatCaptureTests(unittest.TestCase):
         game = FirstChatGame()
         game.set_nodes([chat_line('hi')])
 
-        def discovery(*args):
+        def discovery(*args, **kwargs):
             game.set_nodes([chat_line('hi'), chat_line('hello')])
             return SimpleNamespace(root=game.root)
 
@@ -255,9 +254,7 @@ class FirstChatCaptureTests(unittest.TestCase):
         engine = Engine()
         now = lambda: datetime(2026, 10, 21, tzinfo=timezone.utc)
         with tempfile.TemporaryDirectory() as folder:
-            ledger = BudgetLedger(Path(folder) / 'synthetic-usage.db', 100)
-            ledger.confirm_baseline('synthetic', '2026-10', 0, now())
-            controller = ChatController(source, engine, ledger, 'synthetic', now)
+            controller = ChatController(source, engine, 'synthetic', now)
             try:
                 for event in source_events:
                     controller.handle_source_event(event)
@@ -266,7 +263,6 @@ class FirstChatCaptureTests(unittest.TestCase):
                 results = [event.payload for event in controller.drain_events() if event.kind == 'result']
                 self.assertEqual([(row['original'], row['translated']) for row in results], [('hi', '你好')])
                 self.assertEqual(engine.calls, [('hi', 'en', 'zh')])
-                self.assertEqual(ledger.snapshot('synthetic', now()).local_reserved, 2)
             finally:
                 controller.close()
 

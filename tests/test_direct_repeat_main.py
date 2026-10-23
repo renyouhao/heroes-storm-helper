@@ -14,7 +14,7 @@ class DirectRepeatMainTests(unittest.TestCase):
         from hots_chat.window_settings import WindowSettings
         for arguments, enabled in (([], True), (['--demo'], False)):
             with self.subTest(arguments=arguments):
-                controller = SimpleNamespace(ledger=Mock(), close=Mock())
+                controller = SimpleNamespace(close=Mock())
                 mutex = SimpleNamespace(acquire=lambda:True, close=Mock())
                 root = SimpleNamespace(mainloop=Mock())
                 with patch('hots_chat.app.SingleInstance', return_value=mutex), \

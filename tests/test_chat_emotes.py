@@ -1,7 +1,5 @@
 """游戏图片表情在统一入口规范；只使用合成内存和离线翻译引擎。"""
 from datetime import datetime, timezone
-from pathlib import Path
-import tempfile
 import time
 import unittest
 
@@ -13,7 +11,6 @@ from hots_chat.controller import ChatController
 from hots_chat.models import ChatEvent, TranslationResult
 from hots_chat.translation.base import TranslationError
 from hots_chat.ui.viewmodel import AppViewModel
-from hots_chat.usage import BudgetLedger
 from test_history import chat_line
 from test_lobby_native import FixtureMetadata
 from test_persistent_flow import IndependentGameHandle, SharedGameMemory
@@ -51,13 +48,9 @@ class RecordingEngine:
 
 class ChatEmoteTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temporary.cleanup)
         self.now = datetime(2026, 10, 22, tzinfo=timezone.utc)
-        self.ledger = BudgetLedger(Path(self.temporary.name) / 'usage.db')
-        self.ledger.confirm_baseline('main', '2026-10', 0, self.now)
         self.engine = RecordingEngine()
-        self.controller = ChatController(OfflineSource(), self.engine, self.ledger, 'main', lambda: self.now)
+        self.controller = ChatController(OfflineSource(), self.engine, 'main', lambda: self.now)
         self.addCleanup(self.controller.close)
 
     def wait_for_translation(self):
@@ -73,14 +66,12 @@ class ChatEmoteTests(unittest.TestCase):
         self.wait_for_translation()
         self.assertEqual([event.text for event in self.controller.messages.values()], ['[表情][表情]'] * 4)
         self.assertEqual(self.engine.calls, [])
-        self.assertEqual(self.ledger.snapshot('main', self.now).local_reserved, 0)
 
     def test_chinese_with_image_does_not_route_asset_path_as_english(self):
         self.controller.on_chat(self.chat('集合 ' + IMAGE))
         self.wait_for_translation()
         self.assertEqual(self.controller.messages['message'].text, '集合 [表情]')
         self.assertEqual(self.engine.calls, [])
-        self.assertEqual(self.ledger.snapshot('main', self.now).local_reserved, 0)
 
     def test_mixed_english_and_korean_keep_language_and_send_cleaned_text(self):
         self.controller.on_chat(self.chat('go ' + IMAGE + ' now', 'english'))
@@ -88,7 +79,6 @@ class ChatEmoteTests(unittest.TestCase):
         self.wait_for_translation()
         self.assertEqual([(job.text, job.source) for job in self.engine.calls],
                          [('go [表情] now', 'en'), ('같이 [表情] 가요', 'ko')])
-        self.assertEqual(self.ledger.snapshot('main', self.now).local_reserved, 21)
 
     def test_original_context_ui_and_retry_share_cleaned_frozen_event(self):
         self.engine.fail_next = True
@@ -112,7 +102,6 @@ class ChatEmoteTests(unittest.TestCase):
         self.assertEqual([job.text for job in self.engine.calls], ['go [表情] now'] * 2)
         self.assertEqual([event.payload['original'] for event in events if event.kind == 'result'],
                          ['go [表情] now'])
-        self.assertEqual(self.ledger.snapshot('main', self.now).local_reserved, 22)
 
     def test_image_only_chat_cannot_be_retried_as_asset_path_text(self):
         self.controller.on_chat(self.chat(IMAGE))
@@ -120,7 +109,6 @@ class ChatEmoteTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '仅支持英文和韩文'):
             self.controller.retry_message('message')
         self.assertEqual(self.engine.calls, [])
-        self.assertEqual(self.ledger.snapshot('main', self.now).local_reserved, 0)
 
     def test_valid_game_images_handle_case_quotes_and_adjacent_tags(self):
         self.controller.pause_translation(True)
@@ -166,7 +154,6 @@ class ChatEmoteTests(unittest.TestCase):
         self.controller.on_chat(self.chat('go <img path="' + '图' * 1400 + '.dds"/>'))
         self.wait_for_translation()
         self.assertEqual(self.engine.calls, [])
-        self.assertEqual(self.ledger.snapshot('main', self.now).local_reserved, 0)
         self.assertTrue(any(event.kind == 'error' and '过长' in event.payload['error']
                             for event in self.controller.drain_events()))
 
@@ -179,7 +166,6 @@ class ChatEmoteTests(unittest.TestCase):
         self.wait_for_translation()
         self.assertIs(self.controller.messages[original.message_id], original)
         self.assertEqual(self.engine.calls, [])
-        self.assertEqual(self.ledger.snapshot('main', self.now).local_reserved, 0)
 
     def test_retry_accepts_text_at_the_original_byte_limit(self):
         self.controller.pause_translation(True)
@@ -188,7 +174,6 @@ class ChatEmoteTests(unittest.TestCase):
         self.controller.retry_message('message')
         self.wait_for_translation()
         self.assertEqual([job.text for job in self.engine.calls], ['x' * 4096])
-        self.assertEqual(self.ledger.snapshot('main', self.now).local_reserved, 4096)
 
     def test_overlong_and_malformed_text_processing_stays_bounded(self):
         self.controller.pause_translation(True)
@@ -247,7 +232,6 @@ class ChatEmoteTests(unittest.TestCase):
         self.assertEqual({event.channel: event.text for event in self.controller.messages.values()},
                          {'团队': '[表情]', '所有玩家': '[表情]', '队伍': '[表情]', '密语': '[表情]'})
         self.assertEqual(self.engine.calls, [])
-        self.assertEqual(self.ledger.snapshot('main', self.now).local_reserved, 0)
 
         backend.set_lobby(lobby + [('密语', 'go ' + IMAGE + ' now')])
         backend.update_match(match + [chat_line('같이 ' + IMAGE + ' 가요')])
@@ -255,7 +239,6 @@ class ChatEmoteTests(unittest.TestCase):
         self.wait_for_translation()
         self.assertEqual({(job.text, job.source) for job in self.engine.calls},
                          {('go [表情] now', 'en'), ('같이 [表情] 가요', 'ko')})
-        self.assertEqual(self.ledger.snapshot('main', self.now).local_reserved, 21)
 
 
 if __name__ == '__main__':

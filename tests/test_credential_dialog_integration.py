@@ -1,4 +1,4 @@
-"""隐藏的真实 Tk 控件 + 配置服务/账本/DPAPI；所有云边界均为受控离线服务。"""
+"""隐藏的真实 Tk 控件 + 配置服务/DPAPI；所有云边界均为受控离线服务。"""
 from datetime import datetime, timezone
 import os
 from pathlib import Path
@@ -91,8 +91,7 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory(prefix='hots-config-acceptance-')
         self.addCleanup(self.tmp.cleanup)
         folder = Path(self.tmp.name)
-        self.paths = AppPaths(folder / '.env', folder / 'usage.sqlite3',
-                              folder / 'language.sqlite3', folder / 'preferences.json')
+        self.paths = AppPaths(folder / '.env', folder / 'language.sqlite3', folder / 'preferences.json')
         # Any accidental use of a real network boundary fails the test.
         self.dns = patch.object(socket, 'getaddrinfo', side_effect=AssertionError('network forbidden'))
         self.connect = patch.object(socket.socket, 'connect', side_effect=AssertionError('network forbidden'))
@@ -162,27 +161,23 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         dialog.key.set(credentials.access_key_id)
         dialog.secret.set(credentials.access_key_secret)
 
-    def save(self, dialog, credentials=KEYS, external=None):
+    def save(self, dialog, credentials=KEYS):
         self.fill_credentials(dialog, credentials)
-        if external is not None:
-            dialog.baseline.set(str(external))
         dialog.connect_button.invoke()
         self.spin_until(lambda: not self.service.busy and self.service.state == 'ready'
                         and '配置成功' in dialog.status.get())
 
-    def test_single_click_with_default_zero_enables_translation(self):
+    def test_single_click_without_usage_input_enables_translation(self):
         dialog = self.open_dialog()
-        self.assertEqual(dialog.baseline.get(), '0')
-        self.assertEqual(str(dialog.baseline_entry['state']), 'normal')
+        self.assertFalse(hasattr(dialog, 'baseline_entry'))
+        self.assertFalse(hasattr(self.controller, 'ledger'))
         self.save(dialog)
         self.assertEqual(self.identity.calls, [KEYS])
         self.assertEqual(len(self.engines), 1)
         self.assertEqual(len(self.engines[0].calls), 1)
-        self.assertEqual(self.controller.ledger.snapshot(ACCOUNT, NOW).external_used, 0)
         self.assertTrue(self.controller.cloud_configured)
         self.assertFalse(self.controller.paused)
         self.assertFalse(self.controller.configuration_held)
-        self.assertEqual(self.reserved(), 2)
         dialog.cancel()
         self.assert_translates()
 
@@ -196,7 +191,7 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.assertTrue(candidate.entered.wait(2))
         self.window.pump()
         self.assertTrue(self.service.busy)
-        for widget in (dialog.connect_button, dialog.baseline_entry,
+        for widget in (dialog.connect_button,
                        dialog.key_entry, dialog.secret_entry,
                        dialog.import_button, dialog.delete_button):
             self.assertEqual(str(widget['state']), 'disabled')
@@ -206,9 +201,9 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.spin_until(lambda: not self.service.busy and '配置成功' in dialog.status.get())
         self.assertEqual(str(dialog.connect_button['state']), 'normal')
 
-    def configured(self, external=0):
+    def configured(self):
         dialog = self.open_dialog()
-        self.save(dialog, external=external)
+        self.save(dialog)
         dialog.cancel()
         self.assertFalse(self.controller.paused)
         return self.controller.engine
@@ -226,8 +221,6 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         message_id = self.raw_message()
         self.spin_until(lambda: bool(self.window.vm.messages[message_id].engine_translation))
 
-    def reserved(self, account=ACCOUNT):
-        return self.controller.ledger.snapshot(account, NOW).local_reserved
 
     def test_skip_fresh_configuration_keeps_raw_messages_without_network_or_credentials(self):
         dialog = self.open_dialog()
@@ -306,21 +299,8 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.assertFalse(self.controller.paused)
         self.assert_translates()
 
-    def test_empty_negative_and_noninteger_external_usage_block_before_identity(self):
-        dialog = self.open_dialog()
-        self.fill_credentials(dialog)
-        for value in ('', '-1', '1.5', 'unknown'):
-            with self.subTest(value=value):
-                dialog.baseline.set(value)
-                dialog.connect_button.invoke()
-                self.assertIn('非负整数', dialog.status.get())
-                self.assertEqual(self.identity.calls, [])
-                self.assertEqual(self.engines, [])
-                self.assertEqual(self.reserved(), 0)
-                self.assertFalse(self.controller.configuration_held)
-                self.assertFalse(self.paths.credentials_file.exists())
 
-    def test_translation_network_failure_keeps_old_key_and_accounts_for_attempt(self):
+    def test_translation_network_failure_keeps_old_key(self):
         previous = self.configured()
         encrypted = self.paths.credentials_file.read_bytes()
         failed = ControlledEngine(NEXT_KEYS)
@@ -331,7 +311,6 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         dialog.connect_button.invoke()
         self.spin_until(lambda: not self.service.busy and '配置未完成' in dialog.status.get())
         self.assertIn('翻译测试', dialog.status.get())
-        self.assertEqual(self.reserved(), 4)
         self.assertTrue(failed.closed)
         self.assertEqual(str(dialog.connect_button['state']), 'normal')
         self.assertNotIn(NEXT_KEYS.access_key_secret, dialog.status.get())
@@ -340,7 +319,7 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.assertIs(self.controller.engine, previous)
         self.assert_translates()
 
-    def test_cancel_during_translation_keeps_usage_and_discards_late_success(self):
+    def test_cancel_during_translation_discards_late_success(self):
         previous = self.configured()
         encrypted = self.paths.credentials_file.read_bytes()
         candidate = ControlledEngine(NEXT_KEYS); candidate.release.clear()
@@ -349,13 +328,11 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.fill_credentials(dialog, NEXT_KEYS)
         dialog.connect_button.invoke()
         self.assertTrue(candidate.entered.wait(2))
-        self.assertEqual(self.reserved(), 4)
         dialog.cancel(); candidate.release.set()
         self.spin_until(lambda: not self.service.busy)
         self.assertTrue(candidate.closed)
         self.assertEqual(self.paths.credentials_file.read_bytes(), encrypted)
         self.assertIs(self.controller.engine, previous)
-        self.assertEqual(self.reserved(), 4)
         self.assertFalse(self.controller.paused)
         self.assert_translates()
 
@@ -375,7 +352,6 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         finally:
             reloaded.account_setup.close(); reloaded.close()
         dialog.cancel()
-        self.assertEqual(self.reserved(), 2)
         self.assert_translates()
 
     def test_cancel_during_client_initialization_does_not_start_test_translation(self):
@@ -404,63 +380,30 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.assertTrue(candidate.closed)
         self.assertIs(self.controller.engine, previous)
         self.assertEqual(self.paths.credentials_file.read_bytes(), encrypted)
-        self.assertEqual(self.reserved(), 4, '已预留的测试用量按保守规则继续保留。')
         self.assertFalse(self.controller.paused)
         self.assert_translates()
 
-    def test_same_account_default_keeps_external_baseline_and_prior_usage(self):
-        previous = self.configured(external=57)
+    def test_replacement_same_account_tests_and_saves_latest_credentials(self):
+        previous = self.configured()
         dialog = self.open_dialog()
-        self.assertEqual(dialog.baseline.get(), '57')
         self.save(dialog, NEXT_KEYS)
         saved = CredentialStore(self.paths.credentials_file).load()
         self.assertEqual(saved.credentials, NEXT_KEYS)
         self.assertEqual(saved.account, ACCOUNT)
         self.assertTrue(previous.closed)
-        self.assertEqual(self.reserved(), 4)
-        self.assertEqual(self.controller.ledger.snapshot(ACCOUNT, NOW).external_used, 57)
         dialog.cancel()
         self.assert_translates()
 
-    def test_untouched_previous_account_prefill_does_not_charge_new_account(self):
-        self.configured(external=57)
+    def test_replacement_different_account_changes_saved_identity(self):
+        previous = self.configured()
         self.identity.account = OTHER_ACCOUNT
         dialog = self.open_dialog()
-        self.assertEqual(dialog.baseline.get(), '57')
         self.save(dialog, NEXT_KEYS)
         self.assertEqual(self.controller.account, OTHER_ACCOUNT)
-        self.assertEqual(self.controller.ledger.snapshot(ACCOUNT, NOW).external_used, 57)
-        self.assertEqual(self.controller.ledger.snapshot(OTHER_ACCOUNT, NOW).external_used, 0)
-        self.assertEqual(self.reserved(ACCOUNT), 2)
-        self.assertEqual(self.reserved(OTHER_ACCOUNT), 2)
-
-    def test_lowering_same_month_baseline_is_rejected_before_translation(self):
-        previous = self.configured(external=57)
-        encrypted = self.paths.credentials_file.read_bytes()
-        dialog = self.open_dialog()
-        self.fill_credentials(dialog, NEXT_KEYS)
-        dialog.baseline.set('56')
-        dialog.connect_button.invoke()
-        self.spin_until(lambda: not self.service.busy and '配置未完成' in dialog.status.get())
-        self.assertIn('用量确认', dialog.status.get())
-        self.assertEqual(len(self.engines), 1)
-        self.assertEqual(self.controller.ledger.snapshot(ACCOUNT, NOW).external_used, 57)
-        self.assertEqual(self.reserved(), 2)
-        self.assertEqual(self.paths.credentials_file.read_bytes(), encrypted)
-        dialog.cancel()
-        self.assertIs(self.controller.engine, previous)
-        self.assertFalse(self.controller.paused)
-
-    def test_different_account_uses_its_own_ledger_without_erasing_old_account(self):
-        self.configured(external=57)
-        self.identity.account = OTHER_ACCOUNT
-        dialog = self.open_dialog(); self.save(dialog, NEXT_KEYS, external=91)
-        self.assertEqual(self.controller.account, OTHER_ACCOUNT)
-        self.assertEqual(self.reserved(ACCOUNT), 2)
-        self.assertEqual(self.reserved(OTHER_ACCOUNT), 2)
-        self.assertEqual(self.controller.ledger.snapshot(ACCOUNT, NOW).external_used, 57)
-        self.assertEqual(self.controller.ledger.snapshot(OTHER_ACCOUNT, NOW).external_used, 91)
         self.assertEqual(CredentialStore(self.paths.credentials_file).load().account, OTHER_ACCOUNT)
+        self.assertTrue(previous.closed)
+        dialog.cancel()
+        self.assert_translates()
 
     def test_connect_uses_latest_key_fields(self):
         dialog = self.open_dialog()
@@ -487,7 +430,6 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.assertEqual(self.identity.calls, [KEYS])
         self.assertEqual(len(self.engines), 1)
         self.assertEqual(len(self.engines[0].calls), 1)
-        self.assertEqual(self.reserved(), 2)
 
     def test_cancel_keeps_preexisting_paused_state(self):
         self.configured()
@@ -512,14 +454,12 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.assertIs(self.controller.engine, previous)
         self.assertFalse(self.controller.paused)
         self.assertEqual(self.paths.credentials_file.read_bytes(), encrypted)
-        self.assertEqual(self.reserved(), 2)
 
-    def test_delete_disables_cloud_keeps_usage_and_retains_raw_history(self):
-        self.configured(external=57)
+    def test_delete_disables_cloud_and_retains_raw_history(self):
+        self.configured()
         old_id = self.raw_message('raw before delete')
         self.spin_until(lambda: self.controller.idle)
         self.window.pump()
-        reserved = self.reserved()
         dialog = self.open_dialog()
         with patch('hots_chat.ui.credential_dialog.messagebox.askyesno', return_value=True):
             dialog.delete_button.invoke()
@@ -528,16 +468,13 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.assertTrue(self.controller.paused)
         self.assertFalse(self.controller.cloud_configured)
         self.assertEqual(self.window.account_button['text'], '配置云翻译')
-        self.assertEqual(self.reserved(), reserved)
-        self.assertEqual(self.controller.ledger.snapshot(ACCOUNT, NOW).external_used, 57)
         dialog.cancel()
         new_id = self.raw_message('raw after delete')
         self.assertTrue(self.window.tree.exists(old_id))
         self.assertTrue(self.window.tree.exists(new_id))
         self.assertEqual(self.window.vm.messages[new_id].engine_translation, '')
-        self.assertEqual(self.reserved(), reserved)
 
-    def test_encrypted_save_failure_preserves_previous_key_and_charges_attempt(self):
+    def test_encrypted_save_failure_preserves_previous_key(self):
         previous = self.configured()
         encrypted = self.paths.credentials_file.read_bytes()
         dialog = self.open_dialog()
@@ -548,7 +485,6 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.assertIn('加密保存', dialog.status.get())
         self.assertIs(self.controller.engine, previous)
         self.assertEqual(self.paths.credentials_file.read_bytes(), encrypted)
-        self.assertEqual(self.reserved(), 4)
         self.assertEqual(list(self.paths.credentials_file.parent.glob('credentials.dpapi.*.tmp')), [])
         dialog.cancel()
         self.assert_translates()

@@ -11,16 +11,15 @@ from .scheduler import PendingQueue
 from .spam import AutomaticGuard
 from .routing import incoming_source_language
 from .translation.base import TranslationError
-from .usage import BudgetError,character_count
 from .clock import now as real_now
 from .context import LocalContext
 from .channels import SUPPORTED_CHANNELS
-from .chat_text import normalize_chat_text
+from .chat_text import character_count,normalize_chat_text
 
 
 class ChatController:
-    def __init__(self,source,engine,ledger,account,clock=None,monotonic=None,diagnostics=None):
-        self.source,self.engine,self.ledger,self.account=source,engine,ledger,account
+    def __init__(self,source,engine,account,clock=None,monotonic=None,diagnostics=None):
+        self.source,self.engine,self.account=source,engine,account
         self.diagnostics=diagnostics
         self.clock=clock or real_now
         self.generation=0; self.paused=False; self.automatic_paused=False; self.stopped=False
@@ -81,7 +80,7 @@ class ChatController:
                     for job in jobs:
                         self._trace('translation.discarded',job_id=job.job_id,
                                     message_id=job.message_id,outcome='generation_change')
-                # 清除等待任务和订阅；在途请求仍记账但不向新一代发布。
+                # 清除等待任务和订阅；在途请求不向新一代发布。
                 self.pending.clear(); self.subscribers.clear()
                 # 重连/重新定位也会换代；本机防护窗口必须按单调时间自然过期。
                 self.messages.clear()
@@ -136,7 +135,7 @@ class ChatController:
                 retained=[]
                 # A shared request can have both kinds of subscriber. Only
                 # queued auto subscribers are cancelled; an active request
-                # completes normally and still passes through ledger settlement.
+                # completes normally.
                 for key,_ in list(self.pending.items):
                     manual=[]
                     for job in self.subscribers.get(key,[]):
@@ -159,7 +158,7 @@ class ChatController:
         with self.condition:
             if self.stopped:raise ValueError('助手已关闭。')
             if self.active is not None or self.pending.items:
-                raise ValueError('请先暂停并等待当前云请求结算。')
+                raise ValueError('请先暂停并等待当前云请求完成。')
             previous=self.engine
             self.engine,self.account=engine,account
             self.cache=BoundedTranslationCache()
@@ -281,42 +280,25 @@ class ChatController:
                         self.condition.notify_all();continue
                     self.guard.record_characters(job.text)
                 self.active=key
-            reservation=None; result=None; error=None; status='error'
-            stage='reserve';started=time.perf_counter()
+            result=None; error=None
+            started=time.perf_counter()
             try:
-                reservation=self.ledger.reserve(self.account,job.job_id,job.text,self.clock())
-                self._trace('usage.reserve',job_id=job.job_id,outcome='ok',characters=len(job.text))
-                # A configuration hold can arrive while the ledger is reserving.
                 # Authorize network start under the same lock as pause/hold.
                 with self.condition:
                     cancelled=self.stopped or self.paused or self.configuration_held
                 if cancelled:
-                    status='cancelled'
                     if not self.stopped:error='云翻译已暂停，待发请求已取消。'
                 else:
-                    stage='request'
                     self._trace('translation.request',job_id=job.job_id,message_id=job.message_id,outcome='start')
-                    result=self.engine.translate(job); status='ok'
-            except (BudgetError,TranslationError) as failure:
+                    result=self.engine.translate(job)
+            except TranslationError as failure:
                 error=str(failure)
-                self._trace('translation.failure',job_id=job.job_id,stage=stage,error_type=type(failure).__name__,
-                            error_code=getattr(failure,'kind','budget'),
+                self._trace('translation.failure',job_id=job.job_id,stage='request',error_type=type(failure).__name__,
+                            error_code=failure.kind,
                             provider_code=getattr(failure,'provider_code',None),elapsed_ms=(time.perf_counter()-started)*1000)
             except Exception as failure:
-                error='翻译失败，已保留用量；请检查本机配置后重试。'
-                self._trace('translation.failure',job_id=job.job_id,stage=stage,error_type=type(failure).__name__)
-            finally:
-                if reservation:
-                    try:
-                        self.ledger.settle(reservation,status,self.clock())
-                        self._trace('usage.settle',job_id=job.job_id,outcome=status)
-                    except BudgetError:
-                        self._trace('usage.settle',job_id=job.job_id,outcome='error',error_code='budget')
-                        error='账本结算失败，云翻译已暂停。'
-                        with self.condition:
-                            self.paused=True
-                            for pending_key,_ in list(self.pending.items):self._drop(pending_key,'账本异常，待发请求已取消。')
-                            self.pending.clear()
+                error='翻译失败；请检查本机配置后重试。'
+                self._trace('translation.failure',job_id=job.job_id,stage='request',error_type=type(failure).__name__)
             with self.condition:
                 subscribers=self.subscribers.pop(key,[])
                 if result and not error and not self.stopped:
@@ -330,8 +312,6 @@ class ChatController:
                             self._emit(AppEvent('error',subscriber.generation,{'message_id':subscriber.message_id,'job_id':subscriber.job_id,'error':error}))
                 self.active=None
                 self.condition.notify_all()
-                try: self._emit(AppEvent('usage',self.generation,self.ledger.snapshot(self.account,self.clock())))
-                except BudgetError as failure: self._emit(AppEvent('status',self.generation,str(failure)))
 
     def drain_events(self,limit=100):
         for _ in range(limit):

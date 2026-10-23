@@ -248,11 +248,12 @@ class SettingsDialog:
             ttk.Label(row, text=description, style='Muted.TLabel').pack(side='left')
 
     def _connection(self, parent):
-        section = self._section(parent, '翻译与用量', '额度未确认时接收原文；确认后才允许云翻译请求。')
+        section = self._section(parent, '翻译服务', '配置个人密钥后即可翻译；未配置时继续接收原文。')
         if hasattr(self.window.controller, 'account_setup'):
             ttk.Button(section, text='个人阿里云密钥', command=self.window.configure_account).pack(fill='x', pady=self._px(4))
             self._note(section, '配置、替换或删除自己的阿里云密钥。')
-        ttk.Button(section, text='确认本月其他用量', command=self.window.confirm_usage).pack(fill='x', pady=self._px(4))
+        ttk.Button(section, text='查询剩余额度', command=self.window.open_cloud_quota).pack(fill='x', pady=self._px(4))
+        self._note(section, '在默认浏览器打开阿里云控制台，登录后查看剩余额度与实际用量。')
         section = self._section(parent, '采集连接', '启动后自动接入，换局会自动恢复。以下操作立即生效。')
         for label, command in (
                 ('手动重新连接', self.window.controller.source.reconnect),

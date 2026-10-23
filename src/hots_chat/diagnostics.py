@@ -14,7 +14,7 @@ from . import __version__
 
 EVENTS = frozenset(('app.start', 'app.stop', 'capture.state', 'message.received',
     'translation.route', 'translation.submitted', 'translation.result', 'translation.failure',
-    'translation.request', 'translation.discarded', 'usage.reserve', 'usage.settle',
+    'translation.request', 'translation.discarded',
     'configuration.progress', 'ui.apply', 'hotkey.state', 'runtime.exception'))
 _TEXT = frozenset(('stage', 'outcome', 'source', 'target', 'message_id', 'job_id',
     'request_ref', 'request_id', 'error_type', 'error_code', 'channel', 'key_id_last4',

@@ -6,7 +6,6 @@ import sys
 from . import APP_NAME
 from .paths import AppPaths
 from .config import ConfigError
-from .usage import BudgetLedger,BudgetError
 from .controller import ChatController
 from .acquisition.persistent import PersistentChatSource
 from .translation.aliyun import AliyunEngine
@@ -50,7 +49,7 @@ def build_controller(paths,demo=False,diagnostics=None):
         engine=AliyunEngine(saved.credentials) if saved else UnconfiguredEngine()
         source=PersistentChatSource(**({'diagnostics':diagnostics} if diagnostics is not None else {}))
         account=saved.account if saved else 'unconfigured'
-    controller=ChatController(source,engine,BudgetLedger(paths.ledger_file),account,diagnostics=diagnostics)
+    controller=ChatController(source,engine,account,diagnostics=diagnostics)
     controller.is_demo=demo
     controller.cloud_configured=bool(demo or saved)
     controller.startup_notice=notice
@@ -96,7 +95,7 @@ def main(argv=None):
         paths=AppPaths.from_root(PROJECT_ROOT)
         if temporary:
             base=Path(temporary.name)
-            paths=AppPaths(base/'.env',base/'usage.sqlite3',base/'language.sqlite3',base/'preferences.json')
+            paths=AppPaths(base/'.env',base/'language.sqlite3',base/'preferences.json')
         if not args.demo:
             from .diagnostics import DiagnosticRecorder
             from .diagnostic_hooks import DiagnosticHooks
@@ -104,9 +103,6 @@ def main(argv=None):
             diagnostic_hooks=DiagnosticHooks(diagnostics)
             diagnostics.record('app.start',stage='startup')
         controller=build_controller(paths,args.demo,diagnostics=diagnostics)
-        if args.demo:
-            from .clock import now,month_key
-            controller.ledger.confirm_baseline('main',month_key(now()),0,now())
         import tkinter as tk
         from .ui.main_window import create_app
         from .window_settings import WindowSettings
@@ -117,7 +113,7 @@ def main(argv=None):
                                enable_talent_helper=not args.demo)
         root.mainloop()
         return 0
-    except (ConfigError,BudgetError) as failure:
+    except ConfigError as failure:
         if diagnostic_hooks is not None:diagnostic_hooks.capture('startup',failure)
         print(str(failure)); return 2
     except Exception as failure:
