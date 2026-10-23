@@ -10,12 +10,12 @@ import sys
 import tempfile
 import time
 import zipfile
-from hots_chat import APP_NAME,__version__
+from hots_chat import APP_NAME,RELEASE_ARCHIVE_PREFIX,__version__
 
 ROOT=Path(__file__).resolve().parents[1]
 NAME=APP_NAME
 VERSION=__version__
-PUBLIC_SEEDS=('phrases.json','talents_98348_zhCN.json','talent_catalog_source.json')
+PUBLIC_SEEDS=('phrases.json','talents_98348_zhCN.json','talent_catalog_source.json','hots.ico')
 
 
 def stage_public_data(root, destination):
@@ -51,6 +51,7 @@ def main(argv=None):
              '--name',NAME,'--paths',str(ROOT/'src'),'--distpath',str(work/'dist'),
              '--workpath',str(work/'build'),'--specpath',str(work)]
     command+=['--manifest',str(ROOT/'packaging'/'highdpi.manifest')]
+    command+=['--icon',str(ROOT/'data'/'hots.ico')]
     for name in PUBLIC_SEEDS:
         command+=['--add-data',str(work/'public'/'data'/name)+os.pathsep+'data']
     command.append(str(ROOT/'packaging'/'launcher.py'))
@@ -124,7 +125,7 @@ def main(argv=None):
           '1K/2K/4K与100%–200%缩放已有隔离模拟验证，2K/4K物理显示仍待验收。\n'
           '换局保留最近500条运行期历史，退出程序释放。\n'
           '支持中文客户端98348；游戏更新后需重新验证采集。\n'
-          '发行编号v1.1，程序内版本1.1.0；游戏遮挡/输入法候选窗/远程焦点、实际分辨率切换与分场景性能仍待实机验收。\n')
+          f'发行编号v{VERSION.rsplit(".",1)[0]}，程序内版本{VERSION}；游戏遮挡/输入法候选窗/远程焦点、实际分辨率切换与分场景性能仍待实机验收。\n')
     (bundle/'使用说明.txt').write_text(note,encoding='utf-8-sig')
     guide=ROOT/'artifacts'/'风暴英雄助手新手指南.html'
     if guide.is_file():shutil.copy2(guide,bundle/guide.name)
@@ -138,7 +139,7 @@ def main(argv=None):
     manifest={'version':VERSION,'files':files,'installation_check':checked,
               'installation_check_seconds':round(time.perf_counter()-started,3)}
     (work/'发行校验.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
-    target=args.output/(NAME+'-'+VERSION+'-Windows-x64.zip')
+    target=args.output/(RELEASE_ARCHIVE_PREFIX+'-'+VERSION+'-Windows-x64.zip')
     # Write a new archive then atomically replace, never recurse over user's files.
     temporary=target.with_suffix('.zip.tmp')
     with zipfile.ZipFile(temporary,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as archive:

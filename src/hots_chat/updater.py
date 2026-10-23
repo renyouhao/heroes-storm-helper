@@ -15,7 +15,7 @@ from urllib.parse import quote, unquote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 import zipfile
 
-from . import APP_NAME, __version__
+from . import APP_NAME, RELEASE_ARCHIVE_PREFIX, __version__
 
 REPOSITORY = 'renyouhao/heroes-storm-helper'
 RELEASES_URL = f'https://github.com/{REPOSITORY}/releases'
@@ -163,7 +163,8 @@ def _asset_from_payload(payload, tag, version):
         if not isinstance(row, dict):
             raise UpdateError('发行资产格式无效。')
         name = row.get('name', '')
-        match = re.fullmatch(re.escape(APP_NAME) + r'-(v?\d+(?:\.\d+){0,3})-Windows-x64\.zip', name) if isinstance(name, str) else None
+        prefixes = '(?:' + '|'.join(map(re.escape, (RELEASE_ARCHIVE_PREFIX, APP_NAME))) + ')'
+        match = re.fullmatch(prefixes + r'-(v?\d+(?:\.\d+){0,3})-Windows-x64\.zip', name) if isinstance(name, str) else None
         if not match or Version.parse(match[1]) != Version.parse(version):
             continue
         _official_url(row.get('browser_download_url'), f'/{REPOSITORY}/releases/download/{tag}/{name}')

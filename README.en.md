@@ -4,17 +4,19 @@
 
 A Windows companion for Heroes of the Storm: read incoming English and Korean chat in Chinese, translate your Chinese replies into English or Korean, and use optional helpers for loot chests, repeated key presses, favorite talents, and team callouts.
 
-**Release: v1.1 · Application/package version: 1.1.0.** The application is distributed as **风暴英雄助手** and currently uses a Chinese interface.
+**Release: v1.2 · Application/package version: 1.2.0.** The application is distributed as **风暴英雄助手** and currently uses a Chinese interface. The EXE and application windows use the Heroes of the Storm icon.
 
 **Supported validation target: Windows x64, Chinese game client build 98348.** This English introduction does not mean the English game client has been validated. Game updates require another compatibility check.
 
 ## Download
 
-**[Download the Windows x64 ZIP](https://github.com/renyouhao/heroes-storm-helper/releases/download/v1.1/风暴英雄助手-1.1.0-Windows-x64.zip)** · [v1.1 release notes and assets](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v1.1) · [All releases](https://github.com/renyouhao/heroes-storm-helper/releases)
+**[Download the Windows x64 ZIP](https://github.com/renyouhao/heroes-storm-helper/releases/download/v1.2/HotsHelper-1.2.0-Windows-x64.zip)** · [v1.2 release notes and assets](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v1.2) · [All releases](https://github.com/renyouhao/heroes-storm-helper/releases)
 
-Download `风暴英雄助手-1.1.0-Windows-x64.zip`, extract the entire archive, and run `风暴英雄助手.exe`. Keep the `_internal` folder alongside the executable. Python and separate SDK installation are not required for the packaged application.
+Download `HotsHelper-1.2.0-Windows-x64.zip`, extract the entire archive, and run `风暴英雄助手.exe`. The directory and executable inside the ZIP retain their Chinese names. Keep the `_internal` folder alongside the executable. Python and separate SDK installation are not required for the packaged application.
 
 GitHub's **Source code (zip/tar.gz)** downloads contain the source rather than the ready-to-run Windows application. When switching packages, exit the old helper before launching the new copy.
+
+Version note: `v1.1` remains a source-preparation tag; its Release was never published. During release preparation, GitHub stripped Chinese characters from the asset name. The tag is preserved, and the asset naming contract is corrected in `v1.2`, using an ASCII ZIP name shared by the publisher and updater. **Existing local 1.1.0 packages recognize only Chinese ZIP names, so download v1.2 manually using the link above.** Your local user data stays in place.
 
 ## Features
 
@@ -26,7 +28,7 @@ GitHub's **Source code (zip/tar.gz)** downloads contain the source rather than t
 - **Configurable key repetition.** Choose `S` or alternating `Y+S`; each mode has its own saved interval of 20–5000 ms, with 20 ms as the default for new settings. `F8` starts/stops repetition; its shortcut can be changed to another F1–F12 key.
 - **Automatic favorite talents — off by default.** Uses the game's existing favorite selection through its shortcut, then reads back whether that tier has been selected. It needs no translation key.
 - **Tab double-click callouts — off by default.** Double-click one selected talent or one supported statistics cell to send that item's information to your team. Talent summaries are bundled offline; statistics callouts report only the clicked metric, without rankings or performance judgments. No translation key is required.
-- **Manual update checks.** Check the official repository's stable releases, download and verify the package, then choose to restart and update. There is no automatic startup update check or downgrade.
+- **Manual update checks.** Check the official repository's stable releases, download and verify the package, then choose to restart and update. The updater supports `HotsHelper-<version>-Windows-x64.zip` assets. There is no automatic startup update check or downgrade; v1.2 and application version 1.2.0 represent the same version. Older local 1.1.0 packages require a manual download because their updater only recognizes Chinese asset names.
 - **Emote handling and optional diagnostics.** Complete image-emote tags display as `[表情]`; emote-only messages skip cloud translation. Diagnostics are off by default and can be enabled for troubleshooting.
 
 ## Getting started
@@ -103,11 +105,11 @@ To build a Windows package:
 .\.venv\Scripts\python.exe -m tools.build_release
 ```
 
-The output is `releases/风暴英雄助手-1.1.0-Windows-x64.zip`. The build stages public seed data explicitly and rejects local credentials, databases, preferences, logs, and sampling files from the release bundle.
+The output is `releases/HotsHelper-1.2.0-Windows-x64.zip`. The outer asset name uses ASCII for GitHub and updater compatibility; the ZIP's directory and `风暴英雄助手.exe` keep their Chinese names. The build stages public seed data explicitly and rejects local credentials, databases, preferences, logs, and sampling files from the release bundle.
 
 ## Validation scope
 
-The unified source at commit `51daf8e` passed **1,247 tests across 113 isolated test modules, plus 20 acquisition probes**. Release artifacts are checked again as part of the v1.1 publication process; source-test results alone do not establish that every in-game scenario or update path has been exercised.
+The earlier unified source at commit `51daf8e` (merged as `69ec5a3`) passed **1,247 tests across 113 isolated test modules, plus 20 acquisition probes**. These figures describe the earlier verification baseline, not the new v1.2 test pass. See the [v1.2 release](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v1.2) for current test counts, artifact checks, source commit, and SHA256. Source-test results alone do not establish that every in-game scenario or update path has been exercised.
 
 Local checks target Chinese client build 98348. Talent and statistics callouts have been confirmed in team chat in an earlier fix package, and favorite-talent checks include selected heroes and special talent tiers. The following still need broader manual validation:
 

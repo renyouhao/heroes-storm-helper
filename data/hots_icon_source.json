@@ -1,0 +1,6 @@
+{
+  "source": "Original RT_GROUP_ICON and RT_ICON resources from HeroesOfTheStorm_x64.exe, build 98348",
+  "processing": "Lossless resource extraction; original image data and sizes retained",
+  "sizes": [16, 32, 48, 96, 256],
+  "sha256": "3ea3543bffe743cca37c5ec511a8353b9e069dc5a26ba4c89451fc0493f4c46e"
+}
