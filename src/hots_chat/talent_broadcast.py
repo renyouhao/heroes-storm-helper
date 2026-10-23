@@ -315,17 +315,18 @@ class TalentBroadcastSession:
         """event_at 为原始钩子单调时间；now 负责新鲜度与动作过期判断。"""
         if injected:
             return False
-        event_time = now if event_at is None else event_at
-        if (not _finite(now) or not _finite(event_time)
-                or (event_at is not None and (event_time < 0 or not 0 <= now - event_time <= .25))):
-            self.cancel('鼠标事件时间未知或已过期，请重新双击。')
-            if not down:self._left_held = False
-            return False
         if button != 'left':
             self.cancel('其他鼠标操作已取消本次播报。')
             return False
         if not down:
+            # 松开不创建或延长动作；即使事件在队列中迟到，也必须解除持键。
+            # tick/dispatch 仍独立检查待发期限、当前命中和输入环境。
             self._left_held = False
+            return False
+        event_time = now if event_at is None else event_at
+        if (not _finite(now) or not _finite(event_time)
+                or (event_at is not None and (event_time < 0 or not 0 <= now - event_time <= .25))):
+            self.cancel('鼠标事件时间未知或已过期，请重新双击。')
             return False
         if self._left_held:
             return False

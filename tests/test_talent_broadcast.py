@@ -148,6 +148,50 @@ class TalentBroadcastTests(unittest.TestCase):
         self.session.mouse(down=False, **options)
         self.assertIsNotNone(self.session.tick(self.hit,self.context,10.21))
 
+    def test_delayed_mouse_up_preserves_fresh_pending_for_exactly_one_send(self):
+        self.click(10.)
+        self.session.mouse(x=120,y=220,down=True,hit=self.hit,context=self.context,
+                           now=10.34,event_at=10.2)
+        self.assertIsNone(self.session.tick(self.hit,self.context,10.48))
+        self.assertEqual(self.session.status.state, 'deferred')
+        # A queued release is bookkeeping, even after the 250ms click-age limit.
+        self.assertIs(self.session.mouse(x=120,y=220,down=False,hit=None,
+                                        context=self.module.InputContext(),
+                                        now=10.49,event_at=10.21), False)
+        action = self.session.tick(self.hit,self.context,10.49)
+        self.assertIsNotNone(action)
+        self.assertIsNone(self.session.tick(self.hit,self.context,10.5))
+        sent = []
+
+        def sender(request, *, allowed):
+            self.assertTrue(allowed())
+            sent.append(request)
+            return 'sent'
+
+        self.assertEqual(self.dispatch(action,now=10.5,sender=sender).state, 'sent')
+        self.dispatch(action,now=10.51,sender=sender)
+        self.assertEqual(sent, [action])
+
+    def test_delayed_mouse_up_clears_hold_without_reviving_expired_pending(self):
+        self.click(10.)
+        self.session.mouse(x=120,y=220,down=True,hit=self.hit,context=self.context,now=10.2)
+        self.assertIs(self.session.mouse(x=120,y=220,down=False,hit=None,
+                                        context=self.module.InputContext(),
+                                        now=11.01,event_at=10.21), False)
+        fresh = replace(self.hit,observed_at=11.,valid_until=12.)
+        self.assertIsNone(self.session.tick(fresh,self.context,11.01))
+        self.assertEqual(self.session.status.state, 'cancelled')
+        self.assertIsNotNone(self.ready(hit=fresh,start=11.1))
+
+    def test_delayed_mouse_down_cannot_complete_pair_after_a_fresh_release(self):
+        self.click(10.)
+        self.assertIs(self.session.mouse(x=120,y=220,down=True,hit=self.hit,
+                                        context=self.context,now=10.49,event_at=10.2), False)
+        self.session.mouse(x=120,y=220,down=False,hit=None,
+                           context=self.module.InputContext(),now=10.5,event_at=10.5)
+        self.assertIsNone(self.session.tick(self.hit,self.context,10.5))
+        self.assertEqual(self.session.status.state, 'cancelled')
+
     def test_held_second_press_expires_without_ever_offering_action(self):
         self.click(10.)
         self.session.mouse(x=120,y=220,down=True,hit=self.hit,context=self.context,now=10.2)

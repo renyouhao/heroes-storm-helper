@@ -48,6 +48,14 @@ class BoardSnapshot:
     coordinate_space: str = 'screen'
 
 
+def _capture_identity(capture):
+    root, path, render_size, talents, inputs, stats = capture
+    # 战斗数值可以正常变化；行、指标、名称、矩形和原生格/标签仍必须逐一相同。
+    stat_targets = tuple((slot, relation, names, metric, rect, cell, label)
+        for slot, relation, names, metric, _value, rect, cell, label in stats)
+    return root, path, render_size, talents, inputs, stat_targets
+
+
 class _BoardMemory(_Memory):
     """首次有界 frame 树定位允许较多小读取；热轮询只复核缓存成员链。"""
     def read(self, address, size):
@@ -459,7 +467,8 @@ class BoardReader:
             binding = self._reader._resolve(memory, base, process_token)
             first = self._capture(memory, base, binding)
             second = self._capture(memory, base, binding)
-            if first != second or self._reader._resolve(memory, base, process_token) != binding:
+            if (_capture_identity(first) != _capture_identity(second)
+                    or self._reader._resolve(memory, base, process_token) != binding):
                 raise _Unknown('战绩面板或玩家身份正在变化')
             if self._reader.creation_token_finder(self._reader._game) != created:
                 raise _Unknown('游戏进程代次已变化')
