@@ -22,6 +22,12 @@ class OverlayEntry:
     expires_at: float
     count: int=1
     identity: tuple=()
+    fresh_until: float=0.
+    translation_seen: bool=False
+    members: frozenset=frozenset()
+    translation_ready_at: float=0.
+    subtitle_state: str=''
+    subtitle_read_until: float=0.
 
 
 @dataclass(frozen=True)
@@ -29,15 +35,21 @@ class OverlayHistorySnapshot:
     generation: int | None
     candidates: tuple
     seen: frozenset
+    retired: tuple=()
 
 
 class OverlayHistory:
-    """从连接代和首次接收时间确定展示资格，不因翻译更新重播。"""
+    """原文短暂展示；新鲜窗口内首次译文获得有上限的阅读时间。"""
+    MIN_TRANSLATION_SECONDS=3
+    MAX_PENDING_AGE=15
     def __init__(self):
         self.generation=None
         self.entries=OrderedDict()
         self._candidates=OrderedDict()
         self._seen=set()
+        self._retired={}
+        self._now=0.
+        self.subtitle_deadline=None
 
     def sync(self,messages,generation,*,now,timeout,enabled=True):
         if generation!=self.generation:
@@ -45,6 +57,7 @@ class OverlayHistory:
             self.entries.clear()
             self._candidates.clear()
             self._seen.clear()
+            self._retired.clear()
         self.expire(now)
         current={key for key,message in messages.items() if message.event.generation==generation}
         groups=OrderedDict()
@@ -55,36 +68,62 @@ class OverlayHistory:
             groups.setdefault(identity,[]).append((key,message))
         active={entry.identity:(key,entry) for key,entry in self._candidates.items()}
         for identity,rows in groups.items():
-            eligible=[message for _,message in rows if not getattr(message,'suppressed_reason','')]
-            unseen=[key for key,_ in rows if key not in self._seen]
+            unseen={key for key,_ in rows if key not in self._seen}
             existing=active.get(identity)
+            members=existing[1].members|unseen if existing else unseen
+            eligible=[message for key,message in rows
+                      if key in members and not getattr(message,'suppressed_reason','')]
             if existing and eligible and enabled:
                 entry=existing[1]
+                entry.members=frozenset(key for key,_ in rows if key in members)
                 entry.count+=len(unseen)
-                entry.message=max((message for _,message in rows),
-                                  key=lambda message:bool(message.engine_translation))
-            elif not existing and enabled and any(key not in self._seen and not getattr(message,'suppressed_reason','')
-                                                  for key,message in rows):
+                representative=max(eligible,key=lambda message:bool(message.engine_translation))
+                if not (entry.subtitle_read_until>now and entry.message.engine_translation
+                        and not representative.engine_translation):
+                    entry.message=representative
+                if entry.message.engine_translation and not entry.translation_seen:
+                    entry.translation_seen=True
+                    entry.translation_ready_at=now
+                    entry.expires_at=min(entry.fresh_until+self.MIN_TRANSLATION_SECONDS,
+                                         max(entry.expires_at,now+self.MIN_TRANSLATION_SECONDS))
+            elif not existing and enabled and eligible and identity not in self._retired:
                 # 独特的限流消息不会挤占位置；同文限流仍计入已有折叠。
                 key=next(key for key,message in rows if key not in self._seen and not getattr(message,'suppressed_reason',''))
-                representative=max((message for _,message in rows),
-                                   key=lambda message:bool(message.engine_translation))
-                self._candidates[key]=OverlayEntry(representative,now+timeout,len(unseen),identity)
+                representative=max(eligible,key=lambda message:bool(message.engine_translation))
+                fresh_until=now+max(self.MAX_PENDING_AGE,timeout+self.MIN_TRANSLATION_SECONDS)
+                self._candidates[key]=OverlayEntry(representative,now+timeout,len(unseen),identity,
+                                                   fresh_until,bool(representative.engine_translation),
+                                                   frozenset(unseen),now if representative.engine_translation else 0.)
         # VM 最多保留 500 条；去重集合随它回收，不随整场聊天无限增长。
         self._seen=current
+        self._retired={identity:deadline for identity,deadline in self._retired.items() if identity in groups}
         for key,entry in list(self._candidates.items()):
             rows=groups.get(entry.identity,[])
-            if not enabled or not any(not getattr(message,'suppressed_reason','') for _,message in rows):
+            # 突发历史淘汰最多临时多保留正在阅读的一条，三秒结束即回收。
+            reading_evicted=not rows and entry.subtitle_state=='shown' and entry.subtitle_read_until>now
+            if not enabled or (not reading_evicted and not any(
+                    member in entry.members and not getattr(message,'suppressed_reason','')
+                    for member,message in rows)):
                 del self._candidates[key]
         self._select_entries()
 
     def _select_entries(self):
-        # 保留有界候选直到原期限：延后到达的限流结果不能永久挤掉正常消息。
-        self.entries=OrderedDict(list(self._candidates.items())[-3:])
+        # 隐藏已到期原文，保留新鲜候选等待首次译文；可见条目仍有界。
+        self.entries=OrderedDict([(key,entry) for key,entry in self._candidates.items()
+                                  if entry.expires_at>self._now][-3:])
 
     def expire(self,now):
+        self._now=now
         for key,entry in list(self._candidates.items()):
-            if entry.expires_at<=now:del self._candidates[key]
+            # 未展示译文必须在新鲜窗口内开始；获准开始后可完整阅读三秒。
+            deadline=(entry.fresh_until if not entry.translation_seen or entry.subtitle_state=='queued'
+                      else entry.expires_at)
+            reading_evicted=(entry.subtitle_state=='shown' and entry.subtitle_read_until<=now
+                             and entry.members.isdisjoint(self._seen))
+            if deadline<=now or reading_evicted:
+                self._retired[entry.identity]=entry.fresh_until
+                del self._candidates[key]
+        self._retired={identity:deadline for identity,deadline in self._retired.items() if deadline>now}
         self._select_entries()
 
     @property
@@ -94,15 +133,67 @@ class OverlayHistory:
     def clear(self):
         self.entries.clear()
         self._candidates.clear()
+        self.subtitle_deadline=None
+
+    def hide_subtitles(self):
+        """输入隐藏优先：未展示译文只保留原期限，恢复时不补排队阅读时间。"""
+        for entry in self._candidates.values():
+            if entry.translation_seen and entry.subtitle_state in ('','queued'):
+                entry.subtitle_state='hidden'
+        self.expire(self._now)
+
+    def select_subtitle(self):
+        """保护正在阅读的译文；待展示只保留最新三条，同批优先最新一条。"""
+        now=self._now
+        pending=[]
+        current=None
+        for key,entry in self._candidates.items():
+            if entry.translation_seen and entry.subtitle_state in ('','queued'):
+                if now<entry.fresh_until:
+                    entry.subtitle_state='queued'
+                    pending.append((key,entry))
+                else:entry.subtitle_state='discarded'
+            if entry.subtitle_state=='shown' and entry.subtitle_read_until>now:
+                current=entry
+        pending.sort(key=lambda item:item[1].translation_ready_at)
+        for _,entry in pending[:-3]:entry.subtitle_state='discarded'
+        pending=pending[-3:]
+        selected=current
+        if selected is None and pending:
+            # 同一次UI同步接到的结果只展示最新一条，避免先倒放整批旧字幕。
+            first_time=pending[0][1].translation_ready_at
+            same_batch=[entry for _,entry in pending if entry.translation_ready_at==first_time]
+            selected=same_batch[-1]
+            for entry in same_batch[:-1]:entry.subtitle_state='discarded'
+            selected.subtitle_state='shown'
+            selected.subtitle_read_until=now+self.MIN_TRANSLATION_SECONDS
+            selected.expires_at=min(selected.fresh_until+self.MIN_TRANSLATION_SECONDS,
+                                    max(selected.expires_at,selected.subtitle_read_until))
+            self._select_entries()
+        if selected is None:
+            selected=next((entry for entry in reversed(self.entries.values())
+                           if entry.subtitle_state not in ('queued','discarded')),None)
+        self.subtitle_deadline=selected.expires_at if selected else None
+        for entry in self._candidates.values():
+            if entry is not selected and entry.subtitle_state=='shown' and entry.subtitle_read_until<=now:
+                entry.subtitle_state='discarded'
+        if selected and selected.subtitle_read_until>now:
+            alternatives=any(entry is not selected and entry.subtitle_state!='discarded'
+                             and (entry.subtitle_state=='queued' or entry.expires_at>now)
+                             for entry in self._candidates.values())
+            if alternatives:self.subtitle_deadline=min(self.subtitle_deadline,selected.subtitle_read_until)
+        return selected
 
     def snapshot(self):
         """复制有界展示容器，保留消息引用与原截止时间；不复制业务数据。"""
-        return OverlayHistorySnapshot(self.generation, tuple(self._candidates.items()), frozenset(self._seen))
+        return OverlayHistorySnapshot(self.generation, tuple(self._candidates.items()),
+                                      frozenset(self._seen),tuple(self._retired.items()))
 
     def restore(self, snapshot):
         self.generation=snapshot.generation
         self._candidates=OrderedDict(snapshot.candidates)
         self._seen=set(snapshot.seen)
+        self._retired=dict(snapshot.retired)
         self._select_entries()
 
 
@@ -441,8 +532,12 @@ class OverlayWindow:
     def _refresh(self,*,force_place=False):
         # 预设、输入与样式回调也可能先于已到期的Tk定时器执行。
         self.history.expire(self._clock())
+        if self._input_active:self.history.hide_subtitles()
         limit=1 if self._subtitle else 2
         entries=list(self.history.entries.values())[-limit:] if self.settings.overlay_enabled else []
+        if self._subtitle and self.settings.overlay_enabled and not self._input_active:
+            selected=self.history.select_subtitle()
+            entries=[selected] if selected is not None else []
         content=[]
         for entry in entries:
             message=entry.message
@@ -452,7 +547,7 @@ class OverlayWindow:
             sender=self._preview(message.event.sender,40)
             if translation:
                 main=' '.join(str(translation).split()) if self._subtitle else self._preview(translation)
-            else:main='待翻译：'+original
+            else:main=message.translation_label+'：'+original
             repeated=f' ×{entry.count}' if entry.count>1 else ''
             content.append((f'{sender}{repeated}：{main}',original if self.settings.overlay_original and translation else ''))
         if self._editing and not content:
@@ -528,6 +623,10 @@ class OverlayWindow:
 
     def _schedule_expiry(self):
         deadline=self.history.next_expiry if self.settings.overlay_enabled else None
+        if self._subtitle and self.settings.overlay_enabled and not self._input_active:
+            subtitle_deadline=self.history.subtitle_deadline
+            if subtitle_deadline is not None:
+                deadline=subtitle_deadline if deadline is None else min(deadline,subtitle_deadline)
         if deadline==self._scheduled_expiry:return
         self._cancel_timer()
         if deadline is not None:

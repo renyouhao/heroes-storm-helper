@@ -1,0 +1,3 @@
+# Keep byte-hashed icon sources reproducible across Windows and GitHub archives.
+/data/hots_helper.svg text eol=lf
+/data/hots_icon_source.json text eol=lf

@@ -4,19 +4,29 @@
 
 A Windows companion for Heroes of the Storm: read incoming English and Korean chat in Chinese, translate your Chinese replies into English or Korean, and use optional helpers for loot chests, repeated key presses, favorite talents, and team callouts.
 
-**Release: v1.2 · Application/package version: 1.2.0.** The application is distributed as **风暴英雄助手** and currently uses a Chinese interface. The EXE and application windows use the Heroes of the Storm icon.
+**Release version: v1.3 · Application/package version: 1.3.0.** The links below point to the corresponding complete Windows package and release notes. The application is distributed as **风暴英雄助手** and uses a Chinese interface.
 
 **Supported validation target: Windows x64, Chinese game client build 98348.** This English introduction does not mean the English game client has been validated. Game updates require another compatibility check.
 
 ## Download
 
-**[Download the Windows x64 ZIP](https://github.com/renyouhao/heroes-storm-helper/releases/download/v1.2/HotsHelper-1.2.0-Windows-x64.zip)** · [v1.2 release notes and assets](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v1.2) · [All releases](https://github.com/renyouhao/heroes-storm-helper/releases)
+**[Download the Windows x64 ZIP](https://github.com/renyouhao/heroes-storm-helper/releases/download/v1.3/HotsHelper-1.3.0-Windows-x64.zip)** · [v1.3 release notes and assets](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v1.3) · [All releases](https://github.com/renyouhao/heroes-storm-helper/releases)
 
-Download `HotsHelper-1.2.0-Windows-x64.zip`, extract the entire archive, and run `风暴英雄助手.exe`. The directory and executable inside the ZIP retain their Chinese names. Keep the `_internal` folder alongside the executable. Python and separate SDK installation are not required for the packaged application.
+Download `HotsHelper-1.3.0-Windows-x64.zip`, extract the entire archive, and run `风暴英雄助手.exe`. The directory and executable inside the ZIP retain their Chinese names. Keep the `_internal` folder alongside the executable. Python and separate SDK installation are not required for the packaged application.
 
 GitHub's **Source code (zip/tar.gz)** downloads contain the source rather than the ready-to-run Windows application. When switching packages, exit the old helper before launching the new copy.
 
-Version note: `v1.1` remains a source-preparation tag; its Release was never published. During release preparation, GitHub stripped Chinese characters from the asset name. The tag is preserved, and the asset naming contract is corrected in `v1.2`, using an ASCII ZIP name shared by the publisher and updater. **Existing local 1.1.0 packages recognize only Chinese ZIP names, so download v1.2 manually using the link above.** Your local user data stays in place.
+Version note: `v1.1` remains a source-preparation tag; its Release was never published. During release preparation, GitHub stripped Chinese characters from the asset name. The tag is preserved, and the asset naming contract is corrected in `v1.2`, using an ASCII ZIP name shared by the publisher and updater. **Existing local 1.1.0 packages recognize only Chinese ZIP names, so download v1.3 manually using the link above.** Your local user data stays in place.
+
+## Changes in v1.3
+
+- **Clearer desktop controls.** Neutral Notion-inspired colors and compact navigation remain, with Codex-inspired rounded buttons, fields, and cards. Selected settings show a real **✓**. Ctrl+T stays dark and readable; Enter translates/copies, Esc closes, and Ctrl+Tab switches language. The helper uses its own hexagonal storm emblem with a chat bubble at the lower right.
+- **Explicit translation states.** Messages distinguish queued, translating, and failed requests. Skipped requests explain missing configuration, disabled cloud translation, paused automatic translation, unsupported languages, or text that needs no translation. Failure details and manual retry remain available.
+- **Reading time for late subtitles.** A late translation admitted within the default 15-second freshness window gets at least 3 seconds of actual reading time; new original text does not immediately replace it. Longer display settings extend the bounded freshness window. Expired content stays retired, changing matches or disabling subtitles clears it, and hiding subtitles during Ctrl+T does not extend their deadline.
+- **Visible errors and recovery.** Blocked/unconfirmed talent selection or helper errors can produce a brief passive notice while the game is foreground. Notices pass mouse input through and do not take focus; successful operations stay quiet. Saved enabled preferences and actual worker state appear separately, with **重新连接** (“Reconnect”) after an unexpected stop. Reconnection does not replay old actions.
+- **Less repeated painting.** Following the latest chat updates only changed rows. Rounded controls share a fixed image pool and cards reuse a single shape; theme/DPI changes update existing resources without animation or extra polling.
+
+An earlier offline comparison with 500 synthetic messages measured about **65% lower median append/translation repaint time**. This is the previous controlled measurement, not an in-game frame-rate result. The earlier whole-window offline measurement was roughly **60 MiB private memory / 90 MiB working set**, without live game/cloud load; it does not establish resource use on every machine or in frozen packages. Real-match CPU, memory, and input behavior still need validation.
 
 ## Features
 
@@ -28,7 +38,7 @@ Version note: `v1.1` remains a source-preparation tag; its Release was never pub
 - **Configurable key repetition.** Choose `S` or alternating `Y+S`; each mode has its own saved interval of 20–5000 ms, with 20 ms as the default for new settings. `F8` starts/stops repetition; its shortcut can be changed to another F1–F12 key.
 - **Automatic favorite talents — off by default.** Uses the game's existing favorite selection through its shortcut, then reads back whether that tier has been selected. It needs no translation key.
 - **Tab double-click callouts — off by default.** Double-click one selected talent or one supported statistics cell to send that item's information to your team. Talent summaries are bundled offline; statistics callouts report only the clicked metric, without rankings or performance judgments. No translation key is required.
-- **Manual update checks.** Check the official repository's stable releases, download and verify the package, then choose to restart and update. The updater supports `HotsHelper-<version>-Windows-x64.zip` assets. There is no automatic startup update check or downgrade; v1.2 and application version 1.2.0 represent the same version. Older local 1.1.0 packages require a manual download because their updater only recognizes Chinese asset names.
+- **Manual update checks.** Check the official repository's stable releases, download and verify the package, then choose to restart and update. The updater supports `HotsHelper-<version>-Windows-x64.zip` assets. There is no automatic startup update check or downgrade; v1.3 and application version 1.3.0 represent the same version. Older local 1.1.0 packages require a manual download because their updater only recognizes Chinese asset names.
 - **Emote handling and optional diagnostics.** Complete image-emote tags display as `[表情]`; emote-only messages skip cloud translation. Diagnostics are off by default and can be enabled for troubleshooting.
 
 ## Getting started
@@ -56,7 +66,7 @@ For detailed setup instructions and troubleshooting, see the [Chinese getting-st
 
 Chat boxes, menus, loot actions, repetition, quick input, and update preparation can block a callout. Unknown or untrusted data is not sent. Attempts are limited to once per item within 3 seconds and at least 2 seconds between items; toggling the feature does not reset those limits. A failed attempt is not automatically retried. If text remains in chat, inspect the reason on the helper's **双击播报** page and press Esc to clear the draft before trying again. If the status says the message may already have been sent, check chat history first.
 
-The lobby/match label at the bottom of the main window describes the chat capture source, not the callout result. Callout status appears on its own page. Leaving a match invalidates an old pending callout even if Tab remained visible; open the panel and double-click again in the new match.
+The lobby/match label at the bottom of the main window describes the chat capture source, not the callout result. Callout status appears on its own page. In v1.3, critical errors also get a passive foreground-game notice. If an enabled helper reports that its worker stopped, use **重新连接** (“Reconnect”) on that helper’s page; this restores listening without resending failed messages or repeating a talent action for the same tier. Leaving a match invalidates an old pending callout even if Tab remained visible; open the panel and double-click again in the new match.
 
 ## Local data and privacy
 
@@ -105,11 +115,11 @@ To build a Windows package:
 .\.venv\Scripts\python.exe -m tools.build_release
 ```
 
-The output is `releases/HotsHelper-1.2.0-Windows-x64.zip`. The outer asset name uses ASCII for GitHub and updater compatibility; the ZIP's directory and `风暴英雄助手.exe` keep their Chinese names. The build stages public seed data explicitly and rejects local credentials, databases, preferences, logs, and sampling files from the release bundle.
+The build output is `releases/HotsHelper-1.3.0-Windows-x64.zip`. The outer asset name uses ASCII for GitHub and updater compatibility; the ZIP's directory and `风暴英雄助手.exe` keep their Chinese names. The build stages public seed data explicitly and rejects local credentials, databases, preferences, logs, and sampling files from the release bundle.
 
 ## Validation scope
 
-The earlier unified source at commit `51daf8e` (merged as `69ec5a3`) passed **1,247 tests across 113 isolated test modules, plus 20 acquisition probes**. These figures describe the earlier verification baseline, not the new v1.2 test pass. See the [v1.2 release](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v1.2) for current test counts, artifact checks, source commit, and SHA256. Source-test results alone do not establish that every in-game scenario or update path has been exercised.
+The earlier unified source at commit `51daf8e` (merged as `69ec5a3`) passed **1,247 tests across 113 isolated test modules, plus 20 acquisition probes**. These figures describe the earlier verification baseline, not the new v1.2 test pass. See the [v1.2 release](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v1.2) for current test counts, artifact checks, source commit, and SHA256. This integration passed **1,336 regression tests**, and the independent icon passed **5 dedicated tests**. The earlier 20 acquisition probes remain the existing acquisition-validation baseline. Frozen-package installation checks, the build commit, and checksums belong to the delivery record; source tests do not replace final-package acceptance. Source-test results alone do not establish that every in-game scenario or update path has been exercised.
 
 Local checks target Chinese client build 98348. Talent and statistics callouts have been confirmed in team chat in an earlier fix package, and favorite-talent checks include selected heroes and special talent tiers. The following still need broader manual validation:
 

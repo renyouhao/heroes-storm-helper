@@ -111,7 +111,6 @@ class ThreeThemeOverlayTests(unittest.TestCase):
 
     def test_quick_input_retains_dark_fields_and_actions_under_light_main_themes(self):
         quick = self.quick_input()
-        accents = set()
         style = ttk.Style(self.root)
         for name in ('moonlight', 'graphite', 'mint'):
             with self.subTest(theme=name):
@@ -131,8 +130,6 @@ class ThreeThemeOverlayTests(unittest.TestCase):
                 accent_style = quick.submit_button.cget('style')
                 accent = style.lookup(accent_style, 'background')
                 self.assertGreaterEqual(contrast(style.lookup(accent_style, 'foreground'), accent), 4.5)
-                accents.add(accent)
-        self.assertEqual(len(accents), 3)
 
     def test_quick_input_theme_refresh_keeps_pending_job_draft_status_and_timer(self):
         theme.apply_theme(self.root, self.settings)

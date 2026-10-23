@@ -107,3 +107,17 @@ class DiagnosticsPanel(ttk.Frame):
         if self._timer is not None:
             self.after_cancel(self._timer)
             self._timer = None
+
+    def destroy(self):
+        if getattr(self, '_widget_destroyed', False):return
+        self._widget_destroyed = True
+        descendants = []
+        pending = list(self.children.values())
+        while pending:
+            child = pending.pop()
+            descendants.append(child)
+            pending.extend(child.children.values())
+        super().destroy()
+        # Tk已销毁，解除按钮缓存的父级回边，避免四个变量拖到后台GC析构。
+        for child in descendants:child.master = None
+        self.master = None

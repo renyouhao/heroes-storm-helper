@@ -6,8 +6,17 @@ from dataclasses import dataclass
 class MessageView:
     event: object
     engine_translation: str=''
-    status: str='原文'
+    status: str='未翻译'
     suppressed_reason: str=''
+    translation_state: str='untranslated'
+    translation_reason: str=''
+
+    @property
+    def translation_label(self):
+        if self.engine_translation:return '已翻译'
+        return {'queued':'排队中','translating':'翻译中','failed':'翻译失败',
+                'suppressed':'防刷屏已暂缓'}.get(self.translation_state,
+                    self.translation_reason or '未翻译')
 
     @property
     def original(self): return self.event.text
@@ -41,11 +50,19 @@ class AppViewModel:
               and self.messages[p['message_id']].event.generation==event.generation):
             m=self.messages[p['message_id']]; m.engine_translation=p['engine_translation']; m.status=p.get('provenance','已翻译')
             m.suppressed_reason=''
+            m.translation_state='translated'; m.translation_reason=''
             return 'applied'
+        elif event.kind=='translation_state':
+            message=self.messages.get(p.get('message_id'))
+            if message and message.event.generation==event.generation:
+                message.translation_state=p['state']; message.translation_reason=p.get('reason','')
+                message.status=message.translation_label
+                return 'applied'
         elif event.kind=='suppressed':
             message=self.messages.get(p.get('message_id'))
             if message and message.event.generation==event.generation:
                 message.suppressed_reason=p['reason']
+                message.translation_state='suppressed'; message.translation_reason=p['reason']
                 message.status='防刷屏：暂缓自动翻译，可手动重试'
                 return 'applied'
         elif event.kind=='manual_result' and p['job_id']==self.expected_job:
@@ -54,11 +71,13 @@ class AppViewModel:
         elif event.kind=='error':
             self.status=p['error']
             message=self.messages.get(p.get('message_id'))
-            if message and message.event.generation==event.generation: message.status=p['error']
+            if message and message.event.generation==event.generation:
+                message.status=p['error']
+                message.translation_state='failed'; message.translation_reason=p['error']
             return 'applied'
         elif event.kind in ('status','gap'):
             self.status=str(p)
             return 'applied'
         if event.kind=='manual_result':return 'job_mismatch'
-        if event.kind in ('result','suppressed'):return 'missing_message'
+        if event.kind in ('result','suppressed','translation_state'):return 'missing_message'
         return 'ignored_event'

@@ -63,7 +63,7 @@ class ViewModelTests(unittest.TestCase):
 
         self.assertEqual([(m.event.generation,m.original,m.engine_translation,m.status)
                           for m in vm.messages.values()],
-                         [(0,'old text','旧译文','已翻译'),(0,'middle text','','原文'),
+                         [(0,'old text','旧译文','已翻译'),(0,'middle text','','未翻译'),
                           (1,'new text','新译文','已翻译')])
         self.assertEqual(vm.messages['shared'].original,'new text')
 
@@ -104,12 +104,13 @@ class TranslationConfigurationTests(unittest.TestCase):
         window.controller = SimpleNamespace(cloud_configured=True, configuration_held=False,
                                             pause_translation=Mock())
         window.cloud = Mock()
+        window.automatic = SimpleNamespace(get=lambda: True)
         window.service_label = Mock()
         self.assertTrue(callable(getattr(window, "enable_configured_cloud", None)))
         window.enable_configured_cloud()
         window.cloud.set.assert_called_once_with(True)
         window.controller.pause_translation.assert_called_once_with(False)
-        window.service_label.configure.assert_called_with(text='翻译服务：已配置')
+        self.assertIn('已启用',window.service_label.configure.call_args.kwargs['text'])
 
     def test_missing_credentials_keeps_original_text_mode(self):
         from types import SimpleNamespace

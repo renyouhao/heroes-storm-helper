@@ -7,6 +7,7 @@ from .input_native import WindowsInputNative
 from .theme import overlay_colors,style_native_window
 from ..appearance import DEFAULT_THEME
 from ..layout import display_metrics,quick_input_layout
+from .widget_lifecycle import widget_descendants,detach_destroyed_tree,clear_variable_traces
 
 
 @dataclass(frozen=True)
@@ -433,8 +434,14 @@ class QuickInput:
                     # 销毁控件时 WM_NCDESTROY 仍会拆除回调，保持回调对象活到销毁结束。
                     pass
                 finally:
-                    if self.window is not None:self.window.destroy()
+                    for variable in (self.text,self.target,self.status):clear_variable_traces(variable)
+                    if self.window is not None:
+                        real_window=isinstance(self.window,tk.Misc)
+                        descendants=widget_descendants(self.window) if real_window else ()
+                        self.window.destroy()
+                        if real_window:detach_destroyed_tree(self.window,descendants)
             finally:
                 # The final visibility notification must run before releasing
                 # callbacks bound to the main Tk window.
                 self.on_target_changed = self.on_visibility_changed = self._position_provider = None
+                self._clipboard=None

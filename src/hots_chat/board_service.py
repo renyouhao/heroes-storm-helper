@@ -70,6 +70,11 @@ class BoardHelper:
     @property
     def busy(self):return self._busy.is_set()
 
+    @property
+    def running(self):
+        """只读运行意图与停止栅栏；不暴露线程、hook或进程对象。"""
+        return self._enabled and not self._closed and not self._stop.is_set()
+
     def _emit(self, state, detail='', generation=None):
         with self._control:
             if generation is not None and generation != self._generation:return
@@ -126,6 +131,7 @@ class BoardHelper:
             if value:
                 self._stop = threading.Event()
                 self._inputs = queue.Queue(maxsize=64)
+                self._emit('waiting', '正在连接双击播报。')
                 self.thread = threading.Thread(target=self._run, args=(self._generation,self._stop),
                                                name='board-worker', daemon=True)
                 self.thread.start()
@@ -172,7 +178,11 @@ class BoardHelper:
                 try:backend.run(key, mouse, lambda:not stopped.is_set(),
                                 lambda:self._emit('idle', 'Tab内双击一项天赋或数据，播报到己方团队。', generation), stopped)
                 except Exception as error:failure.append(error)
-                finally:stopped.set()
+                finally:
+                    unexpected = not stopped.is_set()
+                    stopped.set()
+                    if unexpected:
+                        self._emit('error', '双击监听已停止，请点击“重新连接”恢复。', generation)
             hook_thread = threading.Thread(target=hooks, name='board-hooks', daemon=True)
             hook_thread.start()
             snapshot = target = point = None
@@ -275,7 +285,9 @@ class BoardHelper:
                     self._busy.clear()
                     for lock in reversed(locks):lock.release()
         except Exception:
-            self._emit('error', '双击播报已停止，请关闭后重试。', generation)
+            # 发布停止错误前先关闭运行栅栏，主窗读取同一条状态即可显示重连入口。
+            stopped.set()
+            self._emit('error', '双击播报已停止，请点击“重新连接”恢复。', generation)
         finally:
             stopped.set()
             cleanup_failed = False
@@ -294,7 +306,7 @@ class BoardHelper:
                 with self._control:
                     if generation==self._generation:self._enabled=False
             if failure or cleanup_failed:
-                self._emit('error', '双击监听未能完整退出，请关闭后重试。', generation)
+                self._emit('error', '双击监听未能完整退出，请点击“重新连接”恢复。', generation)
 
     def close(self):
         try:self.set_enabled(False)

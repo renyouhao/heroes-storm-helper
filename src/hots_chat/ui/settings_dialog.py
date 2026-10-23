@@ -147,11 +147,11 @@ class SettingsDialog:
         section = self._section(parent, '界面配色', '选择色卡查看配色；保存后同步主界面、设置和浮窗。')
         value = tk.StringVar(master=self.dialog, value=normalize_theme(self.window.settings.color_theme))
         self.values['color_theme'] = value
-        descriptions = {'moonlight': '明亮清爽 · 轻盈蓝调', 'graphite': '低调暗色 · 柔和紫调',
-                        'mint': '安静浅色 · 柔和青绿'}
+        descriptions = {'moonlight': '白色内容区，暖灰侧栏与细边框', 'graphite': '中性石墨底色，低亮度阅读',
+                        'mint': '浅灰青底色，安静柔和'}
         for name, label in PALETTE_NAMES.items():
             c = theme_colors(name)
-            card = tk.Frame(section, background=c['surface'], highlightthickness=self._px(2),
+            card = tk.Frame(section, background=c['surface'], highlightthickness=1,
                             highlightbackground=c['border'], padx=self._px(12), pady=self._px(10))
             card.pack(fill='x', pady=(0, self._px(8)))
             title = tk.Radiobutton(card, text=label, variable=value, value=name,

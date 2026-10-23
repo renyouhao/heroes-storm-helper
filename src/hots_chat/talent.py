@@ -84,7 +84,7 @@ class TalentSession:
             if now - attempt.sent_at >= self.config.confirm_timeout:
                 return self._status('blocked', '3秒内未确认选择，请检查该层爱心标记和快捷键；本层不再重试。',
                                     attempt.tier_id)
-            return self._status('waiting', '组合键已发送，等待回读该层已选记录。', attempt.tier_id)
+            return self._status('confirming', '组合键已发送，等待回读该层已选记录。', attempt.tier_id)
         return None
 
     def poll(self, snapshot, now, target, *, allowed=lambda: True, validate=None):
@@ -156,4 +156,4 @@ class TalentSession:
             return self._status('error', '组合键未完整发送，本局该层不再重试。', pending)
         if not self.config.enabled:
             return self._status('disabled')
-        return self._status('waiting', '组合键已发送，等待回读该层已选记录。', pending)
+        return self._status('confirming', '组合键已发送，等待回读该层已选记录。', pending)

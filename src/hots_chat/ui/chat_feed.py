@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import font as tkfont, ttk
 
 from .theme import theme_colors
+from .widget_lifecycle import widget_descendants,detach_destroyed_tree
 
 
 class ChatFeed(ttk.Frame):
@@ -16,6 +17,8 @@ class ChatFeed(ttk.Frame):
         self._selected = ()
         self._tags = {}
         self._painted_identities = {}
+        self._painted_values = {}
+        self._painted_generation = None
         self._columns = {}
         self._next_tag = 0
         self._paint_timer = None
@@ -248,6 +251,8 @@ class ChatFeed(ttk.Frame):
 
     def _paint(self):
         self._paint_timer = None
+        if self._paint_tail_changes():
+            return
         old_rows = self._painted_rows()
         top_index = self.body.index('@0,0')
         anchor = self._text_anchor(top_index, old_rows)
@@ -263,27 +268,9 @@ class ChatFeed(ttk.Frame):
             self.body.insert('end', '等待队友的第一条消息\n', 'empty')
             self.body.insert('end', '连接游戏后，聊天与中文译文会显示在这里。', 'empty')
         for key, row in self._records.items():
-            if key not in self._tags:
-                self._next_tag += 1
-                self._tags[key] = 'message_' + str(self._next_tag)
-            tag = self._tags[key]
-            event = row['event']
-            original, translation, status = row['values']
-            if event is not None:
-                self.body.insert('end', event.sender + '   ', (tag, 'sender'))
-                history = '  ·  历史对局' if event.generation != self._generation else ''
-                self.body.insert('end', f'{event.channel}  ·  {event.timestamp}{history}\n',
-                                 (tag, 'metadata'))
-            self.body.insert('end', (translation or original) + '\n', (tag, 'translation'))
-            if translation:
-                self.body.insert('end', '原文  ' + original + '\n', (tag, 'original'))
-            if status not in ('阿里云', '缓存'):
-                self.body.insert('end', status + '\n', (tag, 'status'))
+            self._insert_row(key,row,'end-1c')
         self.body.configure(state='disabled')
-        self._painted_identities = {
-            key: row['event'] if row['event'] is not None else row['identity']
-            for key, row in self._records.items()
-        }
+        self._remember_paint()
         new_rows = self._painted_rows()
         self._restore_text_selection(selections, new_rows)
         self._highlight_selection()
@@ -296,8 +283,75 @@ class ChatFeed(ttk.Frame):
             if line is not None and top_y is not None:
                 self.body.yview_scroll(line[1] - top_y, 'pixels')
 
+    def _insert_row(self,key,row,index):
+        if key not in self._tags:
+            self._next_tag += 1
+            self._tags[key]='message_'+str(self._next_tag)
+        tag=self._tags[key]
+        # 右重力使同一行的各段文本按顺序插入，更新中间行时不会移到文档尾部。
+        self.body.mark_set('_render_cursor',index)
+        self.body.mark_gravity('_render_cursor','right')
+        def insert(text,role):
+            self.body.insert('_render_cursor',text,(tag,role))
+        event=row['event']
+        original,translation,status=row['values']
+        if event is not None:
+            insert(event.sender+'   ','sender')
+            history='  ·  历史对局' if event.generation!=self._generation else ''
+            insert(f'{event.channel}  ·  {event.timestamp}{history}\n','metadata')
+        insert((translation or original)+'\n','translation')
+        if translation:insert('原文  '+original+'\n','original')
+        if status not in ('阿里云','缓存'):insert(status+'\n','status')
+        self.body.mark_unset('_render_cursor')
+
+    def _remember_paint(self):
+        self._painted_identities={key:row['event'] if row['event'] is not None else row['identity']
+                                  for key,row in self._records.items()}
+        self._painted_values={key:row['values'] for key,row in self._records.items()}
+        self._painted_generation=self._generation
+
+    def _paint_tail_changes(self):
+        """正常跟随最新消息时只向Tk提交变动行；阅读选区走原有锚点恢复。"""
+        if (self._painted_generation!=self._generation or not self._painted_identities
+                or not self._records or self.body.tag_ranges('sel') or self.body.yview()[1]<.98):
+            return False
+        old=self._painted_identities
+        retained=[key for key in old if key in self._records]
+        current=list(self._records)
+        # 历史改名、插入中间或重排时完整恢复锚点，不能把旧行归给新身份。
+        if current[:len(retained)]!=retained:return False
+        for key in retained:
+            row=self._records[key]
+            identity=row['event'] if row['event'] is not None else row['identity']
+            if identity is not old[key]:return False
+        self.body.configure(state='normal')
+        for key in tuple(old):
+            if key not in self._records:
+                tag=self._tags.pop(key)
+                ranges=self.body.tag_ranges(tag)
+                if ranges:self.body.delete(ranges[0],ranges[-1])
+                self.body.tag_delete(tag)
+        for key in retained:
+            row=self._records[key]
+            if row['values']==self._painted_values[key]:continue
+            ranges=self.body.tag_ranges(self._tags[key])
+            start=str(ranges[0])
+            self.body.delete(start,ranges[-1])
+            self._insert_row(key,row,start)
+        for key in current[len(retained):]:
+            self._insert_row(key,self._records[key],'end-1c')
+        self.body.configure(state='disabled')
+        self._remember_paint()
+        self._highlight_selection()
+        self.body.see('end')
+        return True
+
     def destroy(self):
+        if getattr(self,'_destroyed',False):return
+        self._destroyed=True
         if self._paint_timer is not None:
             self.after_cancel(self._paint_timer)
             self._paint_timer = None
+        descendants=widget_descendants(self)
         super().destroy()
+        detach_destroyed_tree(self,descendants)

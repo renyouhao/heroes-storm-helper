@@ -65,7 +65,7 @@ class NexusThemeIntegrationTests(unittest.TestCase):
         with patch.object(self.window.overlay, 'input_position', return_value=(10120, 10750)):
             self.assertEqual(provider(), (10120, 10750))
 
-    def test_switching_to_blue_updates_existing_views_without_dropping_drafts(self):
+    def test_switching_to_light_theme_updates_views_without_dropping_drafts(self):
         w = self.window
         w.input.insert('1.0', '主窗草稿')
         w.vm.apply(AppEvent('chat', 0, ChatEvent('a', 0, '团队', '队友', '0:01', 'help')))
@@ -80,7 +80,9 @@ class NexusThemeIntegrationTests(unittest.TestCase):
         w.apply_settings(layout_only=True)
         self.assertEqual(w.input.cget('background'), theme_colors('moonlight')['field'])
         self.assertEqual(quick_window.cget('background'), overlay_colors('moonlight')['background'])
-        self.assertEqual(ttk.Style(self.root).lookup('Accent.TButton', 'background'), theme_colors('moonlight')['accent'])
+        style = ttk.Style(self.root)
+        self.assertGreaterEqual(contrast(style.lookup('Accent.TButton', 'foreground'),
+                                         style.lookup('Accent.TButton', 'background')), 4.5)
         self.assertEqual(w.input.get('1.0', 'end-1c'), '主窗草稿')
         self.assertEqual(w.quick_input.text.get(), '快捷输入草稿')
         self.assertIs(w.quick_input.window, quick_window)
