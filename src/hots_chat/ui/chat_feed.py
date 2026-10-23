@@ -301,7 +301,7 @@ class ChatFeed(ttk.Frame):
             insert(f'{event.channel}  ·  {event.timestamp}{history}\n','metadata')
         insert((translation or original)+'\n','translation')
         if translation:insert('原文  '+original+'\n','original')
-        if status not in ('阿里云','缓存'):insert(status+'\n','status')
+        if status and status not in ('阿里云','缓存'):insert(status+'\n','status')
         self.body.mark_unset('_render_cursor')
 
     def _remember_paint(self):
