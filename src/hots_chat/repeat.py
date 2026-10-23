@@ -274,6 +274,9 @@ class RepeatHelper:
         self.thread = self._backend = None
         self._closed = False
         self._lock = threading.Lock()
+        # 会话状态与输出栅栏分开：其他发送器会跨SendInput持有_dispatch，
+        # 低级钩子的消息泵不能等待它，否则SendInput会反过来等待消息泵。
+        self._session_control = threading.RLock()
         self._dispatch = threading.RLock()
         self._events = queue.SimpleQueue()
         self._cancel = self._stop = self._displayed = None
@@ -370,32 +373,41 @@ class RepeatHelper:
             with self._lock:
                 self._session = session
             def ready():
-                with self._dispatch:
+                with self._session_control:
                     if allowed():
                         session.listen() if direct else session.prepare()
                     else:
                         session.cancel()
             def tick():
-                with self._dispatch:
-                    if not allowed():
-                        session.cancel()
-                    return session.tick()
+                if not self._dispatch.acquire(blocking=False):
+                    return not stopped.is_set()
+                try:
+                    with self._session_control:
+                        if not allowed():
+                            session.cancel()
+                        return session.tick()
+                finally:
+                    self._dispatch.release()
             def key(vk, down, extra_info):
-                with self._dispatch:
+                if extra_info == INPUT_MARKER:
+                    return False
+                with self._session_control:
                     if not allowed():
                         session.cancel()
                     return session.key(vk, down, extra_info)
             if not stopped.is_set():
                 run = backend.run_listening if direct else backend.run
                 run(key, session.mouse, tick, ready, stopped)
-            if session.status.state != 'error':
-                session.cancel(session.status.detail if session.status.state == 'idle' else '')
+            with self._session_control:
+                if session.status.state != 'error':
+                    session.cancel(session.status.detail if session.status.state == 'idle' else '')
         except Exception as failure:
             if session is None:
                 label = 'Y+S' if action == 'YS' else 'S'
                 emit(RepeatStatus('error', label + '连按未能准备：' + str(failure), generation))
             else:
-                session.fail(failure)
+                with self._session_control:
+                    session.fail(failure)
         finally:
             with self._lock:
                 self._backend = None
@@ -420,12 +432,13 @@ class RepeatHelper:
             if self._displayed is not None:
                 self._displayed.clear()
         with self._dispatch:
-            with self._lock:
-                if generation is not None and generation != self._generation:
-                    return False
-                session = self._session
-            if self._direct_mode and session is not None:
-                session.cancel()
+            with self._session_control:
+                with self._lock:
+                    if generation is not None and generation != self._generation:
+                        return False
+                    session = self._session
+                if self._direct_mode and session is not None:
+                    session.cancel()
         return True
 
     def accepts_status(self, status):
