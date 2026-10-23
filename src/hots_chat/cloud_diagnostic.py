@@ -12,8 +12,8 @@ from .credentials import CredentialStore, validate_credentials
 from .paths import AppPaths
 
 
-_STAGES = frozenset(('waiting', 'identity', 'usage', 'client', 'translation',
-                     'settlement', 'save', 'activate', 'remove'))
+_STAGES = frozenset(('waiting', 'identity', 'client', 'translation',
+                     'save', 'activate', 'remove'))
 _PROVIDER_CODES = frozenset(('10001', '10009', '10010', '10011', '10012', '10013',
     'Forbidden.NoPermission', 'Forbidden.RAM', 'InvalidAccessKeyId.NotFound',
     'SignatureDoesNotMatch', 'RequestTimeTooSkewed', 'SDK.ConnectTimeout',
@@ -151,7 +151,7 @@ def check_cloud_configuration(credentials_path: Path, output: Path) -> int:
     """Run two paid, two-character translations only after an explicit CLI request.
 
     STS identity verification is separate from the translation attempt count.
-    The original export is read only; all saved credentials and usage are temporary.
+    The original export is read only; all saved credentials are temporary.
     No SDK text, translated text, account, key, or input path enters the report.
     """
     started = time.monotonic()
@@ -161,7 +161,6 @@ def check_cloud_configuration(credentials_path: Path, output: Path) -> int:
         'credentials_encrypted': False, 'credentials_reloaded': False,
         'restarted_translation_succeeded': False,
         'cloud_requests_started': 0, 'translation_characters': 0,
-        'local_reserved': 0, 'external_used': 0,
         'elapsed_ms': {'initial_configuration': 0, 'reload_translation': 0, 'total': 0},
         'events': [], 'isolated_data_removed': False,
         'real_user_configuration_modified': False,
@@ -180,7 +179,7 @@ def check_cloud_configuration(credentials_path: Path, output: Path) -> int:
         credentials = _read_export(credentials_path)
         temporary = tempfile.TemporaryDirectory(prefix='hots-cloud-check-')
         base = Path(temporary.name)
-        paths = AppPaths(base / '.env', base / 'usage.sqlite3', base / 'language.sqlite3',
+        paths = AppPaths(base / '.env', base / 'language.sqlite3',
                          base / 'preferences.json')
         stage = 'startup'
         controller = build_controller(paths)
@@ -212,10 +211,8 @@ def check_cloud_configuration(credentials_path: Path, output: Path) -> int:
                 or saved.credentials != credentials or saved.account != controller.account):
             raise _CheckFailure('credential_verification_failed', stage)
         original_account = saved.account
-        initial = controller.ledger.snapshot(original_account, controller.clock())
-        if not (controller.cloud_configured and initial.confirmed and initial.local_reserved == 2
-                and initial.external_used == 0):
-            raise _CheckFailure('configuration_verification_failed', 'usage')
+        if not controller.cloud_configured:
+            raise _CheckFailure('configuration_verification_failed', 'activate')
         _close_controller(controller)
         controllers.remove(controller)
 
@@ -234,11 +231,8 @@ def check_cloud_configuration(credentials_path: Path, output: Path) -> int:
             stage = 'reload_translation'
             job_id = controller.submit_manual('你好', 'en')
             _manual_result(controller, job_id, deadline)
-            final = controller.ledger.snapshot(controller.account, controller.clock())
-            report['local_reserved'], report['external_used'] = final.local_reserved, final.external_used
-            if (not final.confirmed or final.local_reserved != 4 or final.external_used != 0
-                    or report['cloud_requests_started'] != 2 or report['translation_characters'] != 4):
-                raise _CheckFailure('usage_verification_failed', 'usage')
+            if report['cloud_requests_started'] != 2 or report['translation_characters'] != 4:
+                raise _CheckFailure('translation_verification_failed', 'reload_translation')
             report['restarted_translation_succeeded'] = True
         finally:
             report['elapsed_ms']['reload_translation'] = round((time.monotonic() - phase_started) * 1000)

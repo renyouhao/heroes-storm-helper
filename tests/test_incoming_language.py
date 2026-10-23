@@ -1,7 +1,5 @@
 from datetime import datetime, timezone
-from pathlib import Path
 from types import SimpleNamespace as NS
-import tempfile
 import unittest
 
 from hots_chat.config import Credentials
@@ -11,7 +9,6 @@ from hots_chat import routing
 from hots_chat.routing import should_translate
 from hots_chat.translation.aliyun import AliyunEngine
 from hots_chat.translation.base import TranslationError
-from hots_chat.usage import BudgetLedger
 
 
 class _Source:
@@ -37,15 +34,11 @@ class _Client:
 
 class IncomingLanguageTests(unittest.TestCase):
     def setUp(self):
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
         self.now = lambda: datetime(2026, 10, 21, tzinfo=timezone.utc)
-        self.ledger = BudgetLedger(Path(tmp.name) / 'usage.db', 10000)
-        self.ledger.confirm_baseline('fictional', '2026-10', 0, self.now())
         self.client = _Client()
         engine = AliyunEngine(Credentials('fictional', 'fictional-secret'),
                               client_factory=lambda config: self.client)
-        self.controller = ChatController(_Source(), engine, self.ledger,
+        self.controller = ChatController(_Source(), engine,
                                          'fictional', self.now)
         self.addCleanup(self.controller.close)
 
@@ -84,7 +77,6 @@ class IncomingLanguageTests(unittest.TestCase):
         self.assertEqual((request.source_language, request.target_language), ('en', 'zh'))
         self.assertEqual(request.source_text, 'BAD')
         self.assertFalse(runtime.autoretry)
-        self.assertEqual(self.ledger.snapshot('fictional', self.now()).local_reserved, 3)
 
     def test_supported_text_chooses_english_or_korean_without_changing_body(self):
         for index, (text, expected) in enumerate((
@@ -101,7 +93,7 @@ class IncomingLanguageTests(unittest.TestCase):
         self.assertFalse(any(request.source_language == 'auto'
                              for request, _ in self.client.calls))
 
-    def test_unsupported_letters_retain_original_without_cloud_or_usage(self):
+    def test_unsupported_letters_retain_original_without_cloud(self):
         for index, text in enumerate(('BAD 日本語かな', 'BAD Привет', '가자 Привет', 'BAD schön',
                                       '가자 schön', 'BAD α', 'BAD é', 'ＢＡＤ')):
             with self.subTest(text=text):
@@ -110,7 +102,6 @@ class IncomingLanguageTests(unittest.TestCase):
                 self.assertFalse(any(event.kind == 'result' for event in events))
                 self.assertFalse(should_translate(text))
         self.assertEqual(self.client.calls, [])
-        self.assertEqual(self.ledger.snapshot('fictional', self.now()).local_reserved, 0)
 
     def test_chinese_numbers_and_emoji_do_not_start_translation(self):
         for index, text in enumerate(('', '集合', '123', '😀!?', '中文 123 😀')):
@@ -134,7 +125,6 @@ class IncomingLanguageTests(unittest.TestCase):
                 self.assertEqual([request.source_language for request, _ in self.client.calls[-2:]],
                                  [expected, expected])
         self.assertEqual(len(self.client.calls), 4)
-        self.assertEqual(self.ledger.snapshot('fictional', self.now()).local_reserved, 18)
 
     def test_retry_unsupported_text_is_explicit_and_does_not_call_cloud(self):
         for index, text in enumerate(('BAD schön', '가자 日本語かな', '가자 Привет', '集合', '123 😀')):
@@ -154,7 +144,6 @@ class IncomingLanguageTests(unittest.TestCase):
         self.assertEqual([event.payload['translated'] for event in first if event.kind == 'result'], ['不好'])
         self.assertEqual([event.payload['translated'] for event in second if event.kind == 'result'], ['不好'])
         self.assertEqual(len(self.client.calls), 1)
-        self.assertEqual(self.ledger.snapshot('fictional', self.now()).local_reserved, 3)
 
     def test_manual_chinese_still_uses_chinese_source_for_both_targets(self):
         for target in ('en', 'ko'):
@@ -167,15 +156,14 @@ class IncomingLanguageTests(unittest.TestCase):
             self.assertEqual(request.source_text, '集合')
         self.assertEqual(len(self.client.calls), 2)
 
-    def test_pause_and_budget_still_prevent_incoming_cloud_calls(self):
+    def test_automatic_pause_prevents_cloud_calls_and_resume_needs_no_baseline(self):
         self.controller.pause_automatic(True)
         self.receive('paused', 'BAD')
         self.assertEqual(self.client.calls, [])
         self.controller.pause_automatic(False)
-        self.controller.account = 'unconfirmed'
-        events = self.receive('budget', 'BAD')
-        self.assertTrue(any(event.kind == 'error' for event in events))
-        self.assertEqual(self.client.calls, [])
+        events = self.receive('resumed', 'BAD')
+        self.assertTrue(any(event.kind == 'result' for event in events))
+        self.assertEqual(len(self.client.calls), 1)
 
 
 class AliyunIncomingSourceTests(unittest.TestCase):

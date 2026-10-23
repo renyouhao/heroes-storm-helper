@@ -17,18 +17,19 @@ class WorkflowTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         p=Path(self.tmp.name)
-        self.controller=build_controller(AppPaths(p/'.env',p/'usage.db',p/'language.db',p/'settings.json'),True)
+        self.controller=build_controller(AppPaths(p/'.env',p/'language.db',p/'settings.json'),True)
         self.root=tk.Tk();self.root.withdraw()
         self.window=create_app(self.root,self.controller,WindowSettings(x=50000,y=50000,hotkeys={},overlay_enabled=False))
         self.addCleanup(self.window.close)
 
-    def test_startup_receives_automatically_without_cloud_baseline(self):
+    def test_demo_startup_receives_and_translates_without_a_usage_ledger(self):
         self.root.update()
         self.window.pump()
         self.assertEqual([self.window.notebook.tab(tab,'text') for tab in self.window.notebook.tabs()],
-                         ['实时消息','常用短句','开箱助手','动作连按'])
+                         ['实时消息','常用短句','开箱助手','动作连按','天赋辅助','双击播报'])
         self.assertEqual(len(self.window.vm.messages),3)
-        self.assertTrue(self.controller.paused,'未知额度不得调用云')
+        self.assertFalse(self.controller.paused,'离线演示服务已配置，启动后可直接翻译')
+        self.assertFalse(hasattr(self.controller, 'ledger'))
 
     def test_party_whisper_channel_picker_routes_new_messages_and_preserves_history(self):
         self.root.update()
@@ -80,10 +81,9 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual([m.original for m in self.window.vm.messages.values()],['before','after'])
         self.assertEqual(len(self.window.tree.get_children()),2)
 
-    def test_confirmed_startup_allows_cloud_and_pause_only_affects_automatic(self):
-        from hots_chat.clock import month_key
-        self.controller.ledger.confirm_baseline('main',month_key(self.controller.clock()),0,self.controller.clock())
-        self.window.enable_confirmed_cloud()
+    def test_configured_cloud_and_automatic_pause_are_independent(self):
+        self.controller.cloud_configured=True
+        self.window.enable_configured_cloud()
         self.window.automatic.set(False);self.window.toggle_automatic()
         self.assertFalse(self.controller.paused)
         self.assertTrue(self.controller.automatic_paused)

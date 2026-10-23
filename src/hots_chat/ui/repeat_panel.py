@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import font as tkfont, ttk
 
 from ..layout import bottom_overlay_layout
+from ..repeat import validate_repeat_config
 from .native_windows import Win32Window
 from .rounded_panel import RoundedPanel
 from .theme import overlay_colors, theme_colors
@@ -11,9 +12,9 @@ from .theme import overlay_colors, theme_colors
 _STATUS = {
     'idle': ('按键即开始', '游戏中单独按 {hotkey} 开始，无需准备。', 'muted'),
     'preparing': ('正在连接快捷键', '正在检查游戏快捷键，请稍候。', 'accent'),
-    'requested': ('正在启动', '正在启动 S 连按，按 {hotkey} 取消；Esc 也可结束。', 'accent'),
-    'ready': ('正在启动', '正在启动 S 连按，按 {hotkey} 取消；Esc 也可结束。', 'accent'),
-    'running': ('正在连按', '目标间隔 20 毫秒连按 S。按 {hotkey} 取消，Esc 也可结束；右键仍可正常操作。', 'success'),
+    'requested': ('正在启动', '正在启动 {action} 连按，按 {hotkey} 取消；Esc 也可结束。', 'accent'),
+    'ready': ('正在启动', '正在启动 {action} 连按，按 {hotkey} 取消；Esc 也可结束。', 'accent'),
+    'running': ('正在连按', '{pacing}按 {hotkey} 取消，Esc 也可结束；右键仍可正常操作。', 'success'),
     'paused': ('已停止连按', '按 {hotkey} 取消本次模式；右键仍可正常操作。', 'warning'),
     'error': ('快捷键暂不可用', '请确认游戏与助手已打开，查看下方错误提示。', 'danger'),
 }
@@ -21,6 +22,15 @@ _ACTIVE = frozenset(('requested', 'ready', 'running', 'paused'))
 _OVERLAY_HINT = {
     state: '按 {hotkey} 取消' for state in _ACTIVE
 }
+
+
+def _format_values(settings):
+    action = 'Y+S' if getattr(settings, 'repeat_action', 'S') == 'YS' else 'S'
+    interval = (getattr(settings, 'repeat_interval_ms', 20) if action == 'Y+S'
+                else getattr(settings, 'repeat_s_interval_ms', 20))
+    pacing = (f'Y → 间隔 {interval} 毫秒 → S → 间隔 {interval} 毫秒 → Y 循环。'
+              if action == 'Y+S' else f'目标间隔 {interval} 毫秒连按 S。')
+    return dict(hotkey=getattr(settings, 'repeat_hotkey', 'F8'), action=action, pacing=pacing)
 
 
 class _RepeatOverlay:
@@ -57,7 +67,7 @@ class _RepeatOverlay:
         padding = metrics.px(12)
         width = min(metrics.px(420), metrics.work_area[2] - metrics.work_area[0])
         text_width = max(1, width - padding * 2)
-        title = '动作连按 · ' + _STATUS[state][0]
+        title = _format_values(settings)['action'] + ' 连按 · ' + _STATUS[state][0]
         self.canvas.delete('all')
         # Canvas 根据真实 Tk 字体度量决定高度；字号不再乘一次 DPI。
         self.canvas.create_text(padding, padding, text=title, font=self.title_font,
@@ -97,15 +107,18 @@ class _RepeatOverlay:
 
 
 class RepeatPanel(ttk.Frame):
-    """状态由主窗口传入；页面说明游戏快捷键，只提供取消回调。
+    """状态由主窗口传入；配置保存与取消交给主窗口回调。
 
     ``native`` 可注入无副作用测试替身；默认直到首次请求才创建原生接口。
     ``close`` 只清理本组件资源，父窗口仍由主窗口管理。
     """
-    def __init__(self, parent, *, on_prepare, on_cancel, settings, metrics, native=None):
+    def __init__(self, parent, *, on_prepare, on_cancel, settings, metrics, native=None,
+                 on_apply=None):
         super().__init__(parent)
         self.settings, self.metrics = settings, metrics
         self._on_prepare, self._on_cancel = on_prepare, on_cancel
+        self._on_apply = on_apply
+        self._applied_config = None
         self._native = native
         self._state, self._detail = 'idle', ''
         self._closed = False
@@ -132,9 +145,31 @@ class RepeatPanel(ttk.Frame):
         self.scroll_canvas.configure(yscrollcommand=self.scrollbar.set)
         self.content = ttk.Frame(self.scroll_canvas)
         self._content_item = self.scroll_canvas.create_window(0, 0, anchor='nw', window=self.content)
-        self._label(self.content, 'S 连按，按键掌控', font=self._title_font).pack(anchor='w', fill='x', pady=(0, 8))
+        self._label(self.content, '动作连按，按键掌控', font=self._title_font).pack(anchor='w', fill='x', pady=(0, 8))
         self._label(self.content, '游戏中直接按 {hotkey} 开始，无需准备；再按 {hotkey} 取消。',
                     tone='muted').pack(anchor='w', fill='x')
+        self.config_frame = ttk.Frame(self.content)
+        self.config_frame.pack(fill='x', pady=(16, 0))
+        self.config_frame.columnconfigure(1, weight=1)
+        self._label(self.config_frame, '连按动作').grid(row=0, column=0, sticky='w', padx=(0, 10))
+        self.action_var = tk.StringVar(self, value='S')
+        self.action_combo = ttk.Combobox(self.config_frame, textvariable=self.action_var,
+                                         values=('S', 'Y+S'), state='readonly', width=10)
+        self.action_combo.grid(row=0, column=1, sticky='ew')
+        self.action_combo.bind('<<ComboboxSelected>>', self._action_selected)
+        self._label(self.config_frame, '按键间隔\n（毫秒）').grid(row=1, column=0, sticky='w', padx=(0, 10), pady=(10, 0))
+        self.interval_var = tk.StringVar(self, value='20')
+        self._draft_action = 'S'
+        self._interval_drafts = {'S': '20', 'Y+S': '20'}
+        self.interval_entry = ttk.Entry(self.config_frame, textvariable=self.interval_var, width=10)
+        self.interval_entry.grid(row=1, column=1, sticky='ew', pady=(10, 0))
+        self._label(self.content, '两种动作都可设置 20–5000 毫秒，默认 20，分别保存。S 为两次 S 之间的间隔；Y+S 为每个相邻按键之间的间隔。',
+                    tone='muted').pack(fill='x', pady=(8, 0))
+        self.apply_button = ttk.Button(self.content, text='保存并应用', command=self._apply_action,
+                                       style=self._style_prefix + 'Accent.TButton')
+        self.apply_button.pack(anchor='w', pady=(10, 5))
+        self.config_message = tk.StringVar(self, value='保存后结束当前连按；回到游戏再按快捷键开始。')
+        self._label(self.content, textvariable=self.config_message, tone='muted').pack(fill='x')
         self.status_panel = RoundedPanel(self.content, settings=settings, padding=14, fit_height=True)
         self.status_panel.pack(fill='x', pady=(18, 20))
         self.status_text = tk.StringVar(self)
@@ -144,13 +179,13 @@ class RepeatPanel(ttk.Frame):
         self.status_label.pack(fill='x', pady=(0, 5))
         self._label(self.status_panel.body, textvariable=self.status_detail, surface=True,
                     tone='muted').pack(fill='x')
-        for text in ('1  回到游戏，自行右键点地板', '2  单独按 {hotkey} 开始 S 连按',
+        for text in ('1  回到游戏，自行右键点地板', '2  单独按 {hotkey} 开始 {action} 连按',
                      '3  按 {hotkey} 取消，Esc 也可结束'):
             self._label(self.content, text).pack(fill='x', pady=(0, 10))
         self._label(self.content, '按键与鼠标', font=self._status_font).pack(fill='x', pady=(10, 8))
         for text in (
-            '目标间隔 20 毫秒连按 S；右键仍可正常操作，不会自动点击鼠标。',
-            '聊天框打开时也可启动，S 会输入聊天框；不需要先按 Esc 重置。',
+            '{pacing}右键仍可正常操作，不会自动点击鼠标。',
+            '聊天框打开时也可启动，所选动作按键会输入聊天框；不需要先按 Esc 重置。',
             'Enter 聊天、打开快捷输入或切出游戏，都会结束本次模式。',
         ):
             self._label(self.content, text, tone='muted').pack(fill='x', pady=(0, 10))
@@ -185,12 +220,12 @@ class RepeatPanel(ttk.Frame):
 
     def _label(self, parent, text='', *, textvariable=None, font=None, tone='text', surface=False):
         template = text
-        text = text.format(hotkey=getattr(self.settings, 'repeat_hotkey', 'F8'))
+        text = text.format(**_format_values(self.settings))
         label = tk.Label(parent, text=text, textvariable=textvariable, font=font or self._body_font,
                           justify='left', anchor='w', borderwidth=0, highlightthickness=0,
                           padx=0, pady=0, takefocus=False)
         self._labels.append((label, tone, surface))
-        if '{hotkey}' in template:
+        if any('{' + name + '}' in template for name in ('hotkey', 'action', 'pacing')):
             self._hotkey_labels.append((label, template))
         return label
 
@@ -203,6 +238,32 @@ class RepeatPanel(ttk.Frame):
     def _cancel(self):
         if not self._closed and self._state in _ACTIVE | {'preparing'}:
             self._on_cancel()
+
+    def _action_selected(self, event=None):
+        selected = self.action_var.get()
+        if selected in self._interval_drafts and selected != self._draft_action:
+            self._interval_drafts[self._draft_action] = self.interval_var.get()
+            self._draft_action = selected
+            self.interval_var.set(self._interval_drafts[selected])
+
+    def _apply_action(self):
+        if self._closed or self._on_apply is None:return
+        text = self.interval_var.get().strip()
+        try:
+            if not text or not text.isdecimal():
+                raise ValueError('按键间隔必须是 20–5000 毫秒的整数。')
+            interval = int(text)
+            selected = self.action_var.get()
+            if selected not in ('S', 'Y+S'):
+                raise ValueError('连按动作只能选择 S 或 Y+S。')
+            action = 'YS' if selected == 'Y+S' else 'S'
+            validate_repeat_config(action, interval)
+            self._on_apply(action, interval)
+        except (ValueError, OSError) as failure:
+            self.config_message.set('未保存：' + str(failure))
+            return
+        self.config_message.set(f'已保存并应用。回到游戏按 {_format_values(self.settings)["hotkey"]} 开始 {selected} 连按。')
+        self.apply_settings(self.settings)
 
     def update_status(self, state, detail=''):
         if self._closed:
@@ -228,7 +289,7 @@ class RepeatPanel(ttk.Frame):
 
     def _update_status_text(self):
         title, instruction, tone = _STATUS[self._state]
-        instruction = instruction.format(hotkey=getattr(self.settings, 'repeat_hotkey', 'F8'))
+        instruction = instruction.format(**_format_values(self.settings))
         self.status_text.set(title)
         self.status_detail.set(instruction + ('\n' + str(self._detail) if self._detail else ''))
         self.status_label.configure(foreground=theme_colors(self.settings)[tone])
@@ -262,6 +323,14 @@ class RepeatPanel(ttk.Frame):
         if metrics is not None:
             self.metrics = metrics
         colors = theme_colors(settings)
+        config = (getattr(settings, 'repeat_action', 'S'), getattr(settings, 'repeat_interval_ms', 20),
+                  getattr(settings, 'repeat_s_interval_ms', 20))
+        if config != self._applied_config:
+            self._interval_drafts = {'S': str(config[2]), 'Y+S': str(config[1])}
+            self._draft_action = 'Y+S' if config[0] == 'YS' else 'S'
+            self.action_var.set(self._draft_action)
+            self.interval_var.set(self._interval_drafts[self._draft_action])
+            self._applied_config = config
         size = settings.font_size
         self._body_font.configure(size=size)
         self._title_font.configure(size=size + 5)
@@ -270,7 +339,7 @@ class RepeatPanel(ttk.Frame):
         for label, tone, surface in self._labels:
             label.configure(background=colors['surface' if surface else 'background'], foreground=colors[tone])
         for label, template in self._hotkey_labels:
-            label.configure(text=template.format(hotkey=getattr(settings, 'repeat_hotkey', 'F8')))
+            label.configure(text=template.format(**_format_values(settings)))
         self._update_status_text()
         self.status_panel.apply_settings(settings, self.metrics)
         pad = self.metrics.px(12)
@@ -340,9 +409,9 @@ class RepeatPanel(ttk.Frame):
         if self._overlay is not None:
             self._overlay.close()
         self._overlay_visible = False
-        self._on_prepare = self._on_cancel = None
+        self._on_prepare = self._on_cancel = self._on_apply = None
         # <Destroy> 到达父 Frame 前，Tk 已经先销毁它的子控件。
-        for button in (self.prepare_button, self.cancel_button):
+        for button in (self.prepare_button, self.cancel_button, self.apply_button):
             if button.winfo_exists():
                 button.configure(command='')
 

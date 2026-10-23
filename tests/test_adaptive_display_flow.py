@@ -51,8 +51,7 @@ class AdaptiveDisplayFlowTests(unittest.TestCase):
     def app(self, *, mode='normal', width=1920, height=1080, scale=1, font_size=12):
         with tempfile.TemporaryDirectory() as folder:
             base = Path(folder)
-            controller = build_controller(AppPaths(base / '.env', base / 'usage.db',
-                                                   base / 'language.db', base / 'preferences.json'), True)
+            controller = build_controller(AppPaths(base / '.env', base / 'language.db', base / 'preferences.json'), True)
             root = tk.Tk()
             root.withdraw()
             # Tk默认wm maxsize取宿主1K屏幕；只解除本测试窗口的限幅，

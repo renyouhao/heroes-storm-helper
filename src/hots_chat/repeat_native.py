@@ -1,4 +1,4 @@
-"""S连按的按需Win32边界；导入不加载DLL、不安装钩子、不创建线程。"""
+"""动作连按的按需Win32边界；导入不加载DLL、不安装钩子、不创建线程。"""
 import ctypes
 import threading
 
@@ -6,7 +6,7 @@ from .loot_native import UINT, Win32LootBackend
 
 
 class Win32RepeatBackend(Win32LootBackend):
-    """10ms消息泵驱动串行调度；20ms为目标间隔，不保证硬实时。"""
+    """10ms消息泵驱动串行调度；动作间隔为目标值，不保证硬实时。"""
 
     def __init__(self, *, user=None, kernel=None, winmm=None):
         super().__init__(user=user, kernel=kernel, timer_interval_ms=10)
@@ -20,6 +20,12 @@ class Win32RepeatBackend(Win32LootBackend):
 
     def send_s(self, target, *, allowed=None):
         return self.send_key(0x53, target, allowed=allowed)
+
+    def send_repeat_key(self, vk, target, *, allowed=None):
+        """Y+S 的单步按下/释放；目标与发送栅栏沿用原生输入边界。"""
+        if vk not in (0x59, 0x53):
+            raise ValueError('动作连按仅支持 Y 或 S。')
+        return self.send_key(vk, target, allowed=allowed)
 
     def _resolution_api(self):
         if self._winmm is None:

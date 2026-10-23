@@ -12,7 +12,7 @@ from hots_chat.paths import AppPaths
 class AppTests(unittest.TestCase):
     def test_startup_no_cloud_and_all_workers_stop(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p=Path(tmp);paths=AppPaths(p/'.env',p/'u.db',p/'l.db',p/'p.json')
+            p=Path(tmp);paths=AppPaths(p/'.env',p/'l.db',p/'p.json')
             c=build_controller(paths,demo=True)
             try:
                 self.assertTrue(c.idle)
@@ -24,7 +24,7 @@ class AppTests(unittest.TestCase):
 
     def test_startup_needs_only_phrases_and_keeps_existing_language_data(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p=Path(tmp);paths=AppPaths(p/'.env',p/'u.db',p/'l.db',p/'p.json')
+            p=Path(tmp);paths=AppPaths(p/'.env',p/'l.db',p/'p.json')
             resources=p/'resources';(resources/'data').mkdir(parents=True)
             shutil.copy2(PROJECT_ROOT/'data'/'phrases.json',resources/'data'/'phrases.json')
             book=PhraseBook(paths.language_file)

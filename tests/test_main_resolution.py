@@ -17,7 +17,7 @@ class MainResolutionTests(unittest.TestCase):
             for scale in (1,1.25,1.5,2):
                 for mode in ('normal','compact'):
                     with self.subTest(resolution=(width,height),scale=scale,mode=mode),tempfile.TemporaryDirectory() as tmp:
-                        p=Path(tmp);c=build_controller(AppPaths(p/'.env',p/'u.db',p/'l.db',p/'p.json'),True)
+                        p=Path(tmp);c=build_controller(AppPaths(p/'.env',p/'l.db',p/'p.json'),True)
                         root=tk.Tk();root.withdraw();window=None
                         try:
                             root.tk.call('tk','scaling',scale*96/72)

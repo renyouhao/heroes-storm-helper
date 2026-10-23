@@ -10,25 +10,30 @@ def check_installation(output,*,display_mode=None):
     from .window_settings import WindowSettings
     from .ui.main_window import create_app
     from .display_runtime import TkDisplayRuntime,window_dpi
+    from .talent_catalog import TalentCatalog
     import tkinter as tk
     from alibabacloud_alimt20181012.client import Client
     with tempfile.TemporaryDirectory(prefix='hots-installation-check-') as tmp:
         base=Path(tmp)
         blank=base/'blank'
-        actual=build_controller(AppPaths(blank/'.env',blank/'usage.db',blank/'language.db',blank/'preferences.json'))
+        actual=build_controller(AppPaths(blank/'.env',blank/'language.db',blank/'preferences.json'))
         try:
             blank_ok=not actual.cloud_configured and actual.paused and actual.account=='unconfigured'
         finally:
             actual.account_setup.close();actual.close()
-        controller=build_controller(AppPaths(base/'.env',base/'usage.db',base/'language.db',base/'preferences.json'),True)
+        controller=build_controller(AppPaths(base/'.env',base/'language.db',base/'preferences.json'),True)
         root=tk.Tk();root.withdraw();window=None
         try:
             window=create_app(root,controller,WindowSettings(hotkeys={},overlay_enabled=False),display=TkDisplayRuntime(root))
             root.update();window.pump()
-            result={'passed':blank_ok and len(window.vm.messages)==3 and len(controller.phrases.list())==12,
+            catalog=TalentCatalog()
+            catalog_ok=catalog.hero_count==91 and catalog.talent_count==1941
+            result={'passed':blank_ok and len(window.vm.messages)==3 and len(controller.phrases.list())==12 and catalog_ok,
                     'demo_messages':len(window.vm.messages),'public_phrases':len(controller.phrases.list()),
                     'cloud_requests':0,'game_access':False,'real_credentials_read':False,'tk_available':True,
                     'sdk_import_available':Client is not None}
+            result['public_talent_catalog']={'available':catalog_ok,'heroes':catalog.hero_count,
+                                             'talents':catalog.talent_count}
             result['blank_user_raw_mode']=blank_ok
             result['display']={'awareness':display_mode,'dpi':window_dpi(root),
                                'scale':window._layout_metrics.scale,

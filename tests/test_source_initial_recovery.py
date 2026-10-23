@@ -47,9 +47,9 @@ class SourceInitialRecoveryTests(unittest.TestCase):
         processes = [GameProcess(1, game.path, 98348)]
         initial_failed = threading.Event()
 
-        def initial_scan(memory, cancelled):
+        def initial_scan(memory, cancelled, **options):
             try:
-                return discover(memory, cancelled)
+                return discover(memory, cancelled, **options)
             except HistoryInvalid:
                 initial_failed.set()
                 raise

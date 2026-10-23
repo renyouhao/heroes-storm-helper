@@ -12,6 +12,14 @@ _UNKNOWN = object()
 _CHANNELS = {'match': frozenset(('团队', '所有玩家')),
              'lobby': frozenset(('队伍', '密语'))}
 _LABELS = {'match': '对局', 'lobby': '大厅'}
+_DIAGNOSTIC_STATES = {
+    '已停止':'stopped','已连接':'connected','大厅已连接':'connected',
+    '等待游戏':'waiting_game','请选择游戏进程':'select_process','游戏版本未验证':'unsupported_build',
+    '自动连接中':'connecting','正在连接游戏聊天':'connecting',
+    '自动等待游戏聊天':'waiting_chat','等待对局聊天，自动恢复':'waiting_chat',
+    '大厅等待聊天，采集保持开启':'waiting_chat','大厅等待新聊天，持续定位':'discovering',
+    '大厅连接等待重试，采集保持开启':'retrying','等待重新连接':'retrying',
+}
 
 
 @dataclass
@@ -27,7 +35,8 @@ class _WorkerState:
 class PersistentChatSource:
     def __init__(self, selected_pid=None, process_finder=find_game_processes,
                  game_factory=ReadOnlyGame, clock=None, match_factory=ChatSource,
-                 lobby_factory=None):
+                 lobby_factory=None, diagnostics=None):
+        self.diagnostics = diagnostics
         if lobby_factory is None:
             from .lobby_source import LobbySource
             lobby_factory = LobbySource
@@ -54,6 +63,8 @@ class PersistentChatSource:
                 selected_pid=selected_pid,
                 process_finder=lambda name=name: self._find_for_worker(name),
                 game_factory=game_factory, clock=clock)
+            if hasattr(self._workers[name].source,'diagnostics'):
+                self._workers[name].source.diagnostics=diagnostics
         self.match_source = self._workers['match'].source
         self.lobby_source = self._workers['lobby'].source
 
@@ -279,9 +290,17 @@ class PersistentChatSource:
                                         chat.channel, chat.sender, chat.timestamp, chat.text)
                 self._publish('chat', replacement)
             elif event.kind == 'capture_state':
+                if self.diagnostics is not None:
+                    # 只记录来源/事件分类，原始状态可能嵌入操作系统路径或异常。
+                    self.diagnostics.record('capture.state', source=name, stage='state',
+                                            outcome=_DIAGNOSTIC_STATES.get(event.payload,'other') if isinstance(event.payload,str) else 'other',
+                                            generation=self._generation)
                 worker.state = '等待恢复' if event.payload == '已停止' else str(event.payload)
                 self._capture_state()
             else:
+                if self.diagnostics is not None and event.kind in ('status', 'error'):
+                    self.diagnostics.record('capture.state', source=name, stage=event.kind,
+                                            outcome='received', generation=self._generation)
                 payload = f'{_LABELS[name]}：{event.payload}' if event.kind == 'status' else event.payload
                 self._publish(event.kind, payload)
                 if event.kind == 'error':

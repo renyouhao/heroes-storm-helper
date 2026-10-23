@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import hashlib
 import time
 
-from .usage import character_count
+from .chat_text import character_count
 
 
 @dataclass

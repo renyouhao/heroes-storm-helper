@@ -1,4 +1,4 @@
-"""S连按会话与显式功能键请求；状态与UI线程隔离。"""
+"""动作连按会话与显式功能键请求；状态与UI线程隔离。"""
 from dataclasses import dataclass, replace
 import queue
 import threading
@@ -25,13 +25,25 @@ def parse_repeat_key(text):
     return parse_function_key(text)
 
 
+def validate_repeat_config(action, interval_ms):
+    if action not in ('S', 'YS'):
+        raise ValueError('连按动作只能选择 S 或 Y+S。')
+    if type(interval_ms) is not int or not 20 <= interval_ms <= 5000:
+        raise ValueError('按键间隔必须是 20–5000 毫秒的整数。')
+
+
 class RepeatSession:
-    INTERVAL_NS = 20_000_000
     PREPARE_TIMEOUT = 30.
 
     def __init__(self, backend, emit, *, binding='F8', clock=monotonic,
-                 can_start=lambda: True, can_send=lambda: True):
+                 can_start=lambda: True, can_send=lambda: True,
+                 action='S', interval_ms=20):
+        validate_repeat_config(action, interval_ms)
         self.backend, self.emit, self.clock = backend, emit, clock
+        self.action, self.interval_ms = action, interval_ms
+        self.action_label = 'Y+S' if action == 'YS' else 'S'
+        self._interval_ns = interval_ms * 1_000_000
+        self._step = 0
         # 默认直接使用整数单调时钟；注入的秒时钟只在边界处舍入一次。
         # 避免不同起点的浮点加法把恰好20ms的tick误判为尚未到期。
         self._clock_ns = monotonic_ns if clock is monotonic else lambda: round(clock() * 1_000_000_000)
@@ -51,18 +63,20 @@ class RepeatSession:
 
     def prepare(self):
         self.target = self._next_send = None
+        self._step = 0
         self._toggle_held = self.backend.toggle_down(self.toggle_vk)
         self._toggle_captured = False
         self._prepare_deadline = self.clock() + self.PREPARE_TIMEOUT
-        self._status('ready', f'回到游戏，按{self.binding}开始S连按；30秒内有效。')
+        self._status('ready', f'回到游戏，按{self.binding}开始{self.action_label}连按；30秒内有效。')
 
-    def cancel(self, detail='本次S连按已结束，快捷键恢复原有操作。'):
+    def cancel(self, detail=None):
+        if detail is None:detail = f'本次{self.action_label}连按已结束，快捷键恢复原有操作。'
         self._next_send = None
         self._status('idle', detail)
 
     def fail(self, failure):
         self._next_send = None
-        self._status('error', 'S连按已停止：' + str(failure))
+        self._status('error', self.action_label + '连按已停止：' + str(failure))
 
     def key(self, vk, down, extra_info):
         if extra_info == INPUT_MARKER:
@@ -76,12 +90,12 @@ class RepeatSession:
                 return self._toggle_captured
             self._toggle_held = True
             if self.status.state == 'ready' and self.clock() >= self._prepare_deadline:
-                self.cancel('准备已超时，请重新准备S连按。')
+                self.cancel(f'准备已超时，请重新准备{self.action_label}连按。')
             if self.status.state not in _LIVE_STATES:
                 return False
             try:
                 if self.backend.modifiers_down():
-                    self.cancel('组合键已结束本次S连按。')
+                    self.cancel(f'组合键已结束本次{self.action_label}连按。')
                     return False
                 if self.status.state == 'ready' and not self.can_start():
                     return False
@@ -91,21 +105,21 @@ class RepeatSession:
                 return False
             if target is None or (self.target is not None and self.target != target):
                 if self.status.state != 'ready':
-                    self.cancel('已离开目标游戏窗口，本次S连按结束。')
+                    self.cancel(f'已离开目标游戏窗口，本次{self.action_label}连按结束。')
                 return False
             self.target = target
             self._toggle_captured = True
             if self.status.state == 'running':
                 self._next_send = None
-                self._status('paused', f'S连按已暂停，按{self.binding}继续；Esc结束。')
+                self._status('paused', f'{self.action_label}连按已暂停，按{self.binding}继续；Esc结束。')
             else:
                 self._next_send = self._clock_ns()
-                self._status('running', f'正在S连按，按{self.binding}暂停；Esc结束。')
+                self._status('running', f'正在{self.action_label}连按，按{self.binding}暂停；Esc结束。')
             return True
         if down and self.status.state in _LIVE_STATES:
             try:
                 if vk in (ENTER, ESCAPE) or vk in _MODIFIER_KEYS or self.backend.modifiers_down():
-                    self.cancel('聊天、退出或组合键已结束本次S连按。')
+                    self.cancel(f'聊天、退出或组合键已结束本次{self.action_label}连按。')
             except OSError as failure:
                 self.fail(failure)
         return False
@@ -117,25 +131,35 @@ class RepeatSession:
     def tick(self):
         now = self.clock()
         if self.status.state == 'ready' and now >= self._prepare_deadline:
-            self.cancel('准备已超时，请重新准备S连按。')
+            self.cancel(f'准备已超时，请重新准备{self.action_label}连按。')
         if self.status.state in ('running', 'paused'):
             try:
                 if self.backend.foreground_target() != self.target:
-                    self.cancel('已切出目标游戏窗口，本次S连按结束。')
+                    self.cancel(f'已切出目标游戏窗口，本次{self.action_label}连按结束。')
                 elif self.status.state == 'running' and self._clock_ns() >= self._next_send:
                     started = self._clock_ns()
-                    if not self.backend.send_s(self.target, allowed=self.can_send):
-                        self.cancel('游戏窗口或会话已变化，本次S连按结束。')
+                    if not self._send_next_key():
+                        self.cancel(f'游戏窗口或会话已变化，本次{self.action_label}连按结束。')
                     else:
                         completed = self._clock_ns()
                         # 快速发送从本组起点计时，避免10ms消息泵把20ms量化为30ms。
                         # 慢发送不追补；完成后等待完整间隔，也不累加过时deadline。
-                        deadline = started + self.INTERVAL_NS
-                        self._next_send = (completed + self.INTERVAL_NS
+                        deadline = started + self._interval_ns
+                        self._next_send = (completed + self._interval_ns
                                            if completed >= deadline else deadline)
             except OSError as failure:
                 self.fail(failure)
         return self.status.state in _LIVE_STATES or self._toggle_captured
+
+    def _send_next_key(self):
+        if self.action == 'S':
+            return self.backend.send_s(self.target, allowed=self.can_send)
+        send = getattr(self.backend, 'send_repeat_key', None)
+        if not callable(send):
+            raise OSError('当前按键后端不支持 Y+S 动作。')
+        sent = send((0x59, 0x53)[self._step], self.target, allowed=self.can_send)
+        if sent:self._step = 1 - self._step
+        return sent
 
 
 def _native_backend():
@@ -157,7 +181,7 @@ class DirectRepeatSession(RepeatSession):
                 self.backend.set_repeat_active(state == 'running')
             except OSError as failure:
                 self.target = self._next_send = None
-                detail = (detail + '；' if state == 'error' and detail else 'S连按已停止：') + str(failure)
+                detail = (detail + '；' if state == 'error' and detail else self.action_label + '连按已停止：') + str(failure)
                 state = 'error'
         status = RepeatStatus(state, detail, self.generation)
         if status != self.status:
@@ -167,10 +191,11 @@ class DirectRepeatSession(RepeatSession):
     def listen(self):
         self._toggle_held = self.backend.toggle_down(self.toggle_vk)
         self._toggle_captured = False
-        self._status('idle', f'游戏中按{self.binding}开始S连按。')
+        self._status('idle', f'游戏中按{self.binding}开始{self.action_label}连按。')
 
-    def cancel(self, detail='本次S连按已取消，可在游戏中再次按功能键开始。'):
+    def cancel(self, detail=None):
         if self.status.state == 'error':return
+        if detail is None:detail = f'本次{self.action_label}连按已取消，可在游戏中再次按功能键开始。'
         self.target = self._next_send = None
         self._status('idle', detail)
 
@@ -188,24 +213,25 @@ class DirectRepeatSession(RepeatSession):
             try:
                 if self.backend.modifiers_down():
                     if self.status.state in ('requested', 'running'):
-                        self.cancel('组合键已取消本次S连按。')
+                        self.cancel(f'组合键已取消本次{self.action_label}连按。')
                     return False
                 target = self.backend.foreground_target()
                 if self.status.state in ('requested', 'running'):
                     if target is None or target != self.target:
-                        self.cancel('已离开目标游戏窗口，本次S连按取消。')
+                        self.cancel(f'已离开目标游戏窗口，本次{self.action_label}连按取消。')
                         return False
                     self._toggle_captured = True
-                    self.cancel(f'已按{self.binding}取消S连按。')
+                    self.cancel(f'已按{self.binding}取消{self.action_label}连按。')
                     return True
                 if self.status.state == 'error':
                     return False
                 if target is None:
                     return False
                 self.target = target
+                self._step = 0
                 self._toggle_captured = True
                 self.generation = self.next_generation()
-                self._status('requested', f'正在启动S连按，按{self.binding}取消。')
+                self._status('requested', f'正在启动{self.action_label}连按，按{self.binding}取消。')
                 return True
             except OSError as failure:
                 self.fail(failure)
@@ -220,7 +246,7 @@ class DirectRepeatSession(RepeatSession):
             try:
                 if (self.status.state in ('requested', 'running')
                         and (vk in (ENTER, ESCAPE) or vk in _MODIFIER_KEYS or self.backend.modifiers_down())):
-                    self.cancel('聊天、退出或组合键已取消本次S连按。')
+                    self.cancel(f'聊天、退出或组合键已取消本次{self.action_label}连按。')
             except OSError as failure:
                 self.fail(failure)
         return False
@@ -229,10 +255,10 @@ class DirectRepeatSession(RepeatSession):
         try:
             if self.status.state == 'requested':
                 if self.backend.foreground_target() != self.target or self.backend.modifiers_down():
-                    self.cancel('游戏窗口或按键状态已变化，本次S连按取消。')
+                    self.cancel(f'游戏窗口或按键状态已变化，本次{self.action_label}连按取消。')
                 elif self.can_start():
                     self._next_send = self._clock_ns()
-                    self._status('running', f'正在S连按，按{self.binding}取消。')
+                    self._status('running', f'正在{self.action_label}连按，按{self.binding}取消。')
             if self.status.state == 'running':
                 super().tick()
         except OSError as failure:
@@ -248,12 +274,16 @@ class RepeatHelper:
         self.thread = self._backend = None
         self._closed = False
         self._lock = threading.Lock()
+        # 会话状态与输出栅栏分开：其他发送器会跨SendInput持有_dispatch，
+        # 低级钩子的消息泵不能等待它，否则SendInput会反过来等待消息泵。
+        self._session_control = threading.RLock()
         self._dispatch = threading.RLock()
         self._events = queue.SimpleQueue()
         self._cancel = self._stop = self._displayed = None
         self._generation = 0
         self._direct_mode = False
         self._binding = None
+        self._action, self._interval_ms = 'S', 200
         self._session = self._latest_status = None
 
     @property
@@ -270,41 +300,48 @@ class RepeatHelper:
     def listening(self):
         return self._direct_mode and self.thread is not None and self.thread.is_alive()
 
-    def start_listening(self, binding='F8'):
+    def start_listening(self, binding='F8', *, action='S', interval_ms=20):
+        validate_repeat_config(action, interval_ms)
         binding = f'F{parse_repeat_key(binding) - 0x6f}'
         with self._lock:
             if self._closed:
                 return False
-            if self.listening and self._binding == binding:
+            if (self.listening and (self._binding, self._action, self._interval_ms)
+                    == (binding, action, interval_ms)):
                 return True
         if not self._stop_current():
             return False
-        return self._launch(binding, direct=True)
+        return self._launch(binding, direct=True, action=action, interval_ms=interval_ms)
 
-    def prepare(self, binding='F8'):
+    def prepare(self, binding='F8', *, action='S', interval_ms=20):
+        validate_repeat_config(action, interval_ms)
         vk = parse_repeat_key(binding)
         binding = f'F{vk - 0x6f}'
-        return self._launch(binding, direct=False)
+        return self._launch(binding, direct=False, action=action, interval_ms=interval_ms)
 
-    def _launch(self, binding, *, direct):
+    def _launch(self, binding, *, direct, action, interval_ms):
         with self._lock:
             if self._closed or (self.thread is not None and self.thread.is_alive()):
                 return False
             self._direct_mode, self._binding = direct, binding
+            self._action, self._interval_ms = action, interval_ms
             self._cancel, self._stop, self._displayed = (
                 threading.Event(), threading.Event(), threading.Event())
             self._generation += 1
             self._latest_status = None
             if not direct:
-                self._events.put(RepeatStatus('preparing', '正在准备S连按…', self._generation))
+                label = 'Y+S' if action == 'YS' else 'S'
+                self._events.put(RepeatStatus('preparing', f'正在准备{label}连按…', self._generation))
             self.thread = threading.Thread(
                 target=self._run,
-                args=(self._generation, binding, self._cancel, self._stop, self._displayed, direct),
+                args=(self._generation, binding, self._cancel, self._stop, self._displayed,
+                      direct, action, interval_ms),
                 name='repeat-helper', daemon=True)
             self.thread.start()
             return True
 
-    def _run(self, generation, binding, cancelled, stopped, displayed, direct=False):
+    def _run(self, generation, binding, cancelled, stopped, displayed, direct=False,
+             action='S', interval_ms=20):
         session = None
         def emit(status):
             if direct:
@@ -327,7 +364,8 @@ class RepeatHelper:
             with self._lock:
                 self._backend = backend
             arguments = dict(binding=binding, clock=self.clock,
-                             can_start=displayed.is_set, can_send=allowed)
+                             can_start=displayed.is_set, can_send=allowed,
+                             action=action, interval_ms=interval_ms)
             session = (DirectRepeatSession(backend, emit, next_generation=next_generation, **arguments)
                        if direct else RepeatSession(backend, emit, **arguments))
             if direct:
@@ -335,31 +373,41 @@ class RepeatHelper:
             with self._lock:
                 self._session = session
             def ready():
-                with self._dispatch:
+                with self._session_control:
                     if allowed():
                         session.listen() if direct else session.prepare()
                     else:
                         session.cancel()
             def tick():
-                with self._dispatch:
-                    if not allowed():
-                        session.cancel()
-                    return session.tick()
+                if not self._dispatch.acquire(blocking=False):
+                    return not stopped.is_set()
+                try:
+                    with self._session_control:
+                        if not allowed():
+                            session.cancel()
+                        return session.tick()
+                finally:
+                    self._dispatch.release()
             def key(vk, down, extra_info):
-                with self._dispatch:
+                if extra_info == INPUT_MARKER:
+                    return False
+                with self._session_control:
                     if not allowed():
                         session.cancel()
                     return session.key(vk, down, extra_info)
             if not stopped.is_set():
                 run = backend.run_listening if direct else backend.run
                 run(key, session.mouse, tick, ready, stopped)
-            if session.status.state != 'error':
-                session.cancel(session.status.detail if session.status.state == 'idle' else '')
+            with self._session_control:
+                if session.status.state != 'error':
+                    session.cancel(session.status.detail if session.status.state == 'idle' else '')
         except Exception as failure:
             if session is None:
-                emit(RepeatStatus('error', 'S连按未能准备：' + str(failure), generation))
+                label = 'Y+S' if action == 'YS' else 'S'
+                emit(RepeatStatus('error', label + '连按未能准备：' + str(failure), generation))
             else:
-                session.fail(failure)
+                with self._session_control:
+                    session.fail(failure)
         finally:
             with self._lock:
                 self._backend = None
@@ -384,12 +432,13 @@ class RepeatHelper:
             if self._displayed is not None:
                 self._displayed.clear()
         with self._dispatch:
-            with self._lock:
-                if generation is not None and generation != self._generation:
-                    return False
-                session = self._session
-            if self._direct_mode and session is not None:
-                session.cancel()
+            with self._session_control:
+                with self._lock:
+                    if generation is not None and generation != self._generation:
+                        return False
+                    session = self._session
+                if self._direct_mode and session is not None:
+                    session.cancel()
         return True
 
     def accepts_status(self, status):

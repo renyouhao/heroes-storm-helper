@@ -318,7 +318,7 @@ class SubtitleSettingsPageTests(unittest.TestCase):
             root=self.root, settings=self.settings,
             _layout_metrics=DisplayMetrics((10000, 10000, 10640, 10480), 1.5),
             controller=SimpleNamespace(source=SimpleNamespace(reconnect=noop)),
-            confirm_usage=noop, stop=noop, start=noop, choose_process=noop,
+            open_cloud_quota=noop, stop=noop, start=noop, choose_process=noop,
             apply_settings=noop, save_settings=lambda: self.settings.save(self.path))
         apply_theme(self.root, self.settings)
 

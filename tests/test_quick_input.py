@@ -1,8 +1,11 @@
 import ctypes
+import gc
+import threading
 from ctypes import wintypes
 from types import SimpleNamespace as NS
 import unittest
 from unittest.mock import patch
+import weakref
 
 from hots_chat.models import AppEvent
 
@@ -382,6 +385,41 @@ class QuickInputTests(unittest.TestCase):
         self.window.open()
         self.assertEqual(self.clipboard, ['Retreat!'])
         self.assertEqual(self.created, 1)
+
+    def test_close_releases_owner_on_ui_thread_after_final_visibility_callback(self):
+        gc.collect()
+        enabled = gc.isenabled()
+        gc.disable()
+        changes, finalized = [], []
+
+        class Owner:
+            def target_changed(self):pass
+            def position(self):return None
+            def visible(self,value):
+                changes.append((value,self.window.on_target_changed is not None))
+
+        try:
+            owner = Owner()
+            owner.window = self.window
+            self.window.on_target_changed = owner.target_changed
+            self.window.on_visibility_changed = owner.visible
+            self.window._position_provider = owner.position
+            watched = weakref.ref(owner)
+            weakref.finalize(owner,lambda:finalized.append(threading.get_ident()))
+            self.window.open();self.window.cancel()
+            self.assertIs(self.window.on_target_changed.__self__,owner)
+            self.window.open();self.window.close()
+            self.assertEqual(changes,[(True,True),(False,True),(True,True),(False,True)])
+            del owner
+            worker = threading.Thread(target=gc.collect,name='inert-gc-worker')
+            worker.start();worker.join(2)
+            self.assertIsNone(watched())
+            self.assertEqual(finalized,[threading.main_thread().ident])
+            self.assertIsNone(self.window.on_target_changed)
+            self.assertIsNone(self.window.on_visibility_changed)
+            self.assertIsNone(self.window._position_provider)
+        finally:
+            if enabled:gc.enable()
 
 
 class Function:

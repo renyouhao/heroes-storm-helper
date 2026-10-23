@@ -29,5 +29,6 @@ class ConfigTests(unittest.TestCase):
         root = Path(tempfile.gettempdir()) / 'synthetic-project'
         paths = AppPaths.from_root(root)
         self.assertEqual(paths.env_file, root.resolve() / '.env')
-        self.assertIsInstance(paths.ledger_file, Path)
+        self.assertEqual(paths.credentials_file.parent, paths.preferences_file.parent)
+        self.assertEqual(paths.diagnostics_dir, paths.preferences_file.parent / 'logs')
 

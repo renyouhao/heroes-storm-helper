@@ -1,24 +1,17 @@
-import tempfile
 import time
 import unittest
 from datetime import datetime, timezone
-from pathlib import Path
 
 from hots_chat.controller import ChatController
 from hots_chat.models import AppEvent, ChatEvent
-from hots_chat.usage import BudgetLedger
 from tests.test_controller import Engine, Source
 
 
 class SpamControllerTests(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
         self.now = lambda: datetime(2026, 10, 20, tzinfo=timezone.utc)
-        self.ledger = BudgetLedger(Path(self.tmp.name) / 'usage.db', 100000)
-        self.ledger.confirm_baseline('main', '2026-10', 0, self.now())
         self.engine = Engine()
-        self.controller = ChatController(Source(), self.engine, self.ledger, 'main', self.now)
+        self.controller = ChatController(Source(), self.engine, 'main', self.now)
         self.addCleanup(self.controller.close)
 
     def chat(self, identifier, text, sender='tester', channel='团队', generation=0):
@@ -33,7 +26,7 @@ class SpamControllerTests(unittest.TestCase):
     def use_monotonic_clock(self):
         self.controller.close()
         self.tick = 0.0
-        self.controller = ChatController(Source(), self.engine, self.ledger, 'main', self.now,
+        self.controller = ChatController(Source(), self.engine, 'main', self.now,
                                          monotonic=lambda: self.tick)
         self.addCleanup(self.controller.close)
 
@@ -68,7 +61,6 @@ class SpamControllerTests(unittest.TestCase):
         self.assertEqual([job.text for job in self.engine.calls], ['first', 'second', 'third'])
         self.assertEqual(len([event for event in events if event.kind == 'chat']), 12)
         self.assertEqual(len([event for event in events if event.kind == 'result']), 11)
-        self.assertEqual(self.ledger.snapshot('main', self.now()).local_reserved, 16)
 
     def test_repeated_failed_cloud_candidates_use_sender_slots_without_harming_other_senders(self):
         from hots_chat.translation.base import TranslationError
@@ -87,7 +79,6 @@ class SpamControllerTests(unittest.TestCase):
         self.controller.on_chat(self.chat(7, 'normal', sender='teammate'))
         self.wait_idle()
         self.assertEqual([job.text for job in self.engine.calls], ['hello', 'hello', 'hello', 'normal'])
-        self.assertEqual(self.ledger.snapshot('main', self.now()).local_reserved, 21)
         events = self.controller.drain_events()
         self.assertEqual(len([event for event in events if event.kind == 'chat']), 7)
         suppressed = [event.payload for event in events if event.kind == 'suppressed']
@@ -109,7 +100,6 @@ class SpamControllerTests(unittest.TestCase):
         self.engine.release.set()
         self.wait_idle()
         self.assertEqual([job.text for job in self.engine.calls], ['a' * 1500, '集合', 'b' * 1499, 'c'])
-        self.assertEqual(self.ledger.snapshot('main', self.now()).local_reserved, 3002)
         suppressed = [event.payload for event in self.controller.drain_events() if event.kind == 'suppressed']
         self.assertEqual([(item['message_id'], item['reason']) for item in suppressed], [('3', 'global_characters')])
 
@@ -141,7 +131,7 @@ class SpamControllerTests(unittest.TestCase):
         results = [event.payload for event in self.controller.drain_events() if event.kind == 'result']
         self.assertTrue(any(item['job_id'] == retry_id and item['message_id'] == '4' for item in results))
 
-    def test_explicit_retry_bypasses_global_characters_but_obeys_total_pause_and_ledger(self):
+    def test_explicit_retry_bypasses_global_characters_but_obeys_total_pause(self):
         self.controller.on_chat(self.chat(1, 'a' * 3000, sender='one'))
         self.wait_idle()
         self.controller.on_chat(self.chat(2, 'fourth', sender='two'))
@@ -151,16 +141,11 @@ class SpamControllerTests(unittest.TestCase):
         self.controller.retry_message('2')
         self.assertEqual(len(self.engine.calls), 1)
         self.controller.pause_translation(False)
-        self.ledger.limit = 3000
-        self.controller.retry_message('2')
-        self.wait_idle()
-        self.assertEqual(len(self.engine.calls), 1)
-        self.ledger.limit = 100000
         self.controller.retry_message('2')
         self.wait_idle()
         self.assertEqual([job.text for job in self.engine.calls], ['a' * 3000, 'fourth'])
 
-    def test_expired_automatic_waiting_job_never_reserves_or_calls_cloud(self):
+    def test_expired_automatic_waiting_job_never_calls_cloud(self):
         self.use_monotonic_clock()
         self.engine.release.clear()
         self.controller.on_chat(self.chat(1, 'first'))
@@ -172,7 +157,6 @@ class SpamControllerTests(unittest.TestCase):
         self.engine.release.set()
         self.wait_idle()
         self.assertEqual([job.text for job in self.engine.calls], ['first', '集合', 'fresh'])
-        self.assertEqual(self.ledger.snapshot('main', self.now()).local_reserved, 12)
         suppressed = [event.payload for event in self.controller.drain_events() if event.kind == 'suppressed']
         self.assertEqual([(item['message_id'], item['reason']) for item in suppressed], [('2', 'expired')])
 
@@ -203,7 +187,6 @@ class SpamControllerTests(unittest.TestCase):
         self.engine.release.set()
         self.wait_idle()
         self.assertEqual([job.text for job in self.engine.calls], ['a', 'fresh normal'])
-        self.assertEqual(self.ledger.snapshot('main', self.now()).local_reserved, 13)
 
     def test_explicit_retry_promotes_shared_waiting_request_and_bypasses_expiry(self):
         self.use_monotonic_clock()
@@ -272,7 +255,6 @@ class SpamControllerTests(unittest.TestCase):
         self.controller.on_chat(self.chat(3, 'c' * 3000, sender='three', generation=1))
         self.wait_idle()
         self.assertEqual(len(self.engine.calls), 1)
-        self.assertEqual(self.ledger.snapshot('main', self.now()).local_reserved, 3000)
         self.tick = 59.999
         self.controller.handle_source_event(AppEvent('generation', 2, 'relocate'))
         self.controller.on_chat(self.chat(4, 'before expiry', sender='four', generation=2))
@@ -283,7 +265,6 @@ class SpamControllerTests(unittest.TestCase):
         self.controller.on_chat(self.chat(5, 'd' * 3000, sender='five', generation=3))
         self.wait_idle()
         self.assertEqual([job.text for job in self.engine.calls], ['a' * 3000, 'd' * 3000])
-        self.assertEqual(self.ledger.snapshot('main', self.now()).local_reserved, 6000)
         suppressed = [event.payload for event in self.controller.drain_events() if event.kind == 'suppressed']
         self.assertEqual([(item['message_id'], item['reason']) for item in suppressed],
                          [('2', 'global_characters'), ('3', 'global_characters'), ('4', 'global_characters')])
@@ -314,14 +295,11 @@ class SpamControllerTests(unittest.TestCase):
         self.wait_idle()
         closed = []
         self.engine.close = lambda: closed.append(True)
-        self.ledger.confirm_baseline('new-account', '2026-10', 0, self.now())
         self.controller.replace_engine(replacement, 'new-account')
         self.controller.on_chat(self.chat(2, 'first'))
         self.wait_idle()
         self.assertEqual([job.text for job in replacement.calls], ['first'])
         self.assertEqual(closed, [True])
-        self.assertEqual(self.ledger.snapshot('main', self.now()).local_reserved, 5)
-        self.assertEqual(self.ledger.snapshot('new-account', self.now()).local_reserved, 5)
 
     def test_closed_controller_rejects_late_engine_installation(self):
         self.controller.close()

@@ -13,22 +13,24 @@ class ReleaseTests(unittest.TestCase):
             root=Path(tmp)/'project';dest=Path(tmp)/'stage'
             (root/'data').mkdir(parents=True)
             (root/'data'/'phrases.json').write_text('[]')
+            for name in build_release.PUBLIC_SEEDS[1:]:(root/'data'/name).write_text('{}')
             (root/'data'/'terms.json').write_text('[]')
             (root/'.env').write_text('private fixture')
             (root/'data'/'private.db').write_bytes(b'private fixture')
             stage_public_data(root,dest)
             self.assertEqual(sorted(p.relative_to(dest).as_posix() for p in dest.rglob('*') if p.is_file()),
-                             ['data/phrases.json'])
+                             sorted('data/'+name for name in build_release.PUBLIC_SEEDS))
 
     def test_staging_does_not_require_retired_term_seed(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)/'project';dest=Path(tmp)/'stage'
             (root/'data').mkdir(parents=True)
             (root/'data'/'phrases.json').write_text('[{"source":"hello"}]')
+            for name in build_release.PUBLIC_SEEDS[1:]:(root/'data'/name).write_text('{}')
             stage_public_data(root,dest)
             self.assertEqual((dest/'data'/'phrases.json').read_text(),'[{"source":"hello"}]')
 
-    def test_build_command_only_bundles_phrase_seed(self):
+    def test_build_command_only_bundles_explicit_public_seeds(self):
         class BuildCommandCaptured(Exception):
             pass
 
@@ -36,6 +38,7 @@ class ReleaseTests(unittest.TestCase):
             root=Path(tmp)/'project';output=Path(tmp)/'releases'
             (root/'data').mkdir(parents=True)
             (root/'data'/'phrases.json').write_text('[]')
+            for name in build_release.PUBLIC_SEEDS[1:]:(root/'data'/name).write_text('{}')
             (root/'data'/'terms.json').write_text('[]')
             commands=[]
 
@@ -47,10 +50,11 @@ class ReleaseTests(unittest.TestCase):
                 with self.assertRaises(BuildCommandCaptured):build_release.main(['--output',str(output)])
             command=commands[0]
             resources=[command[index+1] for index,value in enumerate(command) if value=='--add-data']
-            self.assertEqual(len(resources),1)
-            source,destination=resources[0].rsplit(build_release.os.pathsep,1)
-            self.assertEqual(Path(source).name,'phrases.json')
-            self.assertEqual(destination,'data')
+            self.assertEqual(len(resources),len(build_release.PUBLIC_SEEDS))
+            for resource,name in zip(resources,build_release.PUBLIC_SEEDS):
+                source,destination=resource.rsplit(build_release.os.pathsep,1)
+                self.assertEqual(Path(source).name,name)
+                self.assertEqual(destination,'data')
 
     def test_bundle_refuses_local_credentials_and_usage_state(self):
         for filename in ('.env','.env.backup','credentials.dpapi','usage.sqlite3','usage.sqlite3.initialized','private.log'):

@@ -54,6 +54,12 @@ class SettingsDialog:
         self._overlay(overlay)
         self._hotkeys(keys)
         self._connection(connection)
+        recorder=getattr(window.controller,'diagnostics',None)
+        if recorder is not None:
+            from .diagnostics_panel import DiagnosticsPanel
+            diagnosis=self._page('诊断')
+            self.diagnostics_panel=DiagnosticsPanel(diagnosis,recorder,root=window.root)
+            self.diagnostics_panel.pack(fill='both',expand=True)
 
         footer = ttk.Frame(dialog, padding=(p(12), p(12)))
         footer.grid(row=2, column=0, sticky='ew')
@@ -224,7 +230,7 @@ class SettingsDialog:
             entry.pack(fill='x')
             self._entries[action] = entry
             self._value_pages[action] = parent._settings_page
-        section = self._section(parent, 'S 连按', '游戏前台单独按此键开始，再按取消；聊天框打开也可启动，无需准备。')
+        section = self._section(parent, '动作连按', '在动作连按页选择 S 或 Y＋S；游戏前台单独按此键开始，再按取消。')
         value = tk.StringVar(master=self.dialog, value=self.window.settings.repeat_hotkey)
         self.values['repeat_hotkey'] = value
         ttk.Label(section, text='开始 / 取消快捷键').pack(anchor='w', pady=(0, self._px(5)))
@@ -242,18 +248,19 @@ class SettingsDialog:
             ttk.Label(row, text=description, style='Muted.TLabel').pack(side='left')
 
     def _connection(self, parent):
-        section = self._section(parent, '翻译与用量', '额度未确认时接收原文；确认后才允许云翻译请求。')
+        section = self._section(parent, '翻译服务', '配置个人密钥后即可翻译；未配置时继续接收原文。')
         if hasattr(self.window.controller, 'account_setup'):
             ttk.Button(section, text='个人阿里云密钥', command=self.window.configure_account).pack(fill='x', pady=self._px(4))
             self._note(section, '配置、替换或删除自己的阿里云密钥。')
-        ttk.Button(section, text='确认本月其他用量', command=self.window.confirm_usage).pack(fill='x', pady=self._px(4))
+        ttk.Button(section, text='查询剩余额度', command=self.window.open_cloud_quota).pack(fill='x', pady=self._px(4))
+        self._note(section, '在默认浏览器打开阿里云控制台，登录后查看剩余额度与实际用量。')
         section = self._section(parent, '采集连接', '启动后自动接入，换局会自动恢复。以下操作立即生效。')
         for label, command in (
                 ('手动重新连接', self.window.controller.source.reconnect),
                 ('停止采集', self.window.stop), ('恢复采集', self.window.start),
                 ('选择游戏进程', self.window.choose_process)):
             ttk.Button(section, text=label, command=command).pack(fill='x', pady=self._px(4))
-        self._note(parent, '最近 500 条历史仅保留在本次运行中。换局、停止或重连不清空；退出时释放，不自动保存聊天记录。')
+        self._note(parent, '界面最近 500 条历史仅保留在本次运行中。基础日志不含正文；主动开启详细诊断后会记录限长正文与译文。')
 
     def _scroll_wheel(self, event):
         canvas = self.scroll_canvases.get(self.notebook.select())

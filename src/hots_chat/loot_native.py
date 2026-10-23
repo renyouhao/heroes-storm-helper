@@ -85,6 +85,11 @@ def _win_error(operation):
 class Win32LootBackend:
     """窄 Win32 适配器；可注入 API 以便完全离线验证。"""
 
+    _mouse_messages = (0x201, 0x204, 0x207, 0x20B, 0x20A, 0x20E)
+
+    def _dispatch_mouse(self, on_mouse, message, data):
+        on_mouse()
+
     def __init__(self, *, user=None, kernel=None, timer_interval_ms=50):
         if not isinstance(timer_interval_ms, int) or not 10 <= timer_interval_ms <= 0x7fffffff:
             raise ValueError('Timer interval must be an integer of at least 10ms')
@@ -252,9 +257,9 @@ class Win32LootBackend:
 
         def mouse(code, message, data):
             # 任意按钮按下、垂直/水平滚轮；移动和按钮释放保持无干扰。
-            if code >= 0 and not stopped() and message in (0x201, 0x204, 0x207, 0x20B, 0x20A, 0x20E):
+            if code >= 0 and not stopped() and message in self._mouse_messages:
                 try:
-                    on_mouse()
+                    self._dispatch_mouse(on_mouse, message, data)
                 except BaseException as error:
                     callback_failed(error)
             return self.user.CallNextHookEx(None, code, message, data)

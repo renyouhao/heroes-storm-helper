@@ -32,8 +32,7 @@ class NexusThemeIntegrationTests(unittest.TestCase):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         base = Path(folder.name)
-        controller = build_controller(AppPaths(base / '.env', base / 'usage.db',
-                                               base / 'language.db', base / 'settings.json'), True)
+        controller = build_controller(AppPaths(base / '.env', base / 'language.db', base / 'settings.json'), True)
         self.root = tk.Tk()
         self.root.withdraw()
         metrics = DisplayMetrics((10000, 10000, 11920, 11020), 1)

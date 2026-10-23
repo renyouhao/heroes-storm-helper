@@ -2,8 +2,20 @@ from pathlib import Path
 import unittest
 from tools.evaluate_samples import evaluate
 from tools.measure_runtime import summarize
+from types import SimpleNamespace
 
 class ToolTests(unittest.TestCase):
+    def test_live_evaluation_translates_without_usage_ledger_and_closes_engine(self):
+        calls=[]
+        closed=[]
+        engine=SimpleNamespace(translate=lambda job: calls.append(job.text) or SimpleNamespace(translated='你好'),
+                               close=lambda: closed.append(True))
+        result=evaluate([{'text':'hello','source':'en','target':'zh'}],live=True,engine_factory=lambda:engine)
+        self.assertEqual(calls,['hello'])
+        self.assertEqual(result['items'][0]['translation'],'你好')
+        self.assertEqual(result['cloud_calls'],1)
+        self.assertEqual(closed,[True])
+
     def test_evaluation_dry_run_never_opens_cloud(self):
         def forbidden():raise AssertionError('unexpected network initialization')
         result=evaluate([{'text':'hello','source':'auto','target':'zh'}],engine_factory=forbidden)

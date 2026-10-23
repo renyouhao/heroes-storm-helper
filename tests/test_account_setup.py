@@ -9,7 +9,6 @@ from hots_chat.account_setup import AccountSetup, UnconfiguredEngine
 from hots_chat.config import Credentials, ConfigError
 from hots_chat.controller import ChatController
 from hots_chat.models import TranslationResult
-from hots_chat.usage import BudgetLedger
 
 
 class MemoryStore:
@@ -36,8 +35,7 @@ class Engine:
 class AccountSetupTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
-        self.ledger=BudgetLedger(Path(self.tmp.name)/'usage.db')
-        self.controller=ChatController(Source(),UnconfiguredEngine(),self.ledger,'unconfigured')
+        self.controller=ChatController(Source(),UnconfiguredEngine(),'unconfigured')
         self.controller.pause_translation(True);self.addCleanup(self.controller.close)
         self.store=MemoryStore();self.engines=[]
         def factory(credentials):
@@ -55,21 +53,19 @@ class AccountSetupTests(unittest.TestCase):
             time.sleep(.01)
         self.fail((expected,events))
 
-    def test_no_cloud_request_until_identity_and_baseline_are_confirmed(self):
+    def test_no_translation_or_save_before_identity_is_verified(self):
         self.setup.identify(self.credentials)
         self.wait_for('identified')
         self.assertEqual(self.engines,[])
         self.assertIsNone(self.store.value)
-        self.setup.test_and_save(0)
+        self.setup.test_and_save()
         self.wait_for('ready')
         self.assertEqual(self.controller.account,'123456789')
         self.assertEqual(len(self.engines[0].calls),1)
-        self.assertEqual(self.ledger.snapshot('123456789',self.controller.clock()).local_reserved,2)
         self.assertEqual(self.store.value.account,'123456789')
 
-    def test_unknown_baseline_prevents_test_network_and_save(self):
-        self.setup.identify(self.credentials);self.wait_for('identified')
-        with self.assertRaises(ValueError):self.setup.test_and_save(None)
+    def test_test_and_save_requires_verified_identity(self):
+        with self.assertRaises(ValueError):self.setup.test_and_save()
         self.assertEqual(self.engines,[])
         self.assertIsNone(self.store.value)
 
@@ -83,52 +79,50 @@ class AccountSetupTests(unittest.TestCase):
         self.assertIsNone(self.store.value)
         self.assertEqual(self.controller.account,'unconfigured')
 
-    def test_failed_test_is_accounted_and_never_saves_key(self):
+    def test_failed_test_never_saves_key_or_exposes_provider_text(self):
         self.setup.identify(self.credentials);self.wait_for('identified')
         def fail(job):raise RuntimeError('provider text must stay private')
         def factory(credentials):
             engine=Engine(credentials);engine.translate=fail;return engine
         self.setup.engine_factory=factory
-        self.setup.test_and_save(0)
+        self.setup.test_and_save()
         events=self.wait_for('error')
-        self.assertEqual(self.ledger.snapshot('123456789',self.controller.clock()).local_reserved,2)
         self.assertIsNone(self.store.value)
         self.assertNotIn('provider text',str(events))
 
-    def test_remove_key_disables_cloud_but_preserves_usage(self):
+    def test_remove_key_disables_cloud(self):
         self.setup.identify(self.credentials);self.wait_for('identified')
-        self.setup.test_and_save(0);self.wait_for('ready')
+        self.setup.test_and_save();self.wait_for('ready')
         self.setup.delete();self.wait_for('removed')
         self.assertIsNone(self.store.value)
         self.assertTrue(self.controller.paused)
-        self.assertEqual(self.ledger.snapshot('123456789',self.controller.clock()).local_reserved,2)
 
-    def test_cancel_during_network_keeps_reservation_and_discards_late_success(self):
+    def test_cancel_during_network_discards_late_success(self):
         self.setup.identify(self.credentials);self.wait_for('identified')
         engine=Engine(self.credentials);engine.release.clear()
         self.setup.engine_factory=lambda c:engine
-        self.setup.test_and_save(0)
+        self.setup.test_and_save()
         deadline=time.monotonic()+2
         while not engine.calls and time.monotonic()<deadline:time.sleep(.01)
         self.assertTrue(engine.calls)
         self.setup.cancel();engine.release.set();self.wait_for('cancelled')
         self.assertIsNone(self.store.value)
         self.assertEqual(self.controller.account,'unconfigured')
-        self.assertEqual(self.ledger.snapshot('123456789',self.controller.clock()).local_reserved,2)
 
     def test_closing_successful_dialog_does_not_disable_new_configuration(self):
         self.setup.identify(self.credentials);self.wait_for('identified')
-        self.setup.test_and_save(0);self.wait_for('ready')
+        self.setup.test_and_save();self.wait_for('ready')
         self.controller.pause_translation(False)
         self.setup.cancel()
         self.assertFalse(self.controller.paused)
 
-    def test_rotating_same_account_key_keeps_prior_reserved_usage(self):
+    def test_rotating_same_account_key_replaces_saved_credentials(self):
         self.setup.identify(self.credentials);self.wait_for('identified')
-        self.setup.test_and_save(0);self.wait_for('ready')
+        self.setup.test_and_save();self.wait_for('ready')
         self.setup.identify(Credentials('other_id','other_secret'));self.wait_for('identified')
-        self.setup.test_and_save(0);self.wait_for('ready')
-        self.assertEqual(self.ledger.snapshot('123456789',self.controller.clock()).local_reserved,4)
+        self.setup.test_and_save();self.wait_for('ready')
+        self.assertEqual(self.store.value.credentials,Credentials('other_id','other_secret'))
+        self.assertEqual(self.controller.account,'123456789')
 
     def test_reidentifying_then_cancel_restores_original_cloud_state(self):
         self.controller.pause_translation(False)
@@ -137,7 +131,7 @@ class AccountSetupTests(unittest.TestCase):
         self.setup.cancel()
         self.assertFalse(self.controller.paused)
 
-    def test_usage_confirmation_cannot_reenable_old_engine_during_configuration(self):
+    def test_resume_cannot_reenable_old_engine_during_configuration(self):
         self.setup.identify(self.credentials);self.wait_for('identified')
         self.controller.pause_translation(False)
         self.assertTrue(self.controller.paused)
@@ -153,7 +147,7 @@ class StartupKeyTests(unittest.TestCase):
             p=Path(tmp)
             # Presence of an old developer .env must not silently enable cloud.
             (p/'.env').write_text('this must not be loaded',encoding='utf-8')
-            c=build_controller(AppPaths(p/'.env',p/'u.db',p/'l.db',p/'p.json'))
+            c=build_controller(AppPaths(p/'.env',p/'l.db',p/'p.json'))
             try:
                 self.assertFalse(c.cloud_configured)
                 self.assertTrue(c.paused)

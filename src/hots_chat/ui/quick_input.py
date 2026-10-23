@@ -422,12 +422,19 @@ class QuickInput:
     def close(self):
         if self._closed:
             return
-        self.cancel()
-        self._closed = True
         try:
-            if self._native:self._native.detach_ime()
-        except OSError:
-            # 销毁控件时 WM_NCDESTROY 仍会拆除回调，保持回调对象活到销毁结束。
-            pass
+            self.cancel()
         finally:
-            if self.window is not None:self.window.destroy()
+            self._closed = True
+            try:
+                try:
+                    if self._native:self._native.detach_ime()
+                except OSError:
+                    # 销毁控件时 WM_NCDESTROY 仍会拆除回调，保持回调对象活到销毁结束。
+                    pass
+                finally:
+                    if self.window is not None:self.window.destroy()
+            finally:
+                # The final visibility notification must run before releasing
+                # callbacks bound to the main Tk window.
+                self.on_target_changed = self.on_visibility_changed = self._position_provider = None

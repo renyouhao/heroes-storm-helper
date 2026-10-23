@@ -79,9 +79,10 @@ class IncrementalDiscovery:
     skipped, so a reused root/head address can still produce a new result.
     """
 
-    def __init__(self, memory, cancel_event, ignore_snapshots=None, preferred_addresses=()):
+    def __init__(self, memory, cancel_event, ignore_snapshots=None, preferred_addresses=(), channels=None):
         self.memory = memory
         self.cancel_event = cancel_event
+        self.channels = channels
         self.ignore_snapshots = ignore_snapshots if ignore_snapshots is not None else {}
         self.finished = False
         self._started = time.perf_counter()
@@ -140,7 +141,7 @@ class IncrementalDiscovery:
                     root = locate_root(self.memory, address - 24, self._known_nodes)
                     if root in self._checked_roots:
                         continue
-                    reader = HistoryReader(self.memory, root, include_history=True)
+                    reader = HistoryReader(self.memory, root, include_history=True, channels=self.channels)
                     snapshot = reader.poll()
                     if not snapshot.retry:
                         self._checked_roots[root]=None
@@ -175,7 +176,7 @@ class IncrementalDiscovery:
             self._matches = iter(self._matcher.feed(address, data))
 
 
-def discover(memory,cancel_event,max_seconds=60):
+def discover(memory,cancel_event,max_seconds=60,channels=None):
     matcher=StreamingMatcher(PREFIX)
     started=time.perf_counter(); cpu=time.process_time(); scanned=0; candidates=0; checked_roots=set()
     for base,size,protection in memory.regions():
@@ -190,7 +191,7 @@ def discover(memory,cancel_event,max_seconds=60):
                 try:
                     root=locate_root(memory,address-24)
                     if root in checked_roots: continue
-                    snapshot=HistoryReader(memory,root,include_history=True).poll()
+                    snapshot=HistoryReader(memory,root,include_history=True,channels=channels).poll()
                     if snapshot.retry: continue
                     checked_roots.add(root)
                     if not snapshot.messages: continue

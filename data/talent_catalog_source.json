@@ -1,0 +1,11 @@
+{
+  "description": "风暴英雄 build 98348 天赋目录、中文名称及简短游戏效果资料。只保留播报所需字段，不包含游戏程序或原始资源包。",
+  "repository": "https://github.com/jamiephan/HeroesOfTheStorm_Gamedata",
+  "commit": "e3e57cb640f18002a4feebe3872cefe04072d814",
+  "build": 98348,
+  "locale": "zhCN",
+  "heroes": 91,
+  "talents": 1941,
+  "compiled_sha256": "e73a3ab07a38d22550f5e5bc28e219d33e1a478698c6153882775b4c9025485d",
+  "attribution": "Heroes of the Storm / 风暴英雄的名称与游戏资料属于其各自权利人。本项目不是暴雪官方产品。该资料来源声明不将游戏原文资源标为本项目原创或MIT授权。"
+}
