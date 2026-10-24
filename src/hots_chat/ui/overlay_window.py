@@ -547,7 +547,9 @@ class OverlayWindow:
             sender=self._preview(message.event.sender,40)
             if translation:
                 main=' '.join(str(translation).split()) if self._subtitle else self._preview(translation)
-            else:main=message.translation_label+'：'+original
+            else:
+                label=message.translation_label
+                main=label+'：'+original if label else original
             repeated=f' ×{entry.count}' if entry.count>1 else ''
             content.append((f'{sender}{repeated}：{main}',original if self.settings.overlay_original and translation else ''))
         if self._editing and not content:

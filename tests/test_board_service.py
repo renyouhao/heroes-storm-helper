@@ -236,6 +236,78 @@ class BoardServiceTests(unittest.TestCase):
         self.click();self.click()
         self.assertTrue(until(lambda:len(self.sent)==1))
 
+    def use_virtual_read_cost(self, seconds):
+        now = [100.]
+        self.helper.clock = lambda:now[0]
+        original = self.reader.poll
+
+        def poll(pid, hwnd, observed_at):
+            now[0] += seconds
+            return original(pid, hwnd, observed_at)
+
+        self.reader.poll = poll
+        return now
+
+    def test_normal_double_click_with_140ms_reads_sends_once(self):
+        self.use_virtual_read_cost(.14)
+        self.enable_with_worker_barrier()
+        self.click();self.flush_worker()
+        self.click();self.flush_worker()
+        self.assertEqual(len(self.sent), 1,
+                         '正常第二次松开不能被发送前的额外面板读取拖成过期事件')
+        self.flush_worker()
+        self.assertEqual(len(self.sent), 1)
+
+    def test_pending_left_button_does_not_repeat_panel_reads_before_release(self):
+        self.use_virtual_read_cost(.14)
+        self.enable_with_worker_barrier()
+        self.click();self.flush_worker()
+        self.backend.mouse(120,120,True,'left',False)
+        self.flush_worker();self.flush_worker()
+        self.assertTrue(self.helper._session._left_held)
+        self.assertEqual(len(self.reads), 2,
+                         '两次按下各读一次；尚未松开时不能再次读取并饿住队列中的松开事件')
+        self.assertEqual(self.sent, [])
+
+    def finish_pending_with_queued_release(self, age):
+        now = self.use_virtual_read_cost(.14)
+        # 隔离松开事件的年龄判断，不让冗余fresh读取先消耗待发动作。
+        self.backend.input_idle = lambda:not self.helper._session._left_held
+        pending, proceed = threading.Event(), threading.Event()
+        original = self.helper._emit
+
+        def emit(state, detail='', generation=None):
+            original(state, detail, generation)
+            if state == 'pending':
+                pending.set()
+                if not proceed.wait(2):raise RuntimeError('离线测试未释放待发状态')
+
+        self.helper._emit = emit
+        self.addCleanup(proceed.set)
+        self.enable_with_worker_barrier()
+        self.click();self.flush_worker()
+        self.backend.mouse(120,120,True,'left',False)
+        self.assertTrue(pending.wait(2))
+        # hook已收到第二次up；仅worker尚未出队，期间没有新按键/点击/revision变化。
+        self.backend.mouse(120,120,False,'left',False)
+        now[0] += age
+        proceed.set()
+        self.flush_worker()
+
+    def test_queued_release_older_than_250ms_preserves_fresh_pending_action(self):
+        self.finish_pending_with_queued_release(.30)
+        self.assertFalse(self.helper._session._left_held)
+        self.assertEqual(self.helper._revision, 2)
+        self.assertEqual(len(self.sent), 1)
+        self.flush_worker()
+        self.assertEqual(len(self.sent), 1)
+
+    def test_late_release_clears_held_but_never_sends_an_expired_pending_action(self):
+        self.finish_pending_with_queued_release(1.)
+        self.assertFalse(self.helper._session._left_held)
+        self.assertEqual(self.sent, [])
+        self.assertIsNone(self.helper._session._pending)
+
     def test_reenable_preserves_rate_limits_and_refreshes_double_click_settings(self):
         now = [100.]
         self.helper.clock = lambda:now[0]

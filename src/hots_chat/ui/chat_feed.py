@@ -412,7 +412,7 @@ class ChatFeed(ttk.Frame):
         if translation:
             self.body.insert('_render_cursor', '原文  ', (tag, 'original', 'source_label'))
             insert(original+'\n','original')
-        if status not in ('阿里云','缓存'):insert(status+'\n','status')
+        if status and status not in ('阿里云','缓存'):insert(status+'\n','status')
         # 独立空白行负责间距，避免频道底色被 Text 的段前留白拉成色块。
         insert('\n','message_gap')
         self.body.mark_unset('_render_cursor')

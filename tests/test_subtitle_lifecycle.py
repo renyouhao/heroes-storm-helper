@@ -207,7 +207,7 @@ class ControllerTranslationStateTests(unittest.TestCase):
                 ('paused', True, 'help', '云翻译已关闭'),
                 ('configuration_held', True, 'help', '配置处理中'),
                 ('cloud_configured', False, 'help', '翻译服务未配置'),
-                ('automatic_paused', False, '中文', '不支持的语言或符号')):
+                ('automatic_paused', False, '日本語かな', '不支持的语言')):
             with self.subTest(setting=setting):
                 self.controller.automatic_paused = False
                 self.controller.paused = False
