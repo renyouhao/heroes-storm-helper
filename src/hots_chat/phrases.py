@@ -13,6 +13,40 @@ class Phrase:
     revision: int=1
 
 
+@dataclass(frozen=True)
+class PhraseSuggestion:
+    phrase: Phrase
+    local_available: bool
+
+
+def suggest_phrases(phrases, text, target, limit=5):
+    """输入条只查中文；空输入展示收藏，是否可本机直用遵守唯一译文规则。"""
+    limit=max(0,min(5,limit))
+    if not limit:return ()
+    phrases=tuple(phrases)
+    query=text.strip().casefold()
+    translations={}
+    for phrase in phrases:
+        if phrase.reviewed and target in phrase.translations:
+            translations.setdefault(phrase.source_text,set()).add(phrase.translations[target])
+    matches=[phrase for phrase in phrases
+             if (query in phrase.source_text.casefold() if query else phrase.favorite)]
+    matches.sort(key=lambda phrase:(not phrase.favorite,
+                                    not phrase.source_text.casefold().startswith(query),
+                                    phrase.category,phrase.id))
+    suggestions=[]
+    seen=set()
+    for phrase in matches:
+        if phrase.source_text in seen:continue
+        seen.add(phrase.source_text)
+        available=(phrase.reviewed and phrase.source_text==phrase.source_text.strip()
+                   and target in phrase.translations
+                   and len(translations.get(phrase.source_text,()))==1)
+        suggestions.append(PhraseSuggestion(phrase,available))
+        if len(suggestions)>=limit:break
+    return tuple(suggestions)
+
+
 def validate_phrase(value):
     if not isinstance(value,dict) or set(value)!=set(Phrase.__dataclass_fields__):raise ValueError('短句字段无效。')
     for key in ('id','category','source_text'):text_field(value[key],1000)

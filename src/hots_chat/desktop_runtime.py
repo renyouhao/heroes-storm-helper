@@ -10,6 +10,8 @@ import tempfile
 
 from .desktop_protocol import ProtocolError, validate_command, validate_request
 from .appearance import DEFAULT_THEME
+from .desktop_actions import DesktopActions, ACTION_COMMANDS, DesktopActionError
+from .routing import incoming_source_language
 
 
 _DEMO_MESSAGES = (
@@ -68,7 +70,10 @@ class TkRuntime:
         self._preview_source = ''
         self._dialog_pending = False
         self._dialog_running = False
-        self._background_windows = set(self._toplevels())
+        self._dialog_windows = set()
+        self.actions = DesktopActions(window)
+        self._manual_state = 'idle'
+        self._manual_error = ''
         original_apply = window.vm.apply
 
         def observe(event):
@@ -77,40 +82,49 @@ class TkRuntime:
             if event.kind == 'generation' and result == 'applied':
                 self._manual_busy = False
                 self._preview_source = ''
+                self._manual_state, self._manual_error = 'idle', ''
             if (event.kind == 'manual_result' and result == 'applied'
                     and event.payload.get('job_id') == expected):
                 self._manual_busy = False
                 self._preview_source = event.payload.get('original', self._submitted_source)
+                self._manual_state, self._manual_error = 'done', ''
             if (event.kind == 'error' and isinstance(event.payload, dict)
+                    and result == 'applied' and self._manual_state == 'translating'
                     and expected is not None and event.payload.get('job_id') == expected):
                 self._manual_busy = False
+                self._manual_state = 'failed'
+                self._manual_error = str(event.payload.get('error', '翻译未完成，请重试或检查翻译服务。'))
             return result
 
         window.vm.apply = observe
 
-    def _toplevels(self):
+    def _active_dialogs(self):
+        """Track requested dialogs, never infer their role from creation time."""
         import tkinter as tk
-        result = []
-        pending = list(self.window.root.winfo_children())
-        while pending:
-            widget = pending.pop()
-            if isinstance(widget, tk.Toplevel):
-                result.append(widget)
-            pending.extend(widget.winfo_children())
-        return result
-
-    def _foreground_dialogs(self):
-        """A transient of a withdrawn Tk root otherwise stays invisible."""
-        import tkinter as tk
-        for dialog in self._toplevels():
-            if dialog in self._background_windows:
-                continue
+        active = set()
+        for dialog in self._dialog_windows:
             try:
-                dialog.transient('')
-                dialog.deiconify()
-                dialog.lift()
+                if dialog.winfo_exists():
+                    active.add(dialog)
             except tk.TclError:
                 pass
+        self._dialog_windows = active
+        return active
+
+    def _foreground_dialogs(self, dialog):
+        """A transient of a withdrawn Tk root otherwise stays invisible."""
+        if dialog is None:
+            return
+        import tkinter as tk
+        try:
+            if not dialog.winfo_exists():
+                return
+            self._dialog_windows.add(dialog)
+            dialog.transient('')
+            dialog.deiconify()
+            dialog.lift()
+        except tk.TclError:
+            pass
 
     def _open_dialog(self, callback):
         if self._dialog_pending or self._dialog_running:
@@ -128,8 +142,7 @@ class TkRuntime:
                 return
             self._dialog_running = True
             try:
-                callback()
-                self._foreground_dialogs()
+                self._foreground_dialogs(callback())
             except Exception as error:
                 self.record_error('desktop.dialog', error)
                 w.status_var.set('窗口操作未完成，请稍后重试；详情已写入本机诊断。')
@@ -181,6 +194,7 @@ class TkRuntime:
             w.use_phrase(text)
             self._manual_busy = False
             self._preview_source = ''
+            self._manual_state, self._manual_error = 'idle', ''
 
     def snapshot(self):
         w = self.window
@@ -191,11 +205,24 @@ class TkRuntime:
             'timestamp': message.event.timestamp, 'original': message.original,
             'translation': message.engine_translation, 'status': message.translation_label,
             'historical': message.event.generation != vm.generation,
+            'translationState': message.translation_state,
+            'translationReason': message.translation_reason if message.translation_state != 'suppressed' else '消息频繁或队列繁忙，已保留原文。',
+            'canRetry': (message.event.generation == vm.generation
+                         and message.translation_state in ('failed', 'suppressed')
+                         and len(message.original.encode('utf-8')) <= 4096
+                         and incoming_source_language(message.original) is not None
+                         and not getattr(w.controller, 'automatic_paused', False)),
         } for key, message in vm.messages.items()]
         helpers = {}
         for name in ('loot', 'repeat', 'talent', 'board'):
             panel = getattr(w, name + '_panel')
             helpers[name] = {'state': panel._state, 'detail': panel._detail}
+            running = getattr(panel, '_running', None)
+            if running is not None:
+                helpers[name]['running'] = bool(running)
+            last_result = getattr(panel, 'last_result', None)
+            if last_result is not None:
+                helpers[name]['lastResult'] = last_result.get()
         helpers['repeat'].update(action=settings.repeat_action,
                                  interval=(settings.repeat_s_interval_ms if settings.repeat_action == 'S'
                                            else settings.repeat_interval_ms),
@@ -203,6 +230,7 @@ class TkRuntime:
         helpers['talent']['enabled'] = settings.talent_enabled
         helpers['board']['enabled'] = settings.board_broadcast_enabled
         book = getattr(w.controller, 'phrases', None)
+        update = getattr(getattr(w, 'update_service', None), 'latest', None)
         from .channels import CHANNEL_PRESETS
         return {
             'generation': vm.generation, 'messages': messages,
@@ -213,16 +241,19 @@ class TkRuntime:
             'theme': DEFAULT_THEME, 'draft': w.input.get('1.0', 'end-1c'),
             'preview': vm.copy_text, 'manualSource': w.manual_source.get(),
             'manualBusy': self._manual_busy and bool(vm.expected_job),
+            'manualState': self._manual_state, 'manualError': self._manual_error,
             'previewSource': self._preview_source if vm.copy_text else '',
             'channelFilter': w.channel.get(), 'channelOptions': list(CHANNEL_PRESETS),
             'status': w.status_var.get(), 'isDemo': bool(getattr(w.controller, 'is_demo', False)),
+            'updateAvailable': bool(update is not None and update.release is not None and update.state in (
+                'available', 'downloading', 'downloaded', 'preparing', 'restarting')),
             'helpers': helpers, 'phrases': [asdict(phrase) for phrase in book.list()] if book else [],
             'settings': {key: getattr(settings, key) for key in (
                 'hotkeys', 'repeat_hotkey', 'repeat_action', 'repeat_interval_ms',
                 'repeat_s_interval_ms', 'overlay_enabled', 'font_size', 'topmost',
                 'alpha', 'mode', 'color_theme')},
-            'nativeDialogOpen': self._dialog_pending or self._dialog_running or any(
-                dialog not in self._background_windows for dialog in self._toplevels()),
+            'nativeDialogOpen': self._dialog_pending or self._dialog_running or bool(self._active_dialogs()),
+            'management': self.actions.snapshot(),
         }
 
     def dispatch(self, command, payload=None):
@@ -235,6 +266,16 @@ class TkRuntime:
             return {'closed': True}
         if w.closed:
             raise ProtocolError('助手已经关闭。')
+        if command in ACTION_COMMANDS:
+            try:
+                return self.actions.dispatch(command, p)
+            except DesktopActionError as error:
+                raise ProtocolError(str(error)) from None
+        if command == 'ui_prepare':
+            w.cancel_loot()
+            w.cancel_repeat()
+            w.quick_input.cancel()
+            return {}
         if command == 'draft':
             self._set_draft(p['text'])
         elif command == 'translate':
@@ -246,6 +287,7 @@ class TkRuntime:
             w.translate()
             self._manual_busy = bool(w.vm.expected_job)
             self._preview_source = ''
+            self._manual_state, self._manual_error = 'translating', ''
         elif command == 'copy':
             if not w.vm.copy_text:
                 raise ProtocolError('请先翻译当前输入内容。')
@@ -263,6 +305,7 @@ class TkRuntime:
                 w.target_changed()
                 self._manual_busy = False
                 self._preview_source = ''
+                self._manual_state, self._manual_error = 'idle', ''
         elif command == 'quick_input':
             w.open_quick_input()
         elif command == 'open_settings':
@@ -323,13 +366,14 @@ class TkRuntime:
             return {'original': message.original, 'translation': message.engine_translation,
                     'sender': message.event.sender, 'channel': message.event.channel,
                     'timestamp': message.event.timestamp, 'status': message.status,
+                    'reason': message.translation_reason, 'source': message.status if message.engine_translation else '',
                     'historical': message.event.generation != w.vm.generation}
         return {}
 
 
 def run_native(connection, demo=False):
     """Multiprocessing target; never starts an HTTP listener or background Tk thread."""
-    controller = root = window = recorder = hooks = temporary = None
+    controller = root = window = recorder = hooks = temporary = runtime = None
     try:
         from .app import PROJECT_ROOT, build_controller
         from .paths import AppPaths
@@ -415,6 +459,8 @@ def run_native(connection, demo=False):
         except (OSError, EOFError):
             pass
     finally:
+        if runtime is not None:
+            runtime.actions.close()
         if window is not None and not window.closed:
             window.close()
         elif root is not None:

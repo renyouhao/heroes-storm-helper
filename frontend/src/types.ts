@@ -7,6 +7,9 @@ export interface Message {
   translation: string
   status: string
   historical?: boolean
+  translationState?: string
+  translationReason?: string
+  canRetry?: boolean
 }
 
 export interface Phrase {
@@ -16,6 +19,7 @@ export interface Phrase {
   translations: { en?: string; ko?: string }
   favorite: boolean
   reviewed: boolean
+  revision?: number
 }
 
 export interface HelperState {
@@ -48,9 +52,55 @@ export interface Snapshot {
   manualBusy: boolean
   status: string
   isDemo: boolean
+  updateAvailable: boolean
+  manualState?: 'idle' | 'translating' | 'done' | 'failed'
+  manualError?: string
+  management: ManagementState
   helpers: { loot: HelperState; repeat: HelperState; talent: HelperState; board: HelperState }
   phrases: Phrase[]
   settings: { quickInputHotkey?: string; repeatHotkey?: string; repeatAction?: string; repeatInterval?: number; [key: string]: unknown }
+}
+
+export interface DesktopPreferences {
+  font_size: number
+  topmost: boolean
+  mode: 'normal' | 'compact'
+  hotkeys: { focus?: string; translate?: string; copy?: string }
+  repeat_hotkey: string
+  overlay_enabled: boolean
+  overlay_style: 'subtitle' | 'panel'
+  overlay_font_size: number
+  overlay_alpha: number
+  overlay_width: number
+  overlay_timeout: number
+  overlay_original: boolean
+}
+export interface NoteBlock {
+  kind: string
+  spans: { text: string; styles: string[] }[]
+  level: number
+  marker: string
+  depth: number
+}
+export interface UpdateInfo {
+  currentVersion?: string
+  state: string; detail: string; version: string; notes: string; noteBlocks?: NoteBlock[]
+  downloaded: number; total: number; busy: boolean; canInstall: boolean; archivePath: string
+}
+export interface AccountInfo {
+  configured: boolean; state: string; busy: boolean; maskedKey: string; account: string; message: string
+}
+export interface DiagnosticsInfo {
+  enabled: boolean; busy?: boolean; exportPath?: string; message?: string
+  sizeBytes?: number; maxBytes?: number
+}
+export interface ProcessInfo { pid: number; path?: string; build?: number | string; name?: string; selected?: boolean }
+export interface ManagementState {
+  preferences: DesktopPreferences
+  update: UpdateInfo
+  account: AccountInfo
+  diagnostics: DiagnosticsInfo
+  processes: ProcessInfo[]
 }
 
 export interface CommandResult {

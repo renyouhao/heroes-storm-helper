@@ -7,9 +7,12 @@ import {
   Volume2, Workflow, X, Zap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import type { CSSProperties, ReactNode } from 'react'
 import { canCopyPreview, selectDraft, visibleMessages } from './model'
 import { useAssistant } from './useAssistant'
 import type { Command, HelperState, Message, Phrase, Snapshot } from './types'
+import { ManagementDialog } from './ManagementDialog'
+import './management.css'
 
 type Page = 'chat' | 'phrases' | 'loot' | 'repeat' | 'talent' | 'board'
 const navigation: { id: Page; label: string; icon: LucideIcon }[] = [
@@ -81,7 +84,14 @@ function Toggle({ checked, onChange, label, disabled }: { checked: boolean; onCh
 }
 
 function App() {
-  const { snapshot, connected, bridgeError, command, notice, setNotice } = useAssistant()
+  const { snapshot, connected, bridgeState, bridgeError, command: nativeCommand, notice, setNotice } = useAssistant()
+  const [managementPanel, setManagementPanel] = useState<'settings' | 'updates' | 'account' | 'phrase' | null>(null)
+  const [editingPhrase, setEditingPhrase] = useState<Phrase | undefined>()
+  const [messageDetails, setMessageDetails] = useState<Record<string, unknown> | null>(null)
+  const [deletePhraseId, setDeletePhraseId] = useState<string | null>(null)
+  const [deletingPhrase, setDeletingPhrase] = useState(false)
+  const deletePending = useRef(false)
+  const openingManagement = useRef(false)
   const [page, setPage] = useState<Page>('chat')
   const [draft, setDraft] = useState(snapshot.draft)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -92,6 +102,28 @@ function App() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const manualBusyRef = useRef(false)
   const [submitting, setSubmitting] = useState(false)
+  const command: Command = async (name, payload = {}) => {
+    const panels = { open_settings: 'settings', check_updates: 'updates', open_cloud: 'account' } as const
+    if (name in panels || name === 'phrase_edit') {
+      if (managementPanel || openingManagement.current) return { ok: true }
+      openingManagement.current = true
+      try {
+        const prepared = await nativeCommand('ui_prepare')
+        if (!prepared.ok) return prepared
+        setMessageDetails(null)
+        setDeletePhraseId(null)
+        if (name === 'phrase_edit') {
+          setEditingPhrase(snapshot.phrases.find(item => item.id === payload.id))
+          setManagementPanel('phrase')
+        } else setManagementPanel(panels[name as keyof typeof panels])
+        return { ok: true }
+      } finally { openingManagement.current = false }
+    }
+    if (name === 'phrase_delete') { setDeletePhraseId(String(payload.id)); return { ok: true } }
+    const result = await nativeCommand(name, payload)
+    if (name === 'message_details' && result.ok) setMessageDetails((result.result ?? {}) as Record<string, unknown>)
+    return result
+  }
 
   useEffect(() => {
     setDraft(current => selectDraft(current, snapshot.draft, pendingDraft.current))
@@ -121,19 +153,22 @@ function App() {
   }
   const quickInput = () => { void command('quick_input'); inputRef.current?.focus() }
   const usePhrase = async (phrase: Phrase) => {
+    if (draftTimer.current) clearTimeout(draftTimer.current)
+    const version = ++draftVersion.current
     const result = await command('phrase_use', { id: phrase.id })
+    if (version !== draftVersion.current) return
     if (result.ok) {
       pendingDraft.current = null
       setDraft(phrase.source_text)
       setPage('chat')
       requestAnimationFrame(() => inputRef.current?.focus())
-    }
+    } else updateDraft(draft)
   }
-  const isPreview = !connected || snapshot.isDemo
+  const isPreview = bridgeState === 'preview' || snapshot.isDemo
   const copyReady = canCopyPreview(snapshot, draft) && !submitting
   const title = navigation.find(item => item.id === page)!.label
 
-  return <div className="desktop" data-theme="lavender">
+  return <div className="desktop" data-theme="lavender" data-density={snapshot.management.preferences.mode} style={{ '--content-font-size': `${snapshot.management.preferences.font_size * 4 / 3}px` } as CSSProperties}>
     <div className="app-shell">
       <aside className="sidebar" aria-label="主导航">
         <div className="brand pywebview-drag-region"><BrandMark /><span>风暴英雄助手</span></div>
@@ -142,7 +177,7 @@ function App() {
         </button>)}</nav>
         <div className="sidebar-bottom">
           <button className="nav-item" onClick={() => void command('open_settings')}><span className="nav-icon"><Settings size={29} strokeWidth={1.8}/></span><span>偏好设置</span></button>
-          <button className="nav-item update-link" onClick={() => void command('check_updates')}><span className="nav-icon"><RefreshCw size={23} strokeWidth={1.7}/></span><span>检查更新</span><i className="update-dot"/></button>
+          <button className="nav-item update-link" onClick={() => void command('check_updates')}><span className="nav-icon"><RefreshCw size={23} strokeWidth={1.7}/></span><span>检查更新</span>{snapshot.updateAvailable && <><i className="update-dot" aria-hidden="true"/><span className="sr-only">有新版本可用</span></>}</button>
         </div>
       </aside>
       <main className={`main-workspace page-${page}`}>
@@ -158,8 +193,8 @@ function App() {
           <h1>{title}</h1>
           <div className="header-tools">
             <div className="connection-group">
-              <span className="connection" title={snapshot.captureState}><Gamepad2 size={24}/><i className={connectionTone(snapshot.captureState, isPreview)}/><span>{isPreview ? (connected ? '游戏离线演示' : '游戏静态预览') : compactState(snapshot.captureState, '游戏')}</span></span>
-              <span className="connection service-connection" title={snapshot.serviceState}><Languages size={24}/><i className={connectionTone(snapshot.serviceState, isPreview)}/><span>{isPreview ? (connected ? '演示翻译' : '示例翻译') : compactState(snapshot.serviceState, '翻译服务')}</span></span>
+              <span className="connection" title={snapshot.captureState}><Gamepad2 size={24}/><i className={connectionTone(snapshot.captureState, isPreview || !connected)}/><span>{bridgeState === 'disconnected' ? '助手连接中断' : isPreview ? (connected ? '游戏离线演示' : '游戏静态预览') : compactState(snapshot.captureState, '游戏')}</span></span>
+              <span className="connection service-connection" title={snapshot.serviceState}><Languages size={24}/><i className={connectionTone(snapshot.serviceState, isPreview || !connected)}/><span>{bridgeState === 'disconnected' ? '状态已过期' : isPreview ? (connected ? '演示翻译' : '示例翻译') : compactState(snapshot.serviceState, '翻译服务')}</span></span>
             </div>
             {page === 'chat' && <div className="chat-tools">
               <label className="select-wrap"><span className="sr-only">聊天频道</span><select value={channel} onChange={event => { setChannel(event.target.value); void command('set_channel', { value: event.target.value }) }}>{(snapshot.channelOptions || ['全部聊天', '仅团队', '仅队伍']).map(option => <option key={option} value={option}>{option}</option>)}</select><ChevronDown size={18}/></label>
@@ -181,11 +216,11 @@ function App() {
             <div className="compose-result">
               <div className="result-topline"><span className="field-title muted">译文预览（{snapshot.targetLanguage === 'ko' ? '韩语' : '英语'}）</span><div className="language-switch"><span>目标语言：</span><div role="group" aria-label="目标语言">{[['en', '英语'], ['ko', '韩语']].map(([value, label]) => <button key={value} aria-pressed={snapshot.targetLanguage === value} className={snapshot.targetLanguage === value ? 'selected' : ''} onClick={() => void command('set_language', { target: value })}>{label}</button>)}</div></div></div>
               <div className={`translation-preview ${snapshot.manualBusy || submitting ? 'is-loading' : ''}`} aria-live="polite">
-                {snapshot.manualBusy || submitting ? <span className="preview-placeholder"><LoaderCircle className="spin" size={19}/>正在翻译…</span> : snapshot.preview && snapshot.previewSource === draft ? snapshot.preview : <span className="preview-placeholder">{draft.trim() ? '点击“翻译中文”，在这里预览译文。' : '译文将显示在这里。'}</span>}
+                {snapshot.manualBusy || submitting ? <span className="preview-placeholder"><LoaderCircle className="spin" size={19}/>正在翻译…</span> : snapshot.manualState === 'failed' ? <div className="manual-failure" role="alert"><strong>本次翻译未完成，输入已保留</strong><p>{snapshot.manualError}</p><button className="inline-link" onClick={() => void translate()}>重试本次翻译</button><button className="inline-link" onClick={() => void command('open_cloud')}>检查翻译服务</button></div> : snapshot.preview && snapshot.previewSource === draft ? snapshot.preview : <span className="preview-placeholder">{draft.trim() ? '点击“翻译中文”，在这里预览译文。' : '译文将显示在这里。'}</span>}
               </div>
               <div className="compose-actions">
-                <button className="button secondary copy-button" disabled={!copyReady} onClick={async () => { const result = await command('copy', { text: snapshot.preview }); if (result.ok) setNotice('译文已复制，回到游戏粘贴即可。') }}><Clipboard size={22}/><span>复制译文</span></button>
-                <button className="button primary translate-button" disabled={!draft.trim() || submitting || snapshot.manualBusy} onClick={() => void translate()}>{snapshot.manualBusy || submitting ? <LoaderCircle className="spin" size={22}/> : <Languages size={22}/>}<span>{snapshot.manualBusy || submitting ? '翻译中' : '翻译中文'}</span></button>
+                <button className="button secondary copy-button" disabled={!copyReady || !connected} onClick={async () => { const result = await command('copy'); if (result.ok) setNotice('译文已复制，回到游戏粘贴即可。') }}><Clipboard size={22}/><span>复制译文</span></button>
+                <button className="button primary translate-button" disabled={!draft.trim() || !connected || submitting || snapshot.manualBusy} onClick={() => void translate()}>{snapshot.manualBusy || submitting ? <LoaderCircle className="spin" size={22}/> : <Languages size={22}/>}<span>{snapshot.manualBusy || submitting ? '翻译中' : '翻译中文'}</span></button>
                 <span className="paste-hint">复制后回游戏粘贴发送</span>
               </div>
             </div>
@@ -194,13 +229,16 @@ function App() {
         <div className="workspace-status" aria-live="polite">{snapshot.status && !['就绪', 'Ready'].includes(snapshot.status) && <><span className="status-small-dot"/>{snapshot.status}</>}</div>
       </main>
       {notice && <div className="toast" role="status"><Info size={19}/><span>{notice}</span><button aria-label="关闭提示" onClick={() => setNotice('')}><X size={17}/></button></div>}
+      {managementPanel && <ManagementDialog panel={managementPanel} snapshot={snapshot} command={command} phrase={editingPhrase} onNavigate={setManagementPanel} onClose={() => setManagementPanel(null)}/>}
+      {messageDetails && <SimpleDialog title="消息详情" onClose={() => setMessageDetails(null)}><dl>{[['sender', '玩家'], ['channel', '频道'], ['original', '原文'], ['translation', '译文'], ['status', '状态'], ['reason', '说明'], ['source', '译文来源']].map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{String(messageDetails[key] || '—')}</dd></div>)}</dl></SimpleDialog>}
+      {deletePhraseId && <SimpleDialog title="删除常用短句" onClose={() => { if (!deletePending.current) setDeletePhraseId(null) }}><p>确认删除这条短句？</p><button className="button secondary" disabled={deletingPhrase} onClick={() => setDeletePhraseId(null)}>保留短句</button><button className="button primary" disabled={deletingPhrase} onClick={async () => { if (deletePending.current) return; deletePending.current = true; setDeletingPhrase(true); try { const result = await nativeCommand('phrase_remove', { id: deletePhraseId }); if (result.ok) setDeletePhraseId(null) } finally { deletePending.current = false; setDeletingPhrase(false) } }}>{deletingPhrase ? '正在删除…' : '确认删除'}</button></SimpleDialog>}
     </div>
   </div>
 }
 
 function quickInputHotkey(snapshot: Snapshot) {
   const hotkeys = snapshot.settings.hotkeys as { focus?: string } | undefined
-  return hotkeys?.focus || snapshot.settings.quickInputHotkey || 'Ctrl+T'
+  return hotkeys ? hotkeys.focus || '快捷键未设置' : snapshot.settings.quickInputHotkey || 'Ctrl+T'
 }
 
 function compactState(state: string, name: string) {
@@ -211,7 +249,7 @@ function compactState(state: string, name: string) {
 }
 
 function connectionTone(state: string, preview: boolean) {
-  return !preview && /已连接|正常|就绪|ready|connected/i.test(state) && !/未|断开|not|disconnected/i.test(state) ? 'connection-dot connected' : 'connection-dot pending'
+  return !preview && /已连接|已启用|正常|就绪|ready|connected/i.test(state) && !/未|断开|已暂停|配置处理中|not|disconnected/i.test(state) ? 'connection-dot connected' : 'connection-dot pending'
 }
 
 function ChatFeed({ snapshot, selectedId, setSelectedId, channel, quickInput, command }: {
@@ -243,17 +281,19 @@ function ChatFeed({ snapshot, selectedId, setSelectedId, channel, quickInput, co
 }
 
 function MessageRow({ message, selected, onSelect, command }: { message: Message; selected: boolean; onSelect: () => void; command: Command }) {
-  const busy = /pending|translating|queued|翻译中|等待中/i.test(message.status)
-  const failed = /error|failed|失败/i.test(message.status)
+  const busy = ['queued', 'translating'].includes(message.translationState || '') || /pending|translating|queued|翻译中|等待中|排队中/i.test(message.status)
+  const failed = message.translationState === 'failed' || /error|failed|失败/i.test(message.status)
+  const suppressed = message.translationState === 'suppressed'
+  const canRetry = message.canRetry ?? (failed && !message.historical)
   const channel = /team/i.test(message.channel) ? '团队' : /party/i.test(message.channel) ? '小队' : message.channel
-  return <article className={`message-row ${selected ? 'is-selected' : ''} ${failed ? 'has-error' : ''}`} onClick={onSelect} tabIndex={0} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect() } }} aria-label={`${message.sender}，${channel}，${message.translation || message.original}`}>
+  return <article className={`message-row ${selected ? 'is-selected' : ''} ${failed ? 'has-error' : ''}`} onClick={onSelect} tabIndex={0} onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onSelect() } }} aria-label={`${message.sender}，${channel}，${message.translation || message.original}`}>
     <Avatar name={message.sender}/>
     <div className="message-content">
       <div className="message-meta"><strong>{message.sender}</strong><span className="channel-badge">{channel || '聊天'}</span>{message.historical && <span className="history-badge">历史</span>}</div>
       <div className="message-translated">{message.translation || message.original}</div>
       {message.translation && <div className="message-original">{message.original}</div>}
-      {busy && <span className="message-state"><LoaderCircle size={14} className="spin"/>正在翻译…</span>}
-      {failed && <span className="message-state error-text">翻译没有完成<button className="inline-link" onClick={event => { event.stopPropagation(); void command('retry_message', { id: message.id }) }}>重试</button></span>}
+      {busy && <span className="message-state"><LoaderCircle size={14} className="spin"/>{message.translationState === 'queued' || message.status === '排队中' ? '排队等待翻译…' : '正在翻译…'}</span>}
+      {(failed || suppressed) && <span className="message-state error-text">{suppressed ? '自动翻译已暂缓' : '翻译没有完成'}{message.translationReason && <span>{message.translationReason}</span>}{canRetry && <button className="inline-link" onClick={event => { event.stopPropagation(); void command('retry_message', { id: message.id }) }}>{suppressed ? '翻译此条' : '重试'}</button>}</span>}
     </div>
     <time className="message-time">{message.timestamp}</time>
     <div className="message-actions"><button aria-label="消息详情" title="消息详情" onClick={event => { event.stopPropagation(); void command('message_details', { id: message.id }) }}><Info size={17}/></button>{failed && <button aria-label="重试翻译" title="重试翻译" onClick={event => { event.stopPropagation(); void command('retry_message', { id: message.id }) }}><RefreshCw size={17}/></button>}</div>
@@ -286,8 +326,10 @@ const helperTitles: Record<string, string> = {
   armed: '等待第二次点击', pending: '等待发送', cancelled: '本次播报已取消', limited: '短时间内不重复播报',
 }
 function HelperStatus({ helper, idleTitle }: { helper: HelperState; idleTitle?: string }) {
-  const active = ['running', 'ready', 'confirmed', 'sent', 'idle'].includes(helper.state) && helper.enabled !== false
-  return <div className={`helper-status-card ${helper.state === 'error' ? 'has-error' : ''}`}><span className="helper-status-symbol">{helper.state === 'error' ? <Info size={26}/> : active ? <Check size={28}/> : <LoaderCircle size={27} className={helper.state === 'preparing' ? 'spin' : ''}/>}</span><div><h3>{helper.state === 'idle' && idleTitle ? idleTitle : helperTitles[helper.state] || helper.state}</h3><p>{helper.detail || '状态更新后会显示在这里。'}</p>{helper.lastResult && <small>{helper.lastResult}</small>}</div><span className={`state-pill ${active ? 'ready' : ''}`}>{active ? '就绪' : helper.state === 'error' ? '需处理' : '待命'}</span></div>
+  const stopped = helper.running === false && helper.enabled === true
+  const active = !stopped && ['running', 'ready', 'confirmed', 'sent', 'idle'].includes(helper.state) && helper.enabled !== false
+  const pills: Record<string, string> = { running: '运行中', ready: '已准备', confirmed: '已确认', sent: '已发送', idle: '待启动', paused: '已暂停', disabled: '已关闭', error: '需处理', waiting: '等待中' }
+  return <div className={`helper-status-card ${helper.state === 'error' ? 'has-error' : ''}`}><span className="helper-status-symbol">{helper.state === 'error' ? <Info size={26}/> : active ? <Check size={28}/> : <LoaderCircle size={27} className={helper.state === 'preparing' ? 'spin' : ''}/>}</span><div><h3>{stopped ? '运行已停止，开启偏好已保留' : helper.state === 'idle' && idleTitle ? idleTitle : helperTitles[helper.state] || '等待状态更新'}</h3><p>{stopped ? '点击“重新连接”恢复监听。' : helper.detail || '状态更新后会显示在这里。'}</p>{helper.lastResult && <small>{helper.lastResult}</small>}</div><span className={`state-pill ${active ? 'ready' : ''}`}>{stopped ? '已停止' : pills[helper.state] || '等待中'}</span></div>
 }
 
 function HelperPage({ page, snapshot, command }: { page: Exclude<Page, 'chat' | 'phrases'>; snapshot: Snapshot; command: Command }) {
@@ -300,7 +342,7 @@ function HelperPage({ page, snapshot, command }: { page: Exclude<Page, 'chat' | 
   useEffect(() => { setAction(helper.action || 'S'); setIntervalValue(String(helper.interval || 20)); setConfigChanged(false) }, [page, helper.action, helper.interval])
   const saveRepeat = async () => {
     const value = Number(interval)
-    if (!Number.isInteger(value) || value < 10 || value > 5000) { setConfigError('请输入 10–5000 之间的整数毫秒。'); return }
+    if (!Number.isInteger(value) || value < 20 || value > 5000) { setConfigError('请输入 20–5000 之间的整数毫秒。'); return }
     setConfigError(''); setSaving(true)
     try { const result = await command('repeat_config', { action, interval: value }); if (result.ok) setConfigChanged(false) }
     finally { setSaving(false) }
@@ -317,7 +359,7 @@ function HelperPage({ page, snapshot, command }: { page: Exclude<Page, 'chat' | 
       <div className="helper-note"><Info size={19}/><p>运行中，其他按键、鼠标点击、滚轮或切出游戏会结束本次模式。助手不会替你重掷补给箱。</p></div>
     </>}
     {page === 'repeat' && <>
-      <div className="repeat-config"><div><label className="field-title">连按动作</label><div className="action-options">{[['S', 'S', '停止移动'], ['YS', 'Y + S', '交替连按']].map(([value, label, detail]) => <button className={action === value ? 'selected' : ''} key={value} onClick={() => { setAction(value); setConfigChanged(true) }} aria-pressed={action === value}><kbd>{label}</kbd><span>{detail}</span>{action === value && <Check size={18}/>}</button>)}</div></div><div><label htmlFor="repeat-interval" className="field-title">按键间隔</label><div className="number-field"><input id="repeat-interval" type="number" min="10" max="5000" step="1" value={interval} onChange={event => { setIntervalValue(event.target.value); setConfigChanged(true) }}/><span>毫秒</span></div><small>间隔越小，连按频率越高。</small></div></div>
+      <div className="repeat-config"><div><label className="field-title">连按动作</label><div className="action-options">{[['S', 'S', '停止移动'], ['YS', 'Y + S', '交替连按']].map(([value, label, detail]) => <button className={action === value ? 'selected' : ''} key={value} onClick={() => { setAction(value); setConfigChanged(true) }} aria-pressed={action === value}><kbd>{label}</kbd><span>{detail}</span>{action === value && <Check size={18}/>}</button>)}</div></div><div><label htmlFor="repeat-interval" className="field-title">按键间隔</label><div className="number-field"><input id="repeat-interval" type="number" min="20" max="5000" step="1" value={interval} onChange={event => { setIntervalValue(event.target.value); setConfigChanged(true) }}/><span>毫秒</span></div><small>间隔越小，连按频率越高。</small></div></div>
       {configError && <p className="error-text" role="alert">{configError}</p>}
       <div className="hotkey-banner"><Keyboard size={24}/><span>在游戏中按 <kbd>{String(helper.hotkey || snapshot.settings.repeat_hotkey || 'F8')}</kbd> 开始 / 取消，<kbd>Esc</kbd> 也可结束。</span></div>
       <div className="helper-action-row"><button className="button primary" disabled={!configChanged || saving} onClick={() => void saveRepeat()}>{saving ? <LoaderCircle size={19} className="spin"/> : <Check size={19}/>}保存配置</button><button className="button secondary" disabled={!['running', 'ready', 'paused', 'requested'].includes(helper.state)} onClick={() => void command('repeat_cancel')}>取消连按</button></div>
@@ -343,6 +385,26 @@ function HelperPage({ page, snapshot, command }: { page: Exclude<Page, 'chat' | 
 
 function Step({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
   return <div className="step"><Icon size={26} strokeWidth={1.5}/><h3>{title}</h3><p>{text}</p></div>
+}
+
+function SimpleDialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null
+    ref.current?.focus()
+    return () => { if (previous?.isConnected) previous.focus() }
+  }, [])
+  return <div className="simple-dialog-backdrop"><div className="simple-dialog" ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={event => {
+    if (event.key === 'Escape') { event.preventDefault(); onClose() }
+    if (event.key === 'Tab') {
+      const nodes = Array.from(ref.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), [tabindex="0"]') ?? [])
+      const first = nodes[0], last = nodes.at(-1)
+      if (!first) { event.preventDefault(); return }
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === ref.current)) { event.preventDefault(); last?.focus() }
+      else if (!event.shiftKey && (document.activeElement === last || document.activeElement === ref.current)) { event.preventDefault(); first.focus() }
+    }
+  }}><div className="simple-dialog-heading"><h2 id={titleId}>{title}</h2><button aria-label="关闭" onClick={onClose}><X size={20}/></button></div>{children}</div></div>
 }
 
 export default App

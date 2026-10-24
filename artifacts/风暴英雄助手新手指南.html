@@ -50,20 +50,21 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
     </aside>
     <main class="content" id="reportContent">
 <header class="hero" id="start">
-  <p class="eyebrow">第一次使用也能照着做 · v2.0 使用说明（程序 2.0.0）</p>
+  <p class="eyebrow">第一次使用也能照着做 · v2.1 使用说明（程序 2.1.0）</p>
   <h1 data-review-id="beginner:title">风暴英雄助手<br><span class="marker">从申请 Key 到上手使用</span></h1>
   <p class="lead">你只要做三件事：在阿里云准备好自己的翻译 Key，填进助手，再回到游戏里使用。下面按顺序来，不需要会写代码。</p>
   <div class="meta"><span>文档修订：2026-10-24</span><span>阿里云官网核对：2026-10-21</span><span>面向：Windows 上第一次使用助手的玩家</span></div>
   <div class="route" aria-label="入门顺序"><span>① 开通服务、申请 Key</span><b>→</b><span>② 填 Key，一键连接</span><b>→</b><span>③ 回游戏看译文</span></div>
   <p class="small">已经有能用的阿里云机器翻译 Key？直接看<a href="#connect">第 05 节</a>。只想先体验开箱或连按？它们不需要翻译 Key，可先跳过云翻译配置。</p>
 <p class="small" data-review-id="beginner:release-history">版本说明：v1.1 仅为源码准备标签，没有公开发布 Release。此前 v1.2 发布准备时，GitHub 截去了中文附件名中的中文部分，因此保留原标签，修复发布资产命名约定后改发 v1.2。ZIP 附件统一使用 ASCII 名称，包内目录与“风暴英雄助手.exe”继续使用中文。公开 v1.2 使用《风暴英雄》图标；v2.0 将 EXE、任务栏及窗口标题统一为紫色六角旋涡标志。</p>
-<p class="small" data-review-id="beginner:prerelease">当前源码目标为 <strong>v2.0</strong>，程序版本 <strong>2.0.0</strong>，发行通道配置为 <code>stable</code>；对应包名为 <code>HotsHelper-2.0.0-Windows-x64.zip</code>，实际发布附件与校验值以 Release 为准。主界面采用 React + WebView2，统一柔雾紫单主题和紫色图标，保留 B 方案悬浮窗布局与操作；旧密钥、语言资料、窗口位置和快捷键沿用原用户目录。</p>
+<p class="small" data-review-id="beginner:prerelease">当前源码目标为 <strong>v2.1</strong>，程序版本 <strong>2.1.0</strong>，发行通道配置为 <code>stable</code>；对应包名为 <code>HotsHelper-2.1.0-Windows-x64.zip</code>，实际发布附件与校验值以 Release 为准。主界面采用 React + WebView2，统一柔雾紫单主题和紫色图标，保留 B 方案悬浮窗布局与操作；旧密钥、语言资料、窗口位置和快捷键沿用原用户目录。</p>
+<p class="small" data-review-id="beginner:v21-changes">v2.1 更新：偏好设置、账户、更新与短句编辑共用一个 React 页内弹层，主窗口字号和置顶作用于实际界面；状态、更新提示点和发布说明排版更清楚。原生 Ctrl+T 提供本地短句候选，改进有效译文复制与失败后输入恢复，并将同一 R 天赋与 CD 覆盖层归并为一个命中目标。</p>
 <p class="small" data-review-id="beginner:decoder-scope">build 98348 的模型解码覆盖 <strong>0–15 全部 16 分支</strong>，每个分支核对计算代码指纹；其中 2、5、8、11、14 另读取游戏运行时的动态 salt。16 个算法已完成合成读取与独立原生指令对照；朋友机器并未逐个实测全部分支，英文、2K和不同对局仍需现场验收。日志默认关闭，开启后统一录制原文、译文及复现数据，总上限 100 MiB。</p>
 </header>
 
 <section class="section" id="prepare"><h2>01 · 先准备好这几样</h2>
 <article class="card" data-review-id="beginner:prepare"><ol class="steps">
-<li><strong>一台 Windows 64 位电脑，以及完整的助手压缩包。</strong>从<a href="https://github.com/renyouhao/heroes-storm-helper/releases">官方发行页查看已发布附件</a>；本轮 v2.0 的目标文件为 HotsHelper-2.0.0-Windows-x64.zip，可下载版本和附件以实际 Release 为准。下载后解压到一个普通文件夹里，再打开里面的“风暴英雄助手.exe”。整个文件夹都要保留，不要只把 exe 单独拖出来；不用另外安装 Python 或 SDK。助手会自动创建自己的配置目录，不用拷贝 AppData。更新时先正常退出旧助手，再启动新文件夹里的程序。</li>
+<li><strong>一台 Windows 64 位电脑，以及完整的助手压缩包。</strong>从<a href="https://github.com/renyouhao/heroes-storm-helper/releases">官方发行页查看已发布附件</a>；本轮 v2.1 的目标文件为 HotsHelper-2.1.0-Windows-x64.zip，可下载版本和附件以实际 Release 为准。下载后解压到一个普通文件夹里，再打开里面的“风暴英雄助手.exe”。整个文件夹都要保留，不要只把 exe 单独拖出来；不用另外安装 Python 或 SDK。助手会自动创建自己的配置目录，不用拷贝 AppData。更新时先正常退出旧助手，再启动新文件夹里的程序。</li>
 <li><strong>自己的阿里云账号。</strong>浏览器打开<a href="https://www.aliyun.com/">阿里云官网</a>，注册或登录。网页如果要求身份认证，按它的提示完成。申请和开通服务都由你在官网操作。</li>
 <li><strong>能上网的网络和《风暴英雄》。</strong>云翻译需要网络；助手目前适配中文客户端 build 98348。建议游戏用“无边框窗口化”，方便显示游戏内提示。</li>
 </ol></article>
@@ -124,23 +125,24 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 
 <section class="section" id="connect"><h2>05 · 填好 Key，点一次“连接并开始使用”</h2>
 <article class="card" data-review-id="beginner:connect"><p class="eyebrow">这一步开始，在风暴英雄助手里操作</p><ol class="steps">
-<li>打开“风暴英雄助手.exe”。第一次会出现<strong>“配置自己的阿里云翻译”</strong>窗口。没出现也没关系，从主界面进入<strong>设置／偏好设置 → 连接 → 个人阿里云密钥</strong>。</li>
+<li>打开“风暴英雄助手.exe”，点击<strong>配置翻译服务</strong>，或进入<strong>偏好设置 → 连接 → 配置账户</strong>；已配置时显示<strong>管理账户</strong>。个人密钥在主界面的页内弹层中填写。</li>
 <li>把两段 Key 分别粘贴进 <strong>AccessKey ID</strong> 和 <strong>AccessKey Secret</strong>，别填反，前后也不要多出空格。</li>
 <li>点击一次<strong>“连接并开始使用”</strong>，等待完成。助手会自动验证密钥所属主账号，再测试翻译“你好”；成功后使用 DPAPI 加密保存凭据并启用翻译。首次不必分开点击验证和保存。</li>
-<li>看到配置成功和测试译文后，回到助手即可使用。Key 已加密保存在当前 Windows 用户下，之后通常不用每次重填。</li>
+<li>看到“配置成功，翻译已启用”后即可使用。Key 已加密保存在当前 Windows 用户下，之后通常不用每次重填；完整 ID 和 Secret 不进入全局界面状态快照。</li>
 </ol></article>
 <div class="mock section" data-review-id="beginner:fields"><p class="eyebrow">填写位置示意 · 不是网页输入表单，也不是实际截图</p>
 <div class="mock-row"><strong>AccessKey ID</strong><span class="mock-value">粘贴自己的 ID</span></div>
 <div class="mock-row"><strong>AccessKey Secret</strong><span class="mock-value">●●●●●●●●</span></div>
 <div class="mock-action">连接并开始使用</div></div>
+<p class="small" data-review-id="beginner:legacy-key-import">已有自己的旧配置文件时，可在个人翻译账户页主动选择<strong>导入本机旧 .env</strong>，文件上限 16 KiB。它仅把两个密钥字段填入本次输入框，不会自动连接；关闭后清空 Secret。正常启动不会自动读取该文件。</p>
 <div class="callout" data-review-id="beginner:usage-field"><strong>只需填写自己的 Key。</strong>助手不统计用量或限制月度额度；实际用量与费用以阿里云控制台为准。无需填写其他调用的用量或确认月度额度，界面不显示月度剩余量。</div>
-<div class="callout okay" data-review-id="beginner:connect-state"><strong>等结果后再修改或重试。</strong>处理中字段暂时不能改；取消会保留原配置，不把本次新 Key 替换进去。失败会提示卡在哪个阶段，并显示安全错误类别或可识别的云错误码，未知错误不会直接展开底层内容。翻译测试和重新连接时的测试均会调用云服务，实际用量与费用以阿里云控制台为准。服务开通和 RAM 授权仍需先在阿里云完成。</div>
+<div class="callout okay" data-review-id="beginner:connect-state"><strong>等结果后再修改或重试。</strong>处理中字段暂时不能改；关闭会取消尚未完成的操作，已经完成的保存或删除保持当前结果。失败会提示卡在哪个阶段，并显示安全错误类别或可识别的云错误码，未知错误不会直接展开底层内容。翻译测试和重新连接时的测试均会调用云服务，实际用量与费用以阿里云控制台为准。服务开通和 RAM 授权仍需先在阿里云完成。</div>
 </section>
 
 <section class="section" id="translate"><h2>06 · 看别人说什么，发出自己想说的话</h2>
-<div class="callout" data-review-id="beginner:desktop-runtime"><strong>v2.0 构建采用以下桌面主界面；下载后保留整个程序文件夹。</strong><p>新主界面通过 WebView2 显示本地页面，完整构建产物不需要安装 Node.js。若启动提示缺少运行环境，请从<a href="https://developer.microsoft.com/microsoft-edge/webview2/">微软官方 WebView2 入口</a>安装 Runtime 后重试；不会静默切到旧浏览器。源码安装先运行 <code>安装依赖.ps1</code>，再运行 <code>启动助手.ps1 -Demo</code> 离线预览；<code>-Legacy</code> 可临时使用原主界面。</p><p>六个主页面使用 React + TypeScript + CSS，采集、翻译和游戏输入仍由 Python 处理；字幕、Ctrl+T 输入条以及设置、凭据、诊断、更新弹窗仍为原生 Tk 窗口。新界面的多进程内存与 CPU 占用需要重新测量，不承诺低于 100 MiB。</p></div>
-<article class="card" data-review-id="beginner:workspace"><h3>先认识新的主界面</h3><p>主界面按选定的浅紫原型重排：柔雾紫侧栏、白色内容卡片和紫色主按钮。左侧图标导航可切换实时消息、常用短句、开箱助手、动作连按、天赋辅助和双击播报；底部有<strong>偏好设置</strong>和<strong>检查更新</strong>。</p><p>消息按昵称、频道、时间、正文和译文分层排列。圆形头像用昵称文字占位，未识别真实英雄头像。</p><p>主界面下方是并排的<strong>用中文回复</strong>和<strong>译文预览</strong>：输入中文，在预览区用<strong>英语／韩语胶囊选项</strong>选择目标语言，点击<strong>翻译中文</strong>，确认结果后点<strong>复制译文</strong>，再自行回游戏粘贴发送。<kbd>Ctrl</kbd> + <kbd>T</kbd> 仍可呼出独立输入条。</p><p>小窗口会自动压缩留白和辅助说明，调整导航与操作区的排列，保留输入、译文和语言选择；不需要另外配置一套布局。</p></article>
-<article class="card" id="overlay-preview" data-review-id="beginner:overlay-preview"><h3>悬浮窗已采用 B 方案 · 保留 A/B 预览</h3><p><strong>本轮选定 B · 原样换配色。</strong>柔雾紫浮层与主界面使用同主题颜色，保留原字幕窗布局、单行输入、语言下拉及快捷键操作；只保留柔雾紫主题，旧配色配置自动迁移并保留位置、字体与快捷键；透明字幕仍为白字暗边。快捷中文输入标题左侧使用主界面的紫色六角旋涡标志，保留两行提示：<strong>“输入中文，译文会复制；请在游戏中粘贴发送。”</strong>和<strong>“Enter 翻译并复制 · Esc 收起 · Ctrl+Tab 切换语言”</strong>。B 方案布局和操作保持不变，本轮继续统一单主题与全局图标。发行构建核验 WebView2 页面加载与离线桥接；真实游戏中的显示、焦点、输入及不同 DPI 体验仍按实机结果验收。</p><p>也可双击项目根目录的 <code>打开悬浮窗对比.cmd</code>，无需 PowerShell，默认打开 B 方案的快捷输入预览，命令行窗口不会常驻。运行 <code>预览悬浮窗AB.ps1</code> 也可打开对比控制台，切换<strong>“A · 原型新样式”／“B · 原样换配色”</strong>和<strong>“默认字幕”／“消息面板”／“快捷输入”</strong>；“切换浅色背景”“下一条消息”“恢复位置”用于比较显示效果。A 的双栏输入、圆角和浅紫白面板保留为备选预览；在预览里切换方案不会改写正式配置。</p><pre><code>.\预览悬浮窗AB.ps1
+<div class="callout" data-review-id="beginner:desktop-runtime"><strong>v2.1 构建采用以下桌面主界面；下载后保留整个程序文件夹。</strong><p>新主界面通过 WebView2 显示本地页面，完整构建产物不需要安装 Node.js。若启动提示缺少运行环境，请从<a href="https://developer.microsoft.com/microsoft-edge/webview2/">微软官方 WebView2 入口</a>安装 Runtime 后重试；不会静默切到旧浏览器。源码安装先运行 <code>安装依赖.ps1</code>，再运行 <code>启动助手.ps1 -Demo</code> 离线预览；<code>-Legacy</code> 可临时使用原主界面。</p><p>六个主页面及偏好设置、更新、个人密钥、短句编辑统一使用 React；管理操作共用一个页内弹层。采集、翻译、持久化和游戏输入仍由 Python 处理，字幕和 Ctrl+T 输入条保留原生 Tk；-Legacy 兼容入口保留原 Tk 界面。以下新增交互只在包含本轮改动的构建中生效，旧 EXE 不会随源码自动改变。新界面的多进程内存与 CPU 占用仍需重新测量。</p></div>
+<article class="card" data-review-id="beginner:workspace"><h3>先认识新的主界面</h3><p>主界面按选定的浅紫原型重排：柔雾紫侧栏、白色内容卡片和紫色主按钮。左侧图标导航可切换实时消息、常用短句、开箱助手、动作连按、天赋辅助和双击播报；底部有<strong>偏好设置</strong>和<strong>检查更新</strong>。</p><p>消息按昵称、频道、时间、正文和译文分层排列。圆形头像用昵称文字占位，未识别真实英雄头像。</p><p>主界面下方是并排的<strong>用中文回复</strong>和<strong>译文预览</strong>：输入中文，在预览区用<strong>英语／韩语胶囊选项</strong>选择目标语言，点击<strong>翻译中文</strong>，确认结果后点<strong>复制译文</strong>，再自行回游戏粘贴发送。<kbd>Ctrl</kbd> + <kbd>T</kbd> 仍可呼出独立输入条。</p><p>小窗口会自动压缩留白和辅助说明，调整导航与操作区的排列，保留输入、译文和语言选择。主窗口翻译失败时，错误显示在回复区，输入保留供修改或重试；复制按钮使用后台当前有效译文。辅助页区分等待、运行和停止，并保留最近一次结果。</p></article>
+<article class="card" id="overlay-preview" data-review-id="beginner:overlay-preview"><h3>悬浮窗已采用 B 方案 · 保留 A/B 预览</h3><p><strong>本轮选定 B · 原样换配色。</strong>柔雾紫浮层与主界面使用同主题颜色，保留原字幕窗布局、单行输入、语言下拉及快捷键操作；只保留柔雾紫主题，旧配色配置自动迁移并保留位置、字体与快捷键；透明字幕仍为白字暗边。快捷中文输入标题左侧使用主界面的紫色六角旋涡标志，保留两行提示：<strong>“输入中文，译文会复制；请在游戏中粘贴发送。”</strong>和<strong>“Enter 翻译并复制 · Esc 收起 · Ctrl+Tab 切换语言”</strong>。本轮沿用 B 方案基础布局，并在输入条中增加少量本地短句候选；用法见下方“快速选一句常用短句”。发行构建核验 WebView2 页面加载与离线桥接；真实游戏中的显示、焦点、输入及不同 DPI 体验仍按实机结果验收。</p><p>也可双击项目根目录的 <code>打开悬浮窗对比.cmd</code>，无需 PowerShell，默认打开 B 方案的快捷输入预览，命令行窗口不会常驻。运行 <code>预览悬浮窗AB.ps1</code> 也可打开对比控制台，切换<strong>“A · 原型新样式”／“B · 原样换配色”</strong>和<strong>“默认字幕”／“消息面板”／“快捷输入”</strong>；“切换浅色背景”“下一条消息”“恢复位置”用于比较显示效果。A 的双栏输入、圆角和浅紫白面板保留为备选预览；在预览里切换方案不会改写正式配置。</p><pre><code>.\预览悬浮窗AB.ps1
 .\预览悬浮窗AB.ps1 -方案 B -状态 input</code></pre><p><code>-方案</code> 可选 <code>A</code>／<code>B</code>，<code>-状态</code> 可选 <code>subtitle</code>／<code>panel</code>／<code>input</code>，默认 <code>B</code>／<code>input</code>。预览使用项目现有虚拟环境和 Tk，无需 npm、构建或网络；不读取游戏、密钥或偏好，不调用云服务，不注册全局 <kbd>Ctrl</kbd> + <kbd>T</kbd>，该快捷键只在预览窗口内使用。</p><p>在演示短句下拉框中选择后点<strong>“填入输入条”</strong>，可看离线英韩译文，其他输入会提示选演示短句；点击复制或执行“翻译并复制”会改写剪贴板。此处用于比较外观与操作，游戏中的显示、焦点和输入体验仍需另行验收。</p></article>
 <article class="card" data-review-id="beginner:receive"><h3>A. 看英文、韩文的中文翻译</h3><ol class="steps">
 <li>保持游戏和助手都开着，确认主界面<strong>“自动翻译”</strong>开关已开启，“频道”先选<strong>全部聊天</strong>。</li>
@@ -153,7 +155,8 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <li>输入想说的中文，例如“我们一起走”，选择<strong>英语</strong>或<strong>韩语</strong>。<strong>Ctrl+Tab</strong> 也能切换这两种语言。</li>
 <li>按 <strong>Enter</strong> 或点<strong>翻译并复制</strong>。正在用中文输入法选字时，第一次 Enter 可能只是确定汉字；汉字确定后再按一次才提交。</li>
 <li>成功后，助手会把<strong>译文复制好</strong>，输入条随后收起。回到游戏，按 Enter 打开游戏聊天框，<strong>Ctrl+V 粘贴 → 看一下频道和内容 → Enter 发送</strong>。</li>
-</ol><div class="callout okay"><strong>发送前最后一个 Enter 由你来按。</strong>助手负责翻译和复制，不会替你把话自动发出去。翻译时先等结果，别急着点到别的窗口；失去焦点会取消本次自动复制，文字仍保留，可以重新翻译。输入条里按 Esc 可以取消。</div></article>
+</ol><div class="callout okay"><strong>发送前最后一个 Enter 由你来按。</strong>助手负责翻译和复制，不会替你把话自动发出去。翻译时先等结果，别急着点到别的窗口；失去焦点会取消本次自动复制，文字仍保留，可以重新翻译。当前源码中，点一次输入条右上角关闭按钮或按 Esc 即可收起，草稿仍保留。</div></article>
+<article class="card" data-review-id="beginner:quick-phrases"><h3>C. 快速选一句常用短句</h3><p>先在主界面的<strong>常用短句</strong>中新增或收藏表达。打开 Ctrl+T 输入条，空输入时显示少量收藏项；输入中文后显示匹配候选。</p><p><kbd>Tab</kbd> 先进入候选列表，方向键在候选内选择，再按 <kbd>Tab</kbd> 或用鼠标点击仅填入中文；检查文字和语言后，再按 <kbd>Enter</kbd> 翻译并复制。中文输入法选字时不接管这些候选快捷键，<kbd>Ctrl+Tab</kbd> 仍切换英语／韩语。</p><p>已校对、中文精确匹配，且当前语言只有唯一译文时，可以直接使用既有本机译文。未校对、缺少当前语言译文或存在冲突时仍需翻译。修改短句正文或译文后，请重新核对并勾选“已校对”。</p></article>
 </section>
 
 <section class="section" id="repeat"><h2>07 · F8 动作连按</h2>
@@ -168,7 +171,7 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 </section>
 
 <section class="section" id="talent"><h2>07B · 自动选爱心天赋</h2>
-<article class="card" data-review-id="beginner:talent"><p>v2.0 沿用 v1.2 加入的自动首选天赋；v1.0 及更早的包不包含。它不需要翻译 Key，默认关闭。</p><ol class="steps">
+<article class="card" data-review-id="beginner:talent"><p>自 v2.0 起沿用 v1.2 加入的自动首选天赋；v1.0 及更早的包不包含。它不需要翻译 Key，默认关闭。</p><ol class="steps">
 <li>先在游戏里给各层想用的天赋标好<strong>爱心</strong>，选中自己要用的首选方案。</li>
 <li>游戏内“快速选择首选天赋”快捷键保持为 <strong>Ctrl＋反引号</strong>。反引号在 Esc 下方、数字 1 左边。</li>
 <li>助手打开<strong>天赋辅助</strong>，勾选“自动选择游戏内的爱心天赋”，再回游戏。开关会保存，下一局自动重新识别；不用每把准备。</li>
@@ -178,7 +181,7 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 </section>
 
 <section class="section" id="broadcast"><h2>07C · Tab 双击，告诉队友你点的那一项</h2>
-<article class="card" data-review-id="beginner:broadcast"><p>v2.0 保留 v1.2 的双击播报稳定性修复、对局聊天来源与换局探测、用量账本移除及额度查询入口，并加入完整模型解码兼容与诊断回放。先退出旧助手，再启动新文件夹里的 EXE。v1.0 及更早的公开包不包含双击播报。</p><ol class="steps">
+<article class="card" data-review-id="beginner:broadcast"><p>v2.0 已保留 v1.2 的双击播报稳定性修复、对局聊天来源与换局探测、用量账本移除及额度查询入口，并加入完整模型解码兼容与诊断回放。先退出旧助手，再启动新文件夹里的 EXE。v1.0 及更早的公开包不包含双击播报。</p><ol class="steps">
 <li>在助手打开<strong>双击播报</strong>，勾选“开启 Tab 双击播报，自动发送到己方团队”。默认关闭，开启后会记住。</li>
 <li>回游戏打开 Tab 的<strong>天赋页</strong>。双击<strong>一个已选的天赋</strong>，会以“注意”开头说明玩家、英雄、真实天赋等级、名称和一句效果；任务天赋还会在同一格附带当前层数或完成状态。</li>
 <li>双击<strong>统计页里一个具体数字</strong>，就只说那一项。例如点英雄伤害，只发“【我方】玩家（安度因）｜英雄伤害：12,345”，不会顺带说死亡次数。</li>
@@ -187,11 +190,12 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <p><strong>任务天赋继续双击同一格：</strong>我方、对方的任务天赋都可在原已选天赋格附带可信计数，例如“任务层数：0”。有限任务完成时说明“任务已完成”。真实进行中的零层有效；隐藏、不跟踪或无法确认的数值不当作零，也不用隐藏标签残留的旧数字。</p>
 <p><strong>基础任务看独立图标：</strong>例如阿尔萨斯“霜之哀伤的饥渴”不是某一级已选天赋格。中文名称目录现收录 16 个有明确 Face 和本地化来源的基础任务条目；精确名称未命中时，只有原生身份、玩家归属和数值仍通过校验，才显示“基础任务1／基础任务2”，不会猜技能名。</p>
 <p><strong>我方大招只说可信的 Tab 冷却显示：</strong>在同一 Tab 天赋页双击自己或队友的大招图标，只播报专用冷却标签可见且通过校验的正数，例如“冷却显示：38秒”。敌方大招不读取、不播报。游戏从两个时间通道选择这个显示，它可能是充能恢复计时。这个显示不证明大招当前不可用或充能耗尽，也不承诺倒数结束后就能释放；充能、重置和技能变体可能影响可用性。标签隐藏、空白或显示零不代表已就绪，也不猜剩余充能次数；猎空专用充能 UI 尚未验证，暂不支持。未选大招、绑定变化或状态未知时不发送。</p>
+<p>同一大招的天赋图标与冷却层重合时，按已验证的玩家、技能及原生位置归为一个冷却目标，避免把同一图标误判为冲突目标。有可信正数时播报冷却；没有可信读数时不生成冷却消息，普通天赋仍按原规则处理。其他不同目标真正重叠时继续拒绝播报。</p>
 <p>这套逻辑读取游戏公共 UI 结构和当前玩家绑定，不保存本机对象地址；版本或布局、身份发生变化时停止本次播报。0–15 解码负责定位玩家模型，任务和冷却还需各自核对图标与显示状态。并非所有增益叠层都由 Tab 任务图标暴露。</p>
-<p>本轮真实只读对照包含凯尔萨斯热能对流 0→2 层、敌方阿尔萨斯基础任务 6→8 层和我方大招 38／29 秒。它们是实际样本，不能推成全部英雄、语言、分辨率或最终聊天发送均已实测；16 条名称映射也不等于 16 英雄实机验收。</p>
+<p>此前真实只读样本包含凯尔萨斯热能对流 0→2 层、敌方阿尔萨斯基础任务 6→8 层和我方大招 38／29 秒。v2.1 修复后，仅确认萨拉塔斯试用中 45 秒对应同一 R 的唯一冷却命中；最终聊天发送仍待用户反馈。这些记录不代表全部英雄、语言、分辨率或完整发送流程均已实测；16 条名称映射也不等于 16 英雄实机验收。</p>
 <p>开启同一个诊断开关后，会记录任务状态和层数、大招显示秒数及拒绝原因，并包含 reader 离线回放帧；board_profile 标明任务／冷却适配方案，board_code_verified 为 1 表示六处原生 getter 代码校验通过，0 表示尚未通过，代码变化时返回未知。日志总上限仍为默认 100 MiB，也包含聊天原文和译文，分享前检查隐私。开发者可用 <code>--component reader</code> 重放 <code>quest_progress</code> 与 <code>cooldown_display</code> 判定，不恢复整个真实游戏 UI。</p>
 </article></section>
-<section class="section" id="updates"><h2>07D · 有新版本时怎么升级</h2><article class="card" data-review-id="beginner:updates"><p>如果正在使用 1.1.0 本地包，旧更新器只识别中文 ZIP 名，无法匹配新的 GitHub ASCII 附件；请手动下载 HotsHelper-2.0.0-Windows-x64.zip，先退出旧助手，再解压启动新版。本机 Key、语言资料和偏好仍在原用户目录，不用搬动。1.2.0 起的更新器支持 HotsHelper-&lt;版本&gt;-Windows-x64.zip 命名。 <a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.0">打开 v2.0 发行页</a>。</p><ol class="steps"><li>点主窗侧栏底部<strong>检查更新</strong>，再点弹窗里的检查按钮。助手平时不会自动联网检查。</li><li>有新版本时，先看说明，再点<strong>下载更新</strong>。下载失败可以重试；没有可信校验信息时，按提示到官方发行页手动下载。</li><li>下载校验成功，点<strong>重启并更新</strong>。助手会退出，升级程序备份并替换程序后重新打开；个人 Key、语言资料和设置保留。</li></ol><p>保留整个程序文件夹，把它放在自己有写入权限的普通目录。从源码运行时只能检查和下载；弹窗里的 ZIP 路径可以选中复制，关闭助手或重新检查会清理未安装的暂存包。升级失败会尝试恢复旧程序。此机制的临时目录替换与回滚已测试，真实发行 EXE 跨版本升级仍待验收。</p></article></section>
+<section class="section" id="updates"><h2>07D · 有新版本时怎么升级</h2><article class="card" data-review-id="beginner:updates"><p>如果正在使用 1.1.0 本地包，旧更新器只识别中文 ZIP 名，无法匹配新的 GitHub ASCII 附件；请手动下载 HotsHelper-2.1.0-Windows-x64.zip，先退出旧助手，再解压启动新版。本机 Key、语言资料和偏好仍在原用户目录，不用搬动。1.2.0 起的更新器支持 HotsHelper-&lt;版本&gt;-Windows-x64.zip 命名。 <a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1">打开 v2.1 发行页</a>。</p><ol class="steps"><li>点主窗侧栏底部<strong>检查更新</strong>，再点页内更新界面的检查按钮。仅打开这个界面不会联网，检查由你明确发起。</li><li>有新版本时，先看说明，再点<strong>下载更新</strong>。下载失败可以重试；没有可信校验信息时，按提示到官方发行页手动下载。</li><li>下载校验成功，点<strong>重启并更新</strong>。助手会退出，升级程序备份并替换程序后重新打开；个人 Key、语言资料和设置保留。</li></ol><p>当前源码中，“检查更新”旁的提示点只在手动检查确认有可用新版本后显示；尚未检查、已是最新版或检查失败时不显示，下载完成但尚未安装时仍保留。发布说明按标题、段落和列表排版，文字随说明区宽度自动换行；调整主窗口长宽时，页内说明区自适应排版，长内容可滚动阅读。上述界面细节以包含这些改动的构建为准。</p><p>保留整个程序文件夹，把它放在自己有写入权限的普通目录。从源码运行时只能检查和下载；更新页里的 ZIP 路径可以选中复制，关闭助手或重新检查会清理未安装的暂存包。升级失败会尝试恢复旧程序。此机制的临时目录替换与回滚已测试，真实发行 EXE 跨版本升级仍待验收。</p></article></section>
 <section class="section" id="loot"><h2>08 · 在补给箱页面连续开箱</h2>
 <article class="card" data-review-id="beginner:loot"><ol class="steps">
 <li>在助手主界面点<strong>开箱助手 → 准备开箱</strong>。</li>
@@ -202,14 +206,15 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 </section>
 
 <section class="section" id="settings"><h2>09 · 用顺手以后，再调这几个地方</h2>
+<p data-review-id="beginner:window-controls">包含本轮改动的构建中，偏好设置、检查更新、个人密钥和短句编辑共用一个 React 页内弹层。重复点击复用当前界面，打开偏好设置不会带出快捷输入条。保存失败时会保留编辑内容，原有偏好不变。</p>
 <div class="table-scroll" data-review-id="beginner:settings"><table><thead><tr><th>想做什么</th><th>去哪里</th><th>怎么选</th></tr></thead><tbody>
-<tr><td>查看界面外观</td><td>设置 → 外观 → 界面配色</td><td>只保留柔雾紫主题，不再提供配色切换；旧配色配置自动迁移，原有窗口位置、字体和快捷键保留。主界面、设置和游戏内浮层使用同主题配色，透明字幕继续使用白字暗边；EXE、任务栏与窗口标题统一使用紫色六角旋涡标志。</td></tr>
+<tr><td>调整主窗口阅读</td><td>偏好设置 → 外观</td><td>内容字号 10–32，保存后作用于消息和输入文字；可选标准／精简布局，“主窗口保持置顶”作用于实际可见的助手窗口。界面沿用柔雾紫。</td></tr>
 <tr><td>调整游戏内译文</td><td>设置 → 游戏内</td><td>可调字号、宽度、停留时间、是否显示原文；先用默认值也可以。</td></tr>
-<tr><td>挪一下译文位置</td><td>设置 → 游戏内 → 保存并调整浮窗位置</td><td>拖到不挡技能和游戏聊天的位置，点“完成调整”。</td></tr>
-<tr><td>换 F8 开关键</td><td>设置 → 快捷键 → 动作连按 → 开始 / 取消快捷键</td><td>从 F1–F12 选一个并保存；下方提示会同步。回游戏新按所选键即可开始，不用重新准备。</td></tr>
+<tr><td>挪一下译文位置</td><td>偏好设置 → 游戏内 → 保存并调整位置</td><td>拖到不挡技能和游戏聊天的位置，点“完成调整”。</td></tr>
+<tr><td>换 F8 开关键</td><td>偏好设置 → 快捷键 → 动作连按开始 / 取消快捷键</td><td>从 F1–F12 选一个并保存；下方提示会同步。回游戏新按所选键即可开始，不用重新准备。</td></tr>
 <tr><td>少看一些频道</td><td>实时消息 → 频道</td><td>例如仅队伍、仅密语。筛选影响后续消息，旧历史不会清空。</td></tr>
-<tr><td>准备常说的话</td><td>主界面 → 常用短句</td><td>选中句子点“使用”，填入中文回复区；确认语言、翻译，再自己粘贴发送。</td></tr>
-</tbody></table></div></section>
+<tr><td>准备常说的话</td><td>主界面 → 常用短句</td><td>新增／编辑时可勾选收藏；在主界面点“使用短句”或在 Ctrl+T 中选择候选，检查语言后翻译并复制，再自己粘贴发送。</td></tr>
+</tbody></table></div><p class="small" data-review-id="beginner:desktop-preferences">新桌面壳目前不提供主窗口透明度与位置锁定控件；-Legacy 兼容入口保留这些原生设置。全局快捷键可在“快捷键”页取消勾选并保存，禁用后仍可从主界面的“快捷输入”按钮打开输入条。</p></section>
 
 <section class="section" id="faq"><h2>10 · 有问题，先对照这里</h2>
 <details class="faq-item" data-review-id="beginner:faq-raw"><summary>有原文，没有中文翻译</summary><p>先看“自动翻译”开关有没有开启，再看是否点过“连接并开始使用”并等到配置成功。收到的文字也要在英文或韩文支持范围内。云服务没配好时，助手仍能接收原文。</p></details>
@@ -218,31 +223,32 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <details class="faq-item" data-review-id="beginner:faq-cloud"><summary>身份验证通过，翻译测试或保存阶段失败</summary><p>身份验证成功只说明 Key 能确认身份。翻译测试失败时，检查是否开通“机器翻译通用版”、是否给刚才那个 RAM 用户加了翻译权限，以及阿里云是否有欠费或服务限制。保存阶段可核对当前 Windows 用户和写入权限。看窗口显示的阶段和安全提示排查，等结果后再重试；每次翻译测试均会调用云服务。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-month"><summary>旧版本的用量文件需要处理吗？</summary><p>不用处理。旧 usage.sqlite3 和 usage.sqlite3.initialized 保留原样，当前版本不读取、不新建、不迁移或修复；旧账本缺失或损坏不影响启动、配置或翻译。凭据、语言资料、偏好和日志继续使用原来的 HotsChatHelper 用户目录。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-copy"><summary>Ctrl+T 翻译了，游戏里却没发出去</summary><p>它只帮你复制。请回到游戏打开聊天框，Ctrl+V 粘贴，再按 Enter 发送。输入法还在选字时，先确定汉字，再按一次 Enter 提交翻译。快捷键无反应可以从助手主界面的“快捷输入”按钮打开。</p></details>
-<details class="faq-item" data-review-id="beginner:faq-repeat"><summary>按 F8 没出现 s，或者连按没效果</summary><p>确认使用 v2.0（程序 2.0.0），关闭助手输入条，松开所有修饰键，再回游戏单独按 F8；游戏聊天输入框无需关闭，开着时会输入所选动作的 S 或 Y、S。此前按过 Enter／Esc 也不影响这次启动；运行中按 Enter／Esc 会结束当前连按，松开后可再按 F8 重开。如果改过快捷键，按你保存的那个键。用下方“按 F8 取消”提示判断是否启动；没有提示或有提示但无输入／动作，可分别反馈这两种情况。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-repeat"><summary>按 F8 没出现 s，或者连按没效果</summary><p>确认使用 v2.1（程序 2.1.0），关闭助手输入条，松开所有修饰键，再回游戏单独按 F8；游戏聊天输入框无需关闭，开着时会输入所选动作的 S 或 Y、S。此前按过 Enter／Esc 也不影响这次启动；运行中按 Enter／Esc 会结束当前连按，松开后可再按 F8 重开。如果改过快捷键，按你保存的那个键。用下方“按 F8 取消”提示判断是否启动；没有提示或有提示但无输入／动作，可分别反馈这两种情况。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-overlay"><summary>游戏里看不到译文，或者位置挡视线</summary><p>先在主界面确认确实有新的译文。字幕显示时间较短，可在“设置 → 游戏内”调整；用无边框窗口化，重新拖动浮窗位置。透明字幕模式主要显示文字，想要底色可改为半透明面板。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-word"><summary>某个短词翻译不符合语境</summary><p>主界面保留原文，可以对照着看；需要时选择消息再点“重试所选”。短词缺少上下文时仍可能有多种意思，重试也会调用云翻译，别连续刷同一句。</p></details>
-<details class="faq-item" data-review-id="beginner:faq-diagnostics"><summary>怎么把日志发给开发者排查？</summary><p>诊断默认关闭。打开<strong>设置 → 诊断 → 开启诊断日志</strong>，复现一次，再点<strong>一键导出诊断日志</strong>保存 ZIP，附上出问题的大致时间交给开发者。开启后会记录聊天原文、译文及翻译、自动天赋和双击播报的复现输入与状态；仅一个开关，没有额外详细模式或十分钟到期。下次启动仍关闭，关闭后已有日志仍可导出。</p><p>默认日志总上限 <strong>100 MiB</strong>，滚动覆盖最旧文件、保留七天；队列过载、覆盖和截断会计数。已配置密钥递归脱敏，分享前检查其他聊天隐私；不要额外附带 .env、credentials.dpapi 或用户数据库。导出不调用云服务、不自动上传。开发者可离线重放录制的业务判断；缺失或截断的数据会标明不完整，不能保证还原真实游戏、驱动或云端故障。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-diagnostics"><summary>怎么把日志发给开发者排查？</summary><p>诊断默认关闭。打开<strong>设置 → 诊断 → 开启诊断日志</strong>，复现一次，再点<strong>导出诊断日志</strong>。后台完成后会显示<strong>已导出的 ZIP 路径</strong>，可以选中复制；检查文件后，由你附上出问题的大致时间并自行分享。开启后会记录聊天原文、译文及翻译、自动天赋和双击播报的复现输入与状态；仅一个开关，没有额外详细模式或十分钟到期。下次启动仍关闭，关闭后已有日志仍可导出。</p><p>默认日志总上限 <strong>100 MiB</strong>，滚动覆盖最旧文件、保留七天；队列过载、覆盖和截断会计数。已配置密钥递归脱敏，分享前检查其他聊天隐私；不要额外附带 .env、credentials.dpapi 或用户数据库。导出不调用云服务、不自动上传。开发者可离线重放录制的业务判断；缺失或截断的数据会标明不完整，不能保证还原真实游戏、驱动或云端故障。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-emotes"><summary>表情为什么显示为 [表情]？</summary><p>游戏的图片表情标签会统一显示成 [表情]，避免露出很长的资源路径。只有表情时不会请求云翻译；混合英文、韩文的文字继续正常翻译。普通 Unicode 表情照常显示。</p></details>
-<details class="faq-item" data-review-id="beginner:faq-model-codecs"><summary>解码已经补全，是否代表所有电脑都验证过？</summary><p>v2.0 对 build 98348 支持 0–15 全部 16 种模型解码，每种先核对对应计算代码指纹。2、5、8、11、14 额外读取动态 salt，这是游戏解码参数，不是阿里云密钥。读取后复核模式、表根、编码槽、所用 key 与 salt 指针和值；变化或缺失就停止本次辅助判断。</p><p>16 个算法完成了合成读取和 <strong>303,810 次独立原生指令对照</strong>；朋友机器并未逐个分支实测全部 16 种。若自动天赋和双击播报仍不生效，保留原语言、分辨率和缩放，在进局前开启诊断，复现后导出 ZIP，并附操作时间、游戏 build、对局和窗口模式。解码回放包含编码、所需 key／salt 和计算结果，不是完整内存转储；回放一致只表示相同输入能重现相同判断，不代表功能实际成功或云端、游戏环境被还原。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-model-codecs"><summary>解码已经补全，是否代表所有电脑都验证过？</summary><p>自 v2.0 起对 build 98348 支持 0–15 全部 16 种模型解码，每种先核对对应计算代码指纹。2、5、8、11、14 额外读取动态 salt，这是游戏解码参数，不是阿里云密钥。读取后复核模式、表根、编码槽、所用 key 与 salt 指针和值；变化或缺失就停止本次辅助判断。</p><p>16 个算法完成了合成读取和 <strong>303,810 次独立原生指令对照</strong>；朋友机器并未逐个分支实测全部 16 种。若自动天赋和双击播报仍不生效，保留原语言、分辨率和缩放，在进局前开启诊断，复现后导出 ZIP，并附操作时间、游戏 build、对局和窗口模式。解码回放包含编码、所需 key／salt 和计算结果，不是完整内存转储；回放一致只表示相同输入能重现相同判断，不代表功能实际成功或云端、游戏环境被还原。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-feedback"><summary>还是解决不了，应该怎么反馈？</summary><p>说明助手版本、是在大厅还是对局、你做了什么、显示什么提示，以及是否改过快捷键。也可先从“设置 → 诊断”导出日志；截图时遮住 AccessKey、Secret、账号信息、好友昵称和私人聊天。不要把完整 Key 发给别人。</p><p>游戏里能看到团队消息、助手却没有原文？本轮已修复对局来源误接大厅记录，以及旧记录持续更新妨碍发现新局的问题；朋友现场是否同因仍需复现确认。请在进局前开启“设置 → 诊断 → 开启诊断日志”，复现后导出 ZIP，并附发生时间。公开 v1.0 不支持这套诊断导出。</p><p>大厅队伍昵称偶尔“未知”？0.3.11 已补充同账号的昵称查找：好友关系暂不可读、或者名字只在上层记录里时，会尝试恢复合法昵称。实在无法确认身份或名字数据损坏时仍显示“发送者未知”，正文照常接收。后续新消息会重新查名，旧消息不会自动改名；反馈时说明是否刚组队、同一个人的后续发言有没有恢复，不用提供真实昵称或聊天内容。</p></details>
 </section>
 
 <section class="section" id="quota"><h2>11 · 费用和 Key，记住这几句话就够了</h2>
-<article class="card" data-review-id="beginner:cost"><h3>实际用量与费用以阿里云控制台为准</h3><p>想查看剩余额度和实际用量时：</p><ol class="steps"><li>点击主窗口服务状态行或<strong>设置 → 连接 → 翻译服务</strong>中的<strong>“查询剩余额度”</strong>。</li><li>默认浏览器会打开<a href="https://mt.console.aliyun.com/service">阿里云机器翻译控制台</a>，登录自己的阿里云账号后，在控制台查询。</li></ol><p>此按钮仅打开控制台，不自动查询或读取账号数据。助手启动时不会自动打开浏览器，也不会建立本地用量账本。</p><p>助手不统计用量或限制月度额度；实际用量与费用以阿里云控制台为准。云端服务的计费方式不因本地功能调整而改变。开通前看清自己账号的实际权益和计费说明，不要把免费权益理解为永久免费。<a href="https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview">查看官方计费说明</a></p><p>助手不再建立本地月度账本，也不提供月度额度确认或剩余量显示。请求队列、自动翻译限流、缓存去重和暂停继续保留；这些功能不能替代阿里云的账单或账号费用管理。</p><p>阿里云控制台测试、助手里的翻译测试、手动重试和实际聊天翻译都会调用云服务。给助手使用专用 Key，并在阿里云控制台查看账号的用量与费用。</p></article>
+<article class="card" data-review-id="beginner:cost"><h3>实际用量与费用以阿里云控制台为准</h3><p>想查看剩余额度和实际用量时：</p><ol class="steps"><li>点击<strong>偏好设置 → 连接</strong>中的<strong>“查询剩余额度”</strong>。</li><li>默认浏览器会打开<a href="https://mt.console.aliyun.com/service">阿里云机器翻译控制台</a>，登录自己的阿里云账号后，在控制台查询。</li></ol><p>此按钮仅打开控制台，不自动查询或读取账号数据。助手启动时不会自动打开浏览器，也不会建立本地用量账本。</p><p>助手不统计用量或限制月度额度；实际用量与费用以阿里云控制台为准。云端服务的计费方式不因本地功能调整而改变。开通前看清自己账号的实际权益和计费说明，不要把免费权益理解为永久免费。<a href="https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview">查看官方计费说明</a></p><p>助手不再建立本地月度账本，也不提供月度额度确认或剩余量显示。请求队列、自动翻译限流、缓存去重和暂停继续保留；这些功能不能替代阿里云的账单或账号费用管理。</p><p>阿里云控制台测试、助手里的翻译测试、手动重试和实际聊天翻译都会调用云服务。给助手使用专用 Key，并在阿里云控制台查看账号的用量与费用。</p></article>
 <article class="card" data-review-id="beginner:privacy"><h3>Key 放自己手里，别人不需要知道</h3><p>助手使用 DPAPI 把 Key 加密保存在当前 Windows 用户下；之后可在“个人阿里云密钥”里替换或删除。<strong>从助手删除，只删除本机保存的 Key，不会去阿里云注销这把 Key。</strong>如果泄露，到 RAM 控制台禁用或删除旧 Key，再创建新的并重新配置助手。</p><p>云翻译会把待翻译的消息正文发给阿里云；助手不把发送者昵称当作翻译内容上传。聊天历史只保留本次运行最近 500 条，退出助手后清空。本文不收集 Key，也没有可以填写真实 Key 的网页输入框。</p><p class="source-note">Key 保管与泄露处理参见<a href="https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair">阿里云 AccessKey 官方说明</a>。</p></article>
 </section>
 
 <section class="section" id="quick"><h2>一页速查：平时就看这张卡</h2>
 <article class="card" data-review-id="beginner:quick"><div class="section-heading"><h3>复制给自己，或者发给新用户</h3><button type="button" data-copy-target="quickSteps">复制速查卡</button></div>
 <pre id="quickSteps">先打开助手，再回游戏。
-升级到 v2.0（可下载包以实际 Release 为准）：1.1.0 本地包请手动下载 HotsHelper-2.0.0-Windows-x64.zip；退出旧助手后解压启动，ZIP 内目录和 EXE 仍为中文。
+升级到 v2.1（可下载包以实际 Release 为准）：1.1.0 本地包请手动下载 HotsHelper-2.1.0-Windows-x64.zip；退出旧助手后解压启动，ZIP 内目录和 EXE 仍为中文。
 看翻译：自动翻译勾上，频道先选“全部聊天”，等新的英文／韩文消息。
 首次配 Key：先开通服务并授权 RAM → 填 AccessKey ID / Secret → 点“连接并开始使用” → 等身份验证和“你好”测试成功、加密保存并启用。
 发消息：Ctrl+T → 写中文并选语言 → Enter 翻译 → 回游戏 Enter 打开聊天 → Ctrl+V → Enter 发送。
+常用短句：空输入看收藏，输入中文查匹配 → Tab 进入候选，方向键选择 → Tab／鼠标只填字 → Enter 翻译并复制。
 动作连按：先选 S 或 Y＋S，填间隔并保存应用 → 游戏前台 F8 开始 → 再 F8 取消。聊天框开着会输入对应按键；Esc／Enter 结束本次后，新按 F8 可重开。右键点地面由自己操作。
 开补给箱：助手点“准备开箱” → 回游戏打开补给箱页 → 空格开始／暂停／继续 → Esc 结束。
-更换或删除 Key：设置 → 连接。
-查剩余额度：主窗服务状态行或设置 → 连接 → 翻译服务 → 查询剩余额度 → 默认浏览器打开阿里云控制台，登录后查询。
+更换或删除 Key：偏好设置 → 连接 → 管理账户。
+查剩余额度：偏好设置 → 连接 → 查询剩余额度 → 默认浏览器打开阿里云控制台，登录后查询。
 Key、Secret 自己保管，截图和反馈都别带上它们。</pre></article>
 </section>
 
@@ -252,9 +258,9 @@ Key、Secret 自己保管，截图和反馈都别带上它们。</pre></article>
 <li><a href="https://ram.console.aliyun.com/">RAM 控制台</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/create-a-ram-user">创建 RAM 用户</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair">创建 Key</a></li>
 <li><a href="https://help.aliyun.com/zh/machine-translation/getting-started/ram-user-authorization">翻译权限说明</a> · <a href="https://help.aliyun.com/zh/ram/create-a-custom-policy">创建自定义权限策略</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user">给用户授权</a></li>
 <li><a href="https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview">额度与收费规则</a></li>
-<li><a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.0">v2.0 发行入口（附件以实际 Release 为准）</a> · <a href="https://github.com/renyouhao/heroes-storm-helper/releases">已发布的 Windows x64 完整包</a></li>
-</ul><p class="small" data-review-id="beginner:verification">此前统一源码 51daf8e（并入 69ec5a3）完成 1247 项测试（113 个模块各用独立进程）和 20 项采集探针；这些数字仅属于原验证基线。v2.0 的测试总数、包校验、提交与 SHA256 以 <a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.0">Release 记录</a>为准。</p><p class="small">助手用法按 v2.0 的功能整理，2026-10-24 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。</p></article>
-<details class="card step-card no-print"><summary>复制全文的纯文字版</summary><button type="button" data-copy-target="originalMarkdown">复制全文</button><pre id="originalMarkdown">第一次使用也能照着做 · v2.0 使用说明（程序 2.0.0）
+<li><a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1">v2.1 发行入口（附件以实际 Release 为准）</a> · <a href="https://github.com/renyouhao/heroes-storm-helper/releases">已发布的 Windows x64 完整包</a></li>
+</ul><p class="small" data-review-id="beginner:verification">此前统一源码 51daf8e（并入 69ec5a3）完成 1247 项测试（113 个模块各用独立进程）和 20 项采集探针；这些数字仅属于原验证基线。v2.1 本轮最终回归通过 570 项 Python 测试和 33 项前端测试；验证范围、包校验、提交与 SHA256 以 <a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1">Release 记录</a>为准。</p><p class="small">助手用法按 v2.1 的功能整理，2026-10-24 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。</p></article>
+<details class="card step-card no-print"><summary>复制全文的纯文字版</summary><button type="button" data-copy-target="originalMarkdown">复制全文</button><pre id="originalMarkdown">第一次使用也能照着做 · v2.1 使用说明（程序 2.1.0）
 
 风暴英雄助手
 
@@ -270,13 +276,15 @@ Key、Secret 自己保管，截图和反馈都别带上它们。</pre></article>
 
 版本说明：v1.1 仅为源码准备标签，没有公开发布 Release。此前 v1.2 发布准备时，GitHub 截去了中文附件名中的中文部分，因此保留原标签，修复发布资产命名约定后改发 v1.2。ZIP 附件统一使用 ASCII 名称，包内目录与“风暴英雄助手.exe”继续使用中文。公开 v1.2 使用《风暴英雄》图标；v2.0 将 EXE、任务栏及窗口标题统一为紫色六角旋涡标志。
 
-当前源码目标为 v2.0，程序版本 2.0.0，发行通道配置为 stable；对应包名为 HotsHelper-2.0.0-Windows-x64.zip，实际发布附件与校验值以 Release 为准。主界面采用 React + WebView2，统一柔雾紫单主题和紫色图标，保留 B 方案悬浮窗布局与操作；旧密钥、语言资料、窗口位置和快捷键沿用原用户目录。
+当前源码目标为 v2.1，程序版本 2.1.0，发行通道配置为 stable；对应包名为 HotsHelper-2.1.0-Windows-x64.zip，实际发布附件与校验值以 Release 为准。主界面采用 React + WebView2，统一柔雾紫单主题和紫色图标，保留 B 方案悬浮窗布局与操作；旧密钥、语言资料、窗口位置和快捷键沿用原用户目录。
+
+v2.1 更新：偏好设置、账户、更新与短句编辑共用一个 React 页内弹层，主窗口字号和置顶作用于实际界面；状态、更新提示点和发布说明排版更清楚。原生 Ctrl+T 提供本地短句候选，改进有效译文复制与失败后输入恢复，并将同一 R 天赋与 CD 覆盖层归并为一个命中目标。
 
 build 98348 的模型解码覆盖 0–15 全部 16 分支，每个分支核对计算代码指纹；其中 2、5、8、11、14 另读取游戏运行时的动态 salt。16 个算法已完成合成读取与独立原生指令对照；朋友机器并未逐个实测全部分支，英文、2K和不同对局仍需现场验收。日志默认关闭，开启后统一录制原文、译文及复现数据，总上限 100 MiB。
 
 01 · 先准备好这几样
 
-一台 Windows 64 位电脑，以及完整的助手压缩包。从官方发行页查看已发布附件（https://github.com/renyouhao/heroes-storm-helper/releases）；本轮 v2.0 的目标文件为 HotsHelper-2.0.0-Windows-x64.zip，可下载版本和附件以实际 Release 为准。下载后解压到一个普通文件夹里，再打开里面的“风暴英雄助手.exe”。整个文件夹都要保留，不要只把 exe 单独拖出来；不用另外安装 Python 或 SDK。助手会自动创建自己的配置目录，不用拷贝 AppData。更新时先正常退出旧助手，再启动新文件夹里的程序。
+一台 Windows 64 位电脑，以及完整的助手压缩包。从官方发行页查看已发布附件（https://github.com/renyouhao/heroes-storm-helper/releases）；本轮 v2.1 的目标文件为 HotsHelper-2.1.0-Windows-x64.zip，可下载版本和附件以实际 Release 为准。下载后解压到一个普通文件夹里，再打开里面的“风暴英雄助手.exe”。整个文件夹都要保留，不要只把 exe 单独拖出来；不用另外安装 Python 或 SDK。助手会自动创建自己的配置目录，不用拷贝 AppData。更新时先正常退出旧助手，再启动新文件夹里的程序。
 
 自己的阿里云账号。浏览器打开阿里云官网（https://www.aliyun.com/），注册或登录。网页如果要求身份认证，按它的提示完成。申请和开通服务都由你在官网操作。
 
@@ -378,13 +386,13 @@ Secret 一般只显示这一次。关掉前先保存到自己的密码管理器�
 
 这一步开始，在风暴英雄助手里操作
 
-打开“风暴英雄助手.exe”。第一次会出现“配置自己的阿里云翻译”窗口。没出现也没关系，从主界面进入设置／偏好设置 → 连接 → 个人阿里云密钥。
+打开“风暴英雄助手.exe”，点击配置翻译服务，或进入偏好设置 → 连接 → 配置账户；已配置时显示管理账户。个人密钥在主界面的页内弹层中填写。
 
 把两段 Key 分别粘贴进 AccessKey ID 和 AccessKey Secret，别填反，前后也不要多出空格。
 
 点击一次“连接并开始使用”，等待完成。助手会自动验证密钥所属主账号，再测试翻译“你好”；成功后使用 DPAPI 加密保存凭据并启用翻译。首次不必分开点击验证和保存。
 
-看到配置成功和测试译文后，回到助手即可使用。Key 已加密保存在当前 Windows 用户下，之后通常不用每次重填。
+看到“配置成功，翻译已启用”后即可使用。Key 已加密保存在当前 Windows 用户下，之后通常不用每次重填；完整 ID 和 Secret 不进入全局界面状态快照。
 
 填写位置示意 · 不是网页输入表单，也不是实际截图
 
@@ -394,17 +402,19 @@ AccessKey Secret●●●●●●●●
 
 连接并开始使用
 
+已有自己的旧配置文件时，可在个人翻译账户页主动选择导入本机旧 .env，文件上限 16 KiB。它仅把两个密钥字段填入本次输入框，不会自动连接；关闭后清空 Secret。正常启动不会自动读取该文件。
+
 只需填写自己的 Key。助手不统计用量或限制月度额度；实际用量与费用以阿里云控制台为准。无需填写其他调用的用量或确认月度额度，界面不显示月度剩余量。
 
-等结果后再修改或重试。处理中字段暂时不能改；取消会保留原配置，不把本次新 Key 替换进去。失败会提示卡在哪个阶段，并显示安全错误类别或可识别的云错误码，未知错误不会直接展开底层内容。翻译测试和重新连接时的测试均会调用云服务，实际用量与费用以阿里云控制台为准。服务开通和 RAM 授权仍需先在阿里云完成。
+等结果后再修改或重试。处理中字段暂时不能改；关闭会取消尚未完成的操作，已经完成的保存或删除保持当前结果。失败会提示卡在哪个阶段，并显示安全错误类别或可识别的云错误码，未知错误不会直接展开底层内容。翻译测试和重新连接时的测试均会调用云服务，实际用量与费用以阿里云控制台为准。服务开通和 RAM 授权仍需先在阿里云完成。
 
 06 · 看别人说什么，发出自己想说的话
 
-v2.0 构建采用以下桌面主界面；下载后保留整个程序文件夹。
+v2.1 构建采用以下桌面主界面；下载后保留整个程序文件夹。
 
 新主界面通过 WebView2 显示本地页面，完整构建产物不需要安装 Node.js。若启动提示缺少运行环境，请从微软官方 WebView2 入口（https://developer.microsoft.com/microsoft-edge/webview2/）安装 Runtime 后重试；不会静默切到旧浏览器。源码安装先运行 安装依赖.ps1，再运行 启动助手.ps1 -Demo 离线预览；-Legacy 可临时使用原主界面。
 
-六个主页面使用 React + TypeScript + CSS，采集、翻译和游戏输入仍由 Python 处理；字幕、Ctrl+T 输入条以及设置、凭据、诊断、更新弹窗仍为原生 Tk 窗口。新界面的多进程内存与 CPU 占用需要重新测量，不承诺低于 100 MiB。
+六个主页面及偏好设置、更新、个人密钥、短句编辑统一使用 React；管理操作共用一个页内弹层。采集、翻译、持久化和游戏输入仍由 Python 处理，字幕和 Ctrl+T 输入条保留原生 Tk；-Legacy 兼容入口保留原 Tk 界面。以下新增交互只在包含本轮改动的构建中生效，旧 EXE 不会随源码自动改变。新界面的多进程内存与 CPU 占用仍需重新测量。
 
 先认识新的主界面
 
@@ -414,11 +424,11 @@ v2.0 构建采用以下桌面主界面；下载后保留整个程序文件夹。
 
 主界面下方是并排的用中文回复和译文预览：输入中文，在预览区用英语／韩语胶囊选项选择目标语言，点击翻译中文，确认结果后点复制译文，再自行回游戏粘贴发送。Ctrl + T 仍可呼出独立输入条。
 
-小窗口会自动压缩留白和辅助说明，调整导航与操作区的排列，保留输入、译文和语言选择；不需要另外配置一套布局。
+小窗口会自动压缩留白和辅助说明，调整导航与操作区的排列，保留输入、译文和语言选择。主窗口翻译失败时，错误显示在回复区，输入保留供修改或重试；复制按钮使用后台当前有效译文。辅助页区分等待、运行和停止，并保留最近一次结果。
 
 悬浮窗已采用 B 方案 · 保留 A/B 预览
 
-本轮选定 B · 原样换配色。柔雾紫浮层与主界面使用同主题颜色，保留原字幕窗布局、单行输入、语言下拉及快捷键操作；只保留柔雾紫主题，旧配色配置自动迁移并保留位置、字体与快捷键；透明字幕仍为白字暗边。快捷中文输入标题左侧使用主界面的紫色六角旋涡标志，保留两行提示：“输入中文，译文会复制；请在游戏中粘贴发送。”和“Enter 翻译并复制 · Esc 收起 · Ctrl+Tab 切换语言”。B 方案布局和操作保持不变，本轮继续统一单主题与全局图标。发行构建核验 WebView2 页面加载与离线桥接；真实游戏中的显示、焦点、输入及不同 DPI 体验仍按实机结果验收。
+本轮选定 B · 原样换配色。柔雾紫浮层与主界面使用同主题颜色，保留原字幕窗布局、单行输入、语言下拉及快捷键操作；只保留柔雾紫主题，旧配色配置自动迁移并保留位置、字体与快捷键；透明字幕仍为白字暗边。快捷中文输入标题左侧使用主界面的紫色六角旋涡标志，保留两行提示：“输入中文，译文会复制；请在游戏中粘贴发送。”和“Enter 翻译并复制 · Esc 收起 · Ctrl+Tab 切换语言”。本轮沿用 B 方案基础布局，并在输入条中增加少量本地短句候选；用法见下方“快速选一句常用短句”。发行构建核验 WebView2 页面加载与离线桥接；真实游戏中的显示、焦点、输入及不同 DPI 体验仍按实机结果验收。
 
 也可双击项目根目录的 打开悬浮窗对比.cmd，无需 PowerShell，默认打开 B 方案的快捷输入预览，命令行窗口不会常驻。运行 预览悬浮窗AB.ps1 也可打开对比控制台，切换“A · 原型新样式”／“B · 原样换配色”和“默认字幕”／“消息面板”／“快捷输入”；“切换浅色背景”“下一条消息”“恢复位置”用于比较显示效果。A 的双栏输入、圆角和浅紫白面板保留为备选预览；在预览里切换方案不会改写正式配置。
 
@@ -458,7 +468,15 @@ Ctrl + T→输入中文、选语言→Enter 翻译→回游戏粘贴发送
 
 成功后，助手会把译文复制好，输入条随后收起。回到游戏，按 Enter 打开游戏聊天框，Ctrl+V 粘贴 → 看一下频道和内容 → Enter 发送。
 
-发送前最后一个 Enter 由你来按。助手负责翻译和复制，不会替你把话自动发出去。翻译时先等结果，别急着点到别的窗口；失去焦点会取消本次自动复制，文字仍保留，可以重新翻译。输入条里按 Esc 可以取消。
+发送前最后一个 Enter 由你来按。助手负责翻译和复制，不会替你把话自动发出去。翻译时先等结果，别急着点到别的窗口；失去焦点会取消本次自动复制，文字仍保留，可以重新翻译。当前源码中，点一次输入条右上角关闭按钮或按 Esc 即可收起，草稿仍保留。
+
+C. 快速选一句常用短句
+
+先在主界面的常用短句中新增或收藏表达。打开 Ctrl+T 输入条，空输入时显示少量收藏项；输入中文后显示匹配候选。
+
+Tab 先进入候选列表，方向键在候选内选择，再按 Tab 或用鼠标点击仅填入中文；检查文字和语言后，再按 Enter 翻译并复制。中文输入法选字时不接管这些候选快捷键，Ctrl+Tab 仍切换英语／韩语。
+
+已校对、中文精确匹配，且当前语言只有唯一译文时，可以直接使用既有本机译文。未校对、缺少当前语言译文或存在冲突时仍需翻译。修改短句正文或译文后，请重新核对并勾选“已校对”。
 
 07 · F8 动作连按
 
@@ -480,7 +498,7 @@ Esc、Enter、打开 Ctrl+T、按组合键或切出游戏，也会结束本次�
 
 07B · 自动选爱心天赋
 
-v2.0 沿用 v1.2 加入的自动首选天赋；v1.0 及更早的包不包含。它不需要翻译 Key，默认关闭。
+自 v2.0 起沿用 v1.2 加入的自动首选天赋；v1.0 及更早的包不包含。它不需要翻译 Key，默认关闭。
 
 先在游戏里给各层想用的天赋标好爱心，选中自己要用的首选方案。
 
@@ -496,7 +514,7 @@ v2.0 沿用 v1.2 加入的自动首选天赋；v1.0 及更早的包不包含。�
 
 07C · Tab 双击，告诉队友你点的那一项
 
-v2.0 保留 v1.2 的双击播报稳定性修复、对局聊天来源与换局探测、用量账本移除及额度查询入口，并加入完整模型解码兼容与诊断回放。先退出旧助手，再启动新文件夹里的 EXE。v1.0 及更早的公开包不包含双击播报。
+v2.0 已保留 v1.2 的双击播报稳定性修复、对局聊天来源与换局探测、用量账本移除及额度查询入口，并加入完整模型解码兼容与诊断回放。先退出旧助手，再启动新文件夹里的 EXE。v1.0 及更早的公开包不包含双击播报。
 
 在助手打开双击播报，勾选“开启 Tab 双击播报，自动发送到己方团队”。默认关闭，开启后会记住。
 
@@ -520,23 +538,27 @@ v2.0 保留 v1.2 的双击播报稳定性修复、对局聊天来源与换局探
 
 我方大招只说可信的 Tab 冷却显示：在同一 Tab 天赋页双击自己或队友的大招图标，只播报专用冷却标签可见且通过校验的正数，例如“冷却显示：38秒”。敌方大招不读取、不播报。游戏从两个时间通道选择这个显示，它可能是充能恢复计时。这个显示不证明大招当前不可用或充能耗尽，也不承诺倒数结束后就能释放；充能、重置和技能变体可能影响可用性。标签隐藏、空白或显示零不代表已就绪，也不猜剩余充能次数；猎空专用充能 UI 尚未验证，暂不支持。未选大招、绑定变化或状态未知时不发送。
 
+同一大招的天赋图标与冷却层重合时，按已验证的玩家、技能及原生位置归为一个冷却目标，避免把同一图标误判为冲突目标。有可信正数时播报冷却；没有可信读数时不生成冷却消息，普通天赋仍按原规则处理。其他不同目标真正重叠时继续拒绝播报。
+
 这套逻辑读取游戏公共 UI 结构和当前玩家绑定，不保存本机对象地址；版本或布局、身份发生变化时停止本次播报。0–15 解码负责定位玩家模型，任务和冷却还需各自核对图标与显示状态。并非所有增益叠层都由 Tab 任务图标暴露。
 
-本轮真实只读对照包含凯尔萨斯热能对流 0→2 层、敌方阿尔萨斯基础任务 6→8 层和我方大招 38／29 秒。它们是实际样本，不能推成全部英雄、语言、分辨率或最终聊天发送均已实测；16 条名称映射也不等于 16 英雄实机验收。
+此前真实只读样本包含凯尔萨斯热能对流 0→2 层、敌方阿尔萨斯基础任务 6→8 层和我方大招 38／29 秒。v2.1 修复后，仅确认萨拉塔斯试用中 45 秒对应同一 R 的唯一冷却命中；最终聊天发送仍待用户反馈。这些记录不代表全部英雄、语言、分辨率或完整发送流程均已实测；16 条名称映射也不等于 16 英雄实机验收。
 
 开启同一个诊断开关后，会记录任务状态和层数、大招显示秒数及拒绝原因，并包含 reader 离线回放帧；board_profile 标明任务／冷却适配方案，board_code_verified 为 1 表示六处原生 getter 代码校验通过，0 表示尚未通过，代码变化时返回未知。日志总上限仍为默认 100 MiB，也包含聊天原文和译文，分享前检查隐私。开发者可用 --component reader 重放 quest_progress 与 cooldown_display 判定，不恢复整个真实游戏 UI。
 
 07D · 有新版本时怎么升级
 
-如果正在使用 1.1.0 本地包，旧更新器只识别中文 ZIP 名，无法匹配新的 GitHub ASCII 附件；请手动下载 HotsHelper-2.0.0-Windows-x64.zip，先退出旧助手，再解压启动新版。本机 Key、语言资料和偏好仍在原用户目录，不用搬动。1.2.0 起的更新器支持 HotsHelper-&lt;版本&gt;-Windows-x64.zip 命名。 打开 v2.0 发行页（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.0）。
+如果正在使用 1.1.0 本地包，旧更新器只识别中文 ZIP 名，无法匹配新的 GitHub ASCII 附件；请手动下载 HotsHelper-2.1.0-Windows-x64.zip，先退出旧助手，再解压启动新版。本机 Key、语言资料和偏好仍在原用户目录，不用搬动。1.2.0 起的更新器支持 HotsHelper-&lt;版本&gt;-Windows-x64.zip 命名。 打开 v2.1 发行页（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1）。
 
-点主窗侧栏底部检查更新，再点弹窗里的检查按钮。助手平时不会自动联网检查。
+点主窗侧栏底部检查更新，再点页内更新界面的检查按钮。仅打开这个界面不会联网，检查由你明确发起。
 
 有新版本时，先看说明，再点下载更新。下载失败可以重试；没有可信校验信息时，按提示到官方发行页手动下载。
 
 下载校验成功，点重启并更新。助手会退出，升级程序备份并替换程序后重新打开；个人 Key、语言资料和设置保留。
 
-保留整个程序文件夹，把它放在自己有写入权限的普通目录。从源码运行时只能检查和下载；弹窗里的 ZIP 路径可以选中复制，关闭助手或重新检查会清理未安装的暂存包。升级失败会尝试恢复旧程序。此机制的临时目录替换与回滚已测试，真实发行 EXE 跨版本升级仍待验收。
+当前源码中，“检查更新”旁的提示点只在手动检查确认有可用新版本后显示；尚未检查、已是最新版或检查失败时不显示，下载完成但尚未安装时仍保留。发布说明按标题、段落和列表排版，文字随说明区宽度自动换行；调整主窗口长宽时，页内说明区自适应排版，长内容可滚动阅读。上述界面细节以包含这些改动的构建为准。
+
+保留整个程序文件夹，把它放在自己有写入权限的普通目录。从源码运行时只能检查和下载；更新页里的 ZIP 路径可以选中复制，关闭助手或重新检查会清理未安装的暂存包。升级失败会尝试恢复旧程序。此机制的临时目录替换与回滚已测试，真实发行 EXE 跨版本升级仍待验收。
 
 08 · 在补给箱页面连续开箱
 
@@ -552,19 +574,23 @@ v2.0 保留 v1.2 的双击播报稳定性修复、对局聊天来源与换局探
 
 09 · 用顺手以后，再调这几个地方
 
+包含本轮改动的构建中，偏好设置、检查更新、个人密钥和短句编辑共用一个 React 页内弹层。重复点击复用当前界面，打开偏好设置不会带出快捷输入条。保存失败时会保留编辑内容，原有偏好不变。
+
 想做什么去哪里怎么选
 
-查看界面外观设置 → 外观 → 界面配色只保留柔雾紫主题，不再提供配色切换；旧配色配置自动迁移，原有窗口位置、字体和快捷键保留。主界面、设置和游戏内浮层使用同主题配色，透明字幕继续使用白字暗边；EXE、任务栏与窗口标题统一使用紫色六角旋涡标志。
+调整主窗口阅读偏好设置 → 外观内容字号 10–32，保存后作用于消息和输入文字；可选标准／精简布局，“主窗口保持置顶”作用于实际可见的助手窗口。界面沿用柔雾紫。
 
 调整游戏内译文设置 → 游戏内可调字号、宽度、停留时间、是否显示原文；先用默认值也可以。
 
-挪一下译文位置设置 → 游戏内 → 保存并调整浮窗位置拖到不挡技能和游戏聊天的位置，点“完成调整”。
+挪一下译文位置偏好设置 → 游戏内 → 保存并调整位置拖到不挡技能和游戏聊天的位置，点“完成调整”。
 
-换 F8 开关键设置 → 快捷键 → 动作连按 → 开始 / 取消快捷键从 F1–F12 选一个并保存；下方提示会同步。回游戏新按所选键即可开始，不用重新准备。
+换 F8 开关键偏好设置 → 快捷键 → 动作连按开始 / 取消快捷键从 F1–F12 选一个并保存；下方提示会同步。回游戏新按所选键即可开始，不用重新准备。
 
 少看一些频道实时消息 → 频道例如仅队伍、仅密语。筛选影响后续消息，旧历史不会清空。
 
-准备常说的话主界面 → 常用短句选中句子点“使用”，填入中文回复区；确认语言、翻译，再自己粘贴发送。
+准备常说的话主界面 → 常用短句新增／编辑时可勾选收藏；在主界面点“使用短句”或在 Ctrl+T 中选择候选，检查语言后翻译并复制，再自己粘贴发送。
+
+新桌面壳目前不提供主窗口透明度与位置锁定控件；-Legacy 兼容入口保留这些原生设置。全局快捷键可在“快捷键”页取消勾选并保存，禁用后仍可从主界面的“快捷输入”按钮打开输入条。
 
 10 · 有问题，先对照这里
 
@@ -594,7 +620,7 @@ Ctrl+T 翻译了，游戏里却没发出去
 
 按 F8 没出现 s，或者连按没效果
 
-确认使用 v2.0（程序 2.0.0），关闭助手输入条，松开所有修饰键，再回游戏单独按 F8；游戏聊天输入框无需关闭，开着时会输入所选动作的 S 或 Y、S。此前按过 Enter／Esc 也不影响这次启动；运行中按 Enter／Esc 会结束当前连按，松开后可再按 F8 重开。如果改过快捷键，按你保存的那个键。用下方“按 F8 取消”提示判断是否启动；没有提示或有提示但无输入／动作，可分别反馈这两种情况。
+确认使用 v2.1（程序 2.1.0），关闭助手输入条，松开所有修饰键，再回游戏单独按 F8；游戏聊天输入框无需关闭，开着时会输入所选动作的 S 或 Y、S。此前按过 Enter／Esc 也不影响这次启动；运行中按 Enter／Esc 会结束当前连按，松开后可再按 F8 重开。如果改过快捷键，按你保存的那个键。用下方“按 F8 取消”提示判断是否启动；没有提示或有提示但无输入／动作，可分别反馈这两种情况。
 
 游戏里看不到译文，或者位置挡视线
 
@@ -606,7 +632,7 @@ Ctrl+T 翻译了，游戏里却没发出去
 
 怎么把日志发给开发者排查？
 
-诊断默认关闭。打开设置 → 诊断 → 开启诊断日志，复现一次，再点一键导出诊断日志保存 ZIP，附上出问题的大致时间交给开发者。开启后会记录聊天原文、译文及翻译、自动天赋和双击播报的复现输入与状态；仅一个开关，没有额外详细模式或十分钟到期。下次启动仍关闭，关闭后已有日志仍可导出。
+诊断默认关闭。打开设置 → 诊断 → 开启诊断日志，复现一次，再点导出诊断日志。后台完成后会显示已导出的 ZIP 路径，可以选中复制；检查文件后，由你附上出问题的大致时间并自行分享。开启后会记录聊天原文、译文及翻译、自动天赋和双击播报的复现输入与状态；仅一个开关，没有额外详细模式或十分钟到期。下次启动仍关闭，关闭后已有日志仍可导出。
 
 默认日志总上限 100 MiB，滚动覆盖最旧文件、保留七天；队列过载、覆盖和截断会计数。已配置密钥递归脱敏，分享前检查其他聊天隐私；不要额外附带 .env、credentials.dpapi 或用户数据库。导出不调用云服务、不自动上传。开发者可离线重放录制的业务判断；缺失或截断的数据会标明不完整，不能保证还原真实游戏、驱动或云端故障。
 
@@ -616,7 +642,7 @@ Ctrl+T 翻译了，游戏里却没发出去
 
 解码已经补全，是否代表所有电脑都验证过？
 
-v2.0 对 build 98348 支持 0–15 全部 16 种模型解码，每种先核对对应计算代码指纹。2、5、8、11、14 额外读取动态 salt，这是游戏解码参数，不是阿里云密钥。读取后复核模式、表根、编码槽、所用 key 与 salt 指针和值；变化或缺失就停止本次辅助判断。
+自 v2.0 起对 build 98348 支持 0–15 全部 16 种模型解码，每种先核对对应计算代码指纹。2、5、8、11、14 额外读取动态 salt，这是游戏解码参数，不是阿里云密钥。读取后复核模式、表根、编码槽、所用 key 与 salt 指针和值；变化或缺失就停止本次辅助判断。
 
 16 个算法完成了合成读取和 303,810 次独立原生指令对照；朋友机器并未逐个分支实测全部 16 种。若自动天赋和双击播报仍不生效，保留原语言、分辨率和缩放，在进局前开启诊断，复现后导出 ZIP，并附操作时间、游戏 build、对局和窗口模式。解码回放包含编码、所需 key／salt 和计算结果，不是完整内存转储；回放一致只表示相同输入能重现相同判断，不代表功能实际成功或云端、游戏环境被还原。
 
@@ -634,7 +660,7 @@ v2.0 对 build 98348 支持 0–15 全部 16 种模型解码，每种先核对�
 
 想查看剩余额度和实际用量时：
 
-点击主窗口服务状态行或设置 → 连接 → 翻译服务中的“查询剩余额度”。
+点击偏好设置 → 连接中的“查询剩余额度”。
 
 默认浏览器会打开阿里云机器翻译控制台（https://mt.console.aliyun.com/service），登录自己的阿里云账号后，在控制台查询。
 
@@ -662,21 +688,22 @@ Key 保管与泄露处理参见阿里云 AccessKey 官方说明（https://help.a
 
 先打开助手，再回游戏。
 
-升级到 v2.0（可下载包以实际 Release 为准）：1.1.0 本地包请手动下载 HotsHelper-2.0.0-Windows-x64.zip；退出旧助手后解压启动，ZIP 内目录和 EXE 仍为中文。
+升级到 v2.1（可下载包以实际 Release 为准）：1.1.0 本地包请手动下载 HotsHelper-2.1.0-Windows-x64.zip；退出旧助手后解压启动，ZIP 内目录和 EXE 仍为中文。
 
 看翻译：自动翻译勾上，频道先选“全部聊天”，等新的英文／韩文消息。
 
 首次配 Key：先开通服务并授权 RAM → 填 AccessKey ID / Secret → 点“连接并开始使用” → 等身份验证和“你好”测试成功、加密保存并启用。
 
 发消息：Ctrl+T → 写中文并选语言 → Enter 翻译 → 回游戏 Enter 打开聊天 → Ctrl+V → Enter 发送。
+常用短句：空输入看收藏，输入中文查匹配 → Tab 进入候选，方向键选择 → Tab／鼠标只填字 → Enter 翻译并复制。
 
 动作连按：先选 S 或 Y＋S，填间隔并保存应用 → 游戏前台 F8 开始 → 再 F8 取消。聊天框开着会输入对应按键；Esc／Enter 结束本次后，新按 F8 可重开。右键点地面由自己操作。
 
 开补给箱：助手点“准备开箱” → 回游戏打开补给箱页 → 空格开始／暂停／继续 → Esc 结束。
 
-更换或删除 Key：设置 → 连接。
+更换或删除 Key：偏好设置 → 连接 → 管理账户。
 
-查剩余额度：主窗服务状态行或设置 → 连接 → 翻译服务 → 查询剩余额度 → 默认浏览器打开阿里云控制台，登录后查询。
+查剩余额度：偏好设置 → 连接 → 查询剩余额度 → 默认浏览器打开阿里云控制台，登录后查询。
 
 Key、Secret 自己保管，截图和反馈都别带上它们。
 
@@ -692,13 +719,13 @@ RAM 控制台（https://ram.console.aliyun.com/） · 创建 RAM 用户（https:
 
 额度与收费规则（https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview）
 
-v2.0 发行入口（附件以实际 Release 为准）（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.0） · 已发布的 Windows x64 完整包（https://github.com/renyouhao/heroes-storm-helper/releases）
+v2.1 发行入口（附件以实际 Release 为准）（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1） · 已发布的 Windows x64 完整包（https://github.com/renyouhao/heroes-storm-helper/releases）
 
-此前统一源码 51daf8e（并入 69ec5a3）完成 1247 项测试（113 个模块各用独立进程）和 20 项采集探针；这些数字仅属于原验证基线。v2.0 的测试总数、包校验、提交与 SHA256 以 Release 记录（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.0）为准。
+此前统一源码 51daf8e（并入 69ec5a3）完成 1247 项测试（113 个模块各用独立进程）和 20 项采集探针；这些数字仅属于原验证基线。v2.1 本轮最终回归通过 570 项 Python 测试和 33 项前端测试；验证范围、包校验、提交与 SHA256 以 Release 记录（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1）为准。
 
-助手用法按 v2.0 的功能整理，2026-10-24 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。</pre></details>
+助手用法按 v2.1 的功能整理，2026-10-24 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。</pre></details>
 </section>
-<footer>风暴英雄助手新手指南 · v2.0 使用说明（程序 2.0.0） · 修订于 2026-10-24。点评只保存在当前浏览器，需要自己复制或下载；请勿在点评里填写 Key 或私人聊天。</footer>
+<footer>风暴英雄助手新手指南 · v2.1 使用说明（程序 2.1.0） · 修订于 2026-10-24。点评只保存在当前浏览器，需要自己复制或下载；请勿在点评里填写 Key 或私人聊天。</footer>
 </main>
   </div>
   <aside id="reviewPanel" class="review-panel no-print" aria-labelledby="reviewPanelTitle" hidden>

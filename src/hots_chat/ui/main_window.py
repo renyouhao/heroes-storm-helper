@@ -295,10 +295,11 @@ class MainWindow:
         dialog=getattr(self,'update_dialog',None)
         if dialog is not None and not dialog._closed:
             dialog.dialog.deiconify()
-            return
+            return dialog.dialog
         self.cancel_loot();self.cancel_repeat()
         from .update_dialog import UpdateDialog
         self.update_dialog=UpdateDialog(self)
+        return self.update_dialog.dialog
 
     @staticmethod
     def _prepare_update(staged):
@@ -864,15 +865,22 @@ class MainWindow:
     def window_options(self):
         self.cancel_loot()
         self.cancel_repeat()
+        dialog=getattr(self,'settings_dialog',None)
+        if dialog is not None and dialog.dialog.winfo_exists():
+            dialog.dialog.deiconify()
+            dialog.dialog.lift()
+            return dialog.dialog
         from .settings_dialog import SettingsDialog
-        SettingsDialog(self)
+        self.settings_dialog=SettingsDialog(self)
+        return self.settings_dialog.dialog
 
     def configure_account(self):
         if self.closed or not hasattr(self.controller,'account_setup'):return
         if self.credential_dialog is not None:
-            self.credential_dialog.dialog.lift();return
+            self.credential_dialog.dialog.lift();return self.credential_dialog.dialog
         from .credential_dialog import CredentialDialog
         self.credential_dialog=CredentialDialog(self)
+        return self.credential_dialog.dialog
 
     def initial_account_setup(self):
         self.setup_timer=None
@@ -883,6 +891,18 @@ class MainWindow:
         if service is None:return
         events=service.poll()
         for event in events:
+            # AccountSetup emits fixed/redacted messages; keep only display text,
+            # never credentials, candidate objects or the raw event in snapshots.
+            kind=event['kind']
+            if kind in ('progress','error') and isinstance(event.get('message'),str):
+                self._desktop_account_message=event['message'][:1200]
+            elif kind in ('ready','removed','cancelled','identified'):
+                self._desktop_account_message={
+                    'ready':'配置成功，翻译已启用。',
+                    'removed':'个人密钥已删除；继续接收原文。',
+                    'cancelled':'本次配置已取消；已保存的个人密钥保持不变。',
+                    'identified':'账号已验证，正在继续测试翻译并保存…',
+                }[kind]
             if event['kind'] in ('ready','removed'):
                 self.clear_draft();self.quick_input.cancel()
                 self.enable_configured_cloud()

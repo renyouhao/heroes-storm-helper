@@ -9,6 +9,19 @@ from hots_chat.desktop import DesktopApi,DesktopError,NativeClient,frontend_entr
 
 
 class HostRequestTests(unittest.TestCase):
+    def test_topmost_preferences_apply_to_the_visible_webview_window(self):
+        client, _, _ = self.client([
+            {'request_id': 'snapshot-1', 'ok': True, 'result': {'management': {'preferences': {'topmost': True}}}},
+            {'request_id': 'snapshot-2', 'ok': True, 'result': {'management': {'preferences': {'topmost': False}}}},
+        ])
+        api = DesktopApi(client)
+        api._window = SimpleNamespace(on_top=False)
+        with patch('hots_chat.desktop.uuid.uuid4', side_effect=[SimpleNamespace(hex='snapshot-1'), SimpleNamespace(hex='snapshot-2')]):
+            api.snapshot()
+            self.assertTrue(api._window.on_top)
+            api.snapshot()
+            self.assertFalse(api._window.on_top)
+
     def client(self,replies):
         connection=Mock()
         process=Mock()

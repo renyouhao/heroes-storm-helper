@@ -5,6 +5,7 @@ import type { Command, Snapshot } from './types'
 export function useAssistant() {
   const [snapshot, setSnapshot] = useState<Snapshot>(previewSnapshot)
   const [connected, setConnected] = useState(false)
+  const [bridgeState, setBridgeState] = useState<'preview' | 'connecting' | 'connected' | 'disconnected'>('preview')
   const [bridgeError, setBridgeError] = useState('')
   const [notice, setNotice] = useState('')
   const refreshRef = useRef<() => Promise<void>>(async () => {})
@@ -18,6 +19,7 @@ export function useAssistant() {
       const api = window.pywebview?.api
       if (disposed || loading || !api) return
       loading = true
+      setBridgeState(state => state === 'preview' ? 'connecting' : state)
       try {
         const raw = await api.snapshot()
         if ('error' in raw) throw new Error(String(raw.error))
@@ -29,9 +31,14 @@ export function useAssistant() {
           setSnapshot(next)
         }
         setConnected(true)
+        setBridgeState('connected')
         setBridgeError('')
       } catch (error) {
-        if (!disposed) setBridgeError('连接助手失败：' + errorMessage(error))
+        if (!disposed) {
+          setConnected(false)
+          setBridgeState('disconnected')
+          setBridgeError('连接助手失败：' + errorMessage(error) + '。保留的消息为上次成功连接时的内容。')
+        }
       } finally { loading = false }
     }
     refreshRef.current = refresh
@@ -78,5 +85,5 @@ export function useAssistant() {
     }
   }, [])
 
-  return { snapshot, connected, bridgeError, command, notice, setNotice }
+  return { snapshot, connected, bridgeState, bridgeError, command, notice, setNotice }
 }

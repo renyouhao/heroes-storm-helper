@@ -426,3 +426,25 @@ svg { display: inline-block; vertical-align: middle; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Content preferences apply to the visible React workspace at every breakpoint. */
+.desktop .message-translated { font-size: calc(var(--content-font-size, 16px) * 1.25); }
+.desktop .message-original { font-size: calc(var(--content-font-size, 16px) * 1.05); }
+.desktop .compose-source textarea { font-size: calc(var(--content-font-size, 16px) * 1.15); min-height: calc(var(--content-font-size, 16px) * 3.2); }
+.desktop .translation-preview { font-size: calc(var(--content-font-size, 16px) * 1.05); min-height: calc(var(--content-font-size, 16px) * 3); }
+.desktop .phrase-copy h3 { font-size: calc(var(--content-font-size, 16px) * 1.1); }
+.desktop .phrase-copy p, .desktop .helper-status-card p, .desktop .broadcast-preview p { font-size: var(--content-font-size, 16px); }
+.desktop .composer { flex-basis: clamp(240px, calc(var(--content-font-size, 16px) * 14), 45%); overflow-y: auto; }
+.desktop .message-row { flex-shrink: 0; }
+.desktop[data-density="compact"] .workspace-header { min-height: 85px; padding-top: 26px; padding-bottom: 10px; }
+.desktop[data-density="compact"] .message-row { min-height: 85px; padding-top: 12px; padding-bottom: 12px; }
+.desktop[data-density="compact"] .avatar { width: 42px; height: 42px; }
+.manual-failure { color: #98405a; font-size: var(--content-font-size, 16px); line-height: 1.6; }
+.manual-failure .inline-link { margin-right: 16px; }
+.simple-dialog-backdrop { position: absolute; inset: 0; z-index: 99; display: grid; place-items: center; padding: 22px; background: #29213f62; }
+.simple-dialog { width: min(640px, 100%); max-height: 85%; overflow-y: auto; padding: 25px; background: #fcfaff; border: 1px solid #ddd3f1; border-radius: 16px; font-size: var(--content-font-size, 16px); }
+.simple-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 20px; }
+.simple-dialog h2 { font-size: 1.3em; }
+.simple-dialog dl > div { margin-top: 14px; }
+.simple-dialog dt { color: #756c86; font-size: .9em; }
+.simple-dialog dd { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }

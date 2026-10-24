@@ -211,6 +211,7 @@ class BoardValueDiagnosticFlowTests(unittest.TestCase):
         recorder.record('helper.read', stage='quest', source='broadcast', build=98348,
             board_profile='98348-quest-cd-1', board_code_verified=1,
             raw_quest_count=2, raw_cooldown_count=3, progress_rejected=1, cooldown_rejected=1,
+            cooldown_alias_count=1,
             quest_read_stage='value', quest_node_checks=1, quest_raw_state=4,
             quest_raw_progress=0, quest_state='known', quest_progress=0,
             progress_reason='verified', label_visible=1, label_numeric=1, label_matches=1,
@@ -233,6 +234,7 @@ class BoardValueDiagnosticFlowTests(unittest.TestCase):
         self.assertEqual(quest['progress_reason'], 'verified')
         self.assertEqual(quest['raw_quest_count'], 2)
         self.assertEqual(quest['raw_cooldown_count'], 3)
+        self.assertEqual(quest['cooldown_alias_count'], 1)
         self.assertEqual(quest['board_profile'], '98348-quest-cd-1')
         self.assertEqual(quest['board_code_verified'], 1)
         failed_profile = next(row for row in rows if row.get('stage') == 'board_profile')

@@ -4,9 +4,11 @@
 
 A Windows companion for Heroes of the Storm: read incoming English and Korean chat in Chinese, translate your Chinese replies into English or Korean, and use optional helpers for loot chests, repeated key presses, favorite talents, and team callouts.
 
-**Source target: v2.0 · Application/package version: 2.0.0 · Configured channel: `stable`.** Downloadable versions, assets and checksums are determined by the actual Release. The application is distributed as **风暴英雄助手** and uses a Chinese interface. Existing credentials, phrasebook data and preferences remain in place; previous theme choices migrate to Soft Lavender.
+**Source target: v2.1 · Application/package version: 2.1.0 · Configured channel: `stable`.** Downloadable versions, assets and checksums are determined by the actual Release. The application is distributed as **风暴英雄助手** and uses a Chinese interface. Existing credentials, phrasebook data and preferences remain in place; previous theme choices migrate to Soft Lavender.
 
-**New in v2.0:** the React + WebView2 desktop, a single Soft Lavender theme and purple hexagonal swirl icon, the existing option-B overlay layout and controls, unified 100-MiB diagnostic recording/replay, and all model-decoder branches for the supported game build.
+**New in v2.1:** one React management dialog for preferences, accounts, updates and phrase editing; applied content font size and always-on-top; accurate status/update dots and structured Markdown release notes; local phrase candidates in native `Ctrl+T`; valid-result copying and draft recovery after failure; and merging the same heroic talent/CD overlay into one hit target.
+
+**Introduced in v2.0:** the React + WebView2 desktop, a single Soft Lavender theme and purple hexagonal swirl icon, the existing option-B overlay layout and controls, unified 100-MiB diagnostic recording/replay, and all model-decoder branches for the supported game build.
 
 **Supported validation target: Windows x64, Chinese game client build 98348.** This English introduction does not mean the English game client has been validated. Game updates require another compatibility check.
 
@@ -14,36 +16,41 @@ Build 98348 supports **all 16 model-decoder branches, 0–15**, with a verified 
 
 ## Download
 
-**[View published Windows x64 ZIPs](https://github.com/renyouhao/heroes-storm-helper/releases)** · [Target v2.0 release entry](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.0). The v2.0 asset name is `HotsHelper-2.0.0-Windows-x64.zip`; available downloads and SHA256 values are determined by the actual Release.
+**[View published Windows x64 ZIPs](https://github.com/renyouhao/heroes-storm-helper/releases)** · [Target v2.1 release entry](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1). The v2.1 asset name is `HotsHelper-2.1.0-Windows-x64.zip`; available downloads and SHA256 values are determined by the actual Release.
 
-Download `HotsHelper-2.0.0-Windows-x64.zip`, extract the entire archive, and run `风暴英雄助手.exe`. The directory and executable inside the ZIP retain their Chinese names. Keep the `_internal` folder alongside the executable. Python and separate SDK installation are not required for the packaged application.
+Download `HotsHelper-2.1.0-Windows-x64.zip`, extract the entire archive, and run `风暴英雄助手.exe`. The directory and executable inside the ZIP retain their Chinese names. Keep the `_internal` folder alongside the executable. Python and separate SDK installation are not required for the packaged application.
 
 GitHub's **Source code (zip/tar.gz)** downloads contain the source rather than the ready-to-run Windows application. When switching packages, exit the old helper before launching the new copy.
 
-Version note: `v1.1` remains a source-preparation tag; its Release was never published. During release preparation, GitHub stripped Chinese characters from the asset name. The tag is preserved, and the asset naming contract is corrected in `v1.2`, using an ASCII ZIP name shared by the publisher and updater. **Existing local 1.1.0 packages recognize only Chinese ZIP names, so download v2.0 manually using the link above.** Your local user data stays in place.
+Version note: `v1.1` remains a source-preparation tag; its Release was never published. During release preparation, GitHub stripped Chinese characters from the asset name. The tag is preserved, and the asset naming contract is corrected in `v1.2`, using an ASCII ZIP name shared by the publisher and updater. **Existing local 1.1.0 packages recognize only Chinese ZIP names, so download v2.1 manually using the link above.** Your local user data stays in place.
 
 ## Features
 
 - **Incoming chat translation.** Receive team, party, whisper, and all-player chat, with separate lobby and match capture. English and Korean messages can be translated into Chinese. Match-source filtering and bounded rediscovery help avoid staying attached to an old match.
-- **Quick replies with `Ctrl+T`.** Enter Chinese, choose English or Korean, translate, and copy the result. You return to the game and paste/send it yourself.
+- **Quick replies with `Ctrl+T`.** Enter Chinese, choose English or Korean, translate, and copy the result. Empty input shows a few favorite phrases; typing Chinese finds matching local candidates. Press Tab to enter the candidate list, use arrow keys there, then Tab or a mouse click to fill the text. Enter translates and copies; you paste/send it yourself in the game.
 - **One-click setup with your own Aliyun key.** Enter your AccessKey ID and Secret, then connect once to verify the account, test translation, save encrypted credentials, and enable translation.
-- **Subtitles, a phrasebook, and one Soft Lavender theme.** v2.0 uses Soft Lavender throughout the main window, settings and in-game overlays, with no theme selector. Existing theme preferences migrate automatically while preserving window positions, fonts and shortcuts. Transparent subtitles keep white text with a dark outline.
+- **Subtitles, a phrasebook, and one Soft Lavender theme.** Since v2.0, the helper uses Soft Lavender throughout the main window, settings and in-game overlays, with no theme selector. Existing theme preferences migrate automatically while preserving window positions, fonts and shortcuts. Transparent subtitles keep white text with a dark outline.
+- **Reusable local phrases.** Add, edit and favorite expressions in the main window. A reviewed, exact Chinese match can reuse its existing translation when the current language has one unambiguous result. Missing translations, unreviewed entries and conflicting results still need translation. Editing the text clears its reviewed status.
 - **Loot chest helper.** Prepare it in the helper, switch to the game's loot chest screen, and use Space to start, pause, or resume. Esc ends the session.
 - **Configurable key repetition.** Choose `S` or alternating `Y+S`; each mode has its own saved interval of 20–5000 ms, with 20 ms as the default for new settings. `F8` starts/stops repetition; its shortcut can be changed to another F1–F12 key.
 - **Automatic favorite talents — off by default.** Uses the game's existing favorite selection through its shortcut, then reads back whether that tier has been selected. It needs no translation key.
 - **Tab double-click callouts — off by default.** Selected talent callouts begin with “注意” (“Attention”) and include verified quest progress in the same cell. Standalone baseline quests and verified positive numbers from the dedicated Tab cooldown label for allied heroics use their own icons; statistics callouts report only the clicked metric. Talent summaries and known quest names are bundled offline. No translation key is required.
-- **Manual update checks.** Check the official repository's stable releases, download and verify the package, then choose to restart and update. The updater supports `HotsHelper-<version>-Windows-x64.zip` assets. There is no automatic startup update check or downgrade; v2.0 and application version 2.0.0 represent the same version. Older local 1.1.0 packages require a manual download because their updater only recognizes Chinese asset names.
+- **Manual update checks.** Check the official repository's stable releases, download and verify the package, then choose to restart and update. The updater supports `HotsHelper-<version>-Windows-x64.zip` assets. There is no automatic startup update check or downgrade; v2.1 and application version 2.1.0 represent the same version. Older local 1.1.0 packages require a manual download because their updater only recognizes Chinese asset names.
 - **Emote handling and optional diagnostics.** Complete image-emote tags display as `[表情]`; emote-only messages skip cloud translation. Diagnostics are off by default and can be enabled for troubleshooting.
 
 ## Interface and navigation
 
-**The v2.0 build uses the desktop interface below.** Keep the complete Windows ZIP contents; source changes do not update an older executable.
+**The v2.1 build uses the desktop interface below.** Keep the complete Windows ZIP contents; source changes do not update an older executable.
 
-The six main pages use **React + TypeScript + CSS**, loading bundled local files through **pywebview + Microsoft Edge WebView2** without a development server or browser tab. Python continues to handle capture, translation and game input. In-game subtitles, the `Ctrl+T` input bar, and settings/credentials/diagnostics/update dialogs still use native Tk windows.
+The six main pages, preferences, update checks, personal-key configuration and phrase editing use **React + TypeScript + CSS**, loading bundled local files through **pywebview + Microsoft Edge WebView2** without a development server or browser tab. Management actions share one in-page dialog; repeated clicks reuse it. Python handles capture, translation, persistence and game input. In-game subtitles and the `Ctrl+T` input bar retain native Tk windows, and `-Legacy` keeps the original Tk interface. These new interactions require a build containing the changes.
 
-The main window follows the selected light-purple prototype, with a lavender sidebar, white content cards, and purple primary actions. Icon navigation opens chat, phrases, loot assistance, key repetition, talent assistance, and double-click callouts. Settings and update checks sit at the bottom of the sidebar. Soft Lavender is the only theme; older palette settings normalize automatically while preserving window positions, fonts and shortcuts. The EXE, taskbar and window titles share the purple hexagonal swirl mark.
+The main window follows the selected light-purple prototype, with a lavender sidebar, white content cards, and purple primary actions. Icon navigation opens chat, phrases, loot assistance, key repetition, talent assistance, and double-click callouts. Settings and update checks sit at the bottom of the sidebar. Soft Lavender is the only theme; older palette settings normalize automatically. The EXE, taskbar and window titles share the purple hexagonal swirl mark.
+
+Under **偏好设置 → 外观** (Preferences → Appearance), content font size applies to React message/input text, and always-on-top applies to the visible WebView window. Standard and compact layouts are available. Main-window opacity and position locking currently remain available only in `-Legacy`. Opening preferences does not open quick input; disabling its hotkey leaves the quick-input button available.
 
 Chat rows separate the nickname, channel, time, message, and translation. Circular avatars contain nickname text as placeholders; they do not identify the player's actual hero. Chinese input and translation preview appear side by side, with English/Korean pill choices for the target language. Translate, copy the result, and paste/send it yourself in the game. The separate `Ctrl+T` input remains available.
+
+Manual translation errors stay beside the reply area and retain the draft for correction or retry. Copy uses the backend's current valid result. Helper pages distinguish waiting, running and stopped states and retain the latest outcome. Release notes have headings, paragraphs and lists that wrap to the available width. Opening update management alone does not check online; the user explicitly starts a check. Its sidebar dot reflects a confirmed newer release and remains while installation is pending.
 
 Small windows automatically reduce spacing and supporting text and rearrange navigation and actions while retaining input, preview, and language choices. In-game subtitles and the quick-input bar remain separate.
 
@@ -51,7 +58,7 @@ The new desktop UI requires [Microsoft Edge WebView2 Runtime](https://developer.
 
 ### Overlay option B adopted; A/B preview retained
 
-**Option B · 原样换配色 is selected for this change.** Soft Lavender overlays use colors matching the main window, keeping the existing subtitle layout, single-line input, language dropdown and keyboard behavior. Transparent subtitles keep white text with a dark outline. Quick input uses the main window's purple hexagonal swirl mark beside its title and preserves two hint lines: “输入中文，译文会复制；请在游戏中粘贴发送。” and “Enter 翻译并复制 · Esc 收起 · Ctrl+Tab 切换语言”. Option B keeps its layout and behavior while this change unifies the theme and global icon. Release builds check WebView2 page loading and offline bridging; in-game display, focus, input and cross-DPI behavior still require machine-specific validation.
+**Option B · 原样换配色 remains the base.** Soft Lavender overlays use colors matching the main window, keeping the existing subtitle layout, single-line input, language dropdown and basic shortcuts. Transparent subtitles keep white text with a dark outline. Quick input uses the purple hexagonal swirl mark; Enter translates/copies, Esc closes it, and Ctrl+Tab changes language. A small local phrase list is added: Tab first enters the list, arrow keys select there, and another Tab or a mouse click fills the Chinese text before Enter translates/copies it. Candidate shortcuts do not take over IME composition. Candidates come from the user's phrasebook; unreviewed entries do not promise offline translation. Release builds check WebView2 page loading and offline bridging; in-game display, focus, input and cross-DPI behavior still require machine-specific validation.
 
 You can also double-click `打开悬浮窗对比.cmd` in the repository root: it opens option B's quick-input preview without PowerShell or a persistent command window. Alternatively, run `预览悬浮窗AB.ps1` to open the comparison console. Switch “A · 原型新样式” / “B · 原样换配色” and “默认字幕” / “消息面板” / “快捷输入”; use “切换浅色背景”, “下一条消息” and “恢复位置” to compare backgrounds, advance messages and reset positions. **A**, with its two-column input, rounded corners and pale purple/white panels, remains an alternative preview. Switching previews does not change production preferences.
 
@@ -66,14 +73,14 @@ You can also double-click `打开悬浮窗对比.cmd` in the repository root: it
 
 1. Download and extract the complete Windows package above. Borderless windowed game mode is recommended.
 2. Enable **Aliyun Machine Translation General Edition** on your own account. Create a RAM user and AccessKey with the `alimt:TranslateGeneral` permission.
-3. Open the helper's cloud configuration, enter your AccessKey ID and Secret, and click **连接并开始使用** (“Connect and start using”). The helper verifies identity, translates `你好` as a test, and saves the key with Windows DPAPI only after success.
+3. Open **配置翻译服务** (“Configure translation service”) or **偏好设置 → 连接 → 配置账户** (Preferences → Connection → Configure account), enter your AccessKey ID and Secret, and click **连接并开始使用** (“Connect and start using”). The helper verifies identity, translates `你好` as a test, and saves the key with Windows DPAPI only after success.
 4. Start the game. Select the desired chat channels in the helper and check incoming translations. For outgoing replies, press `Ctrl+T`, translate your text, copy it, and paste/send it in the game.
 
 You can skip cloud configuration and use original-text display, loot assistance, and key repetition. Cloud translation requires an internet connection and is billed to your own Aliyun account. Identity verification alone does not establish that translation service access, permissions, and billing are ready; setup also runs a translation test.
 
 There is **no local monthly usage ledger, monthly budget confirmation, or local monthly character cap**. Request queues, short-term automatic-translation rate limits, caching, deduplication, and pause controls remain in place.
 
-To check remaining quota, usage, or charges, click **查询剩余额度** (“Check remaining quota”) in the main window or under **设置 → 连接 → 翻译服务**. This opens the [Aliyun Machine Translation console](https://mt.console.aliyun.com/service) in your default browser. Log in there to inspect your account; the helper provides a link and does not query account usage automatically.
+To check remaining quota, usage, or charges, click **查询剩余额度** (“Check remaining quota”) under **偏好设置 → 连接** (Preferences → Connection). This opens the [Aliyun Machine Translation console](https://mt.console.aliyun.com/service) in your default browser. Log in there to inspect your account; the helper provides a link and does not query account usage automatically.
 
 For detailed setup instructions and troubleshooting, see the [Chinese getting-started guide](artifacts/风暴英雄助手新手指南.html). Download the HTML file to open it offline; the Windows package also includes it.
 
@@ -89,7 +96,9 @@ Use Tab's **talent page** for talents, baseline quests and heroics. Talent messa
 
 Double-click an **allied heroic icon** to report a visible, verified positive number from its dedicated Tab cooldown label, using “冷却显示：X秒” (“Cooldown display: X seconds”). Enemy heroic cooldowns are not read. The engine chooses this display from two timing channels, and it may show charge recovery. It does not establish that the heroic is currently unusable, has no charges left, or will become castable after that time; charges, resets and variants can affect availability. Zero, blank or hidden labels never imply “ready”, and remaining charges are not guessed. Tracer’s dedicated charge UI remains unverified and unsupported; unresolved abilities or changing bindings produce no callout. This uses the game's common UI structure rather than saved addresses from one machine. Build/layout/identity mismatches remain unknown. The 16 model decoders locate player models; quest and cooldown display checks are additional stages.
 
-Live read-only comparisons in this round cover Kael'thas Convection at `0 → 2`, an enemy Arthas baseline quest at `6 → 8`, and allied heroic displays of `38/29` seconds. These are observed samples, not live acceptance of every hero, language, resolution or final chat submission. The name-directory count is not a count of heroes tested in game.
+When a heroic talent icon and its cooldown layer represent the same verified player, ability and native position, the mapper emits one cooldown target. A verified positive display produces a cooldown callout; without one, no cooldown message is generated and ordinary talent behavior remains available. Overlapping unrelated targets are still rejected.
+
+Earlier live read-only comparisons include Kael'thas Convection at `0 → 2`, an enemy Arthas baseline quest at `6 → 8`, and allied heroic displays of `38/29` seconds. Xal'atath's try mode additionally yielded `42/9` seconds and confirmed that the earlier talent/cooldown overlap caused clicks to be rejected. After the v2.1 fix, only Xal'atath's 45-second display has been confirmed to map to one heroic cooldown target; final chat submission still awaits user feedback. These are observed samples, not live acceptance of every hero, language, resolution or final chat submission. The name-directory count is not a count of heroes tested in game.
 
 Chat boxes, menus, loot actions, repetition, quick input, and update preparation can block a callout. Unknown or untrusted data is not sent. Attempts are limited to once per item within 3 seconds and at least 2 seconds between items; toggling the feature does not reset those limits. A failed attempt is not automatically retried. If text remains in chat, inspect the reason on the helper's **双击播报** page and press Esc to clear the draft before trying again. If the status says the message may already have been sent, check chat history first.
 
@@ -99,11 +108,13 @@ The lobby/match label at the bottom of the main window describes the chat captur
 
 User data lives in `%LOCALAPPDATA%\HotsChatHelper`. Existing preferences, phrasebook data, and encrypted credentials retain this location across upgrades.
 
-- Keys are encrypted with **Windows DPAPI**, bound to the current Windows user. Use your own key; credentials and user databases are not part of the public distribution.
-- Normal startup does not read the project's `.env`. A legacy file is read only when you explicitly choose **导入本机旧 .env** (“Import a local legacy .env”).
+- Keys are encrypted with **Windows DPAPI**, bound to the current Windows user. Use your own key; credentials and user databases are not part of the public distribution. The shared UI snapshot contains only configured/state feedback and masked key information, never the full ID or Secret.
+- Normal startup does not read the project's `.env`. On the personal-account page, **导入本机旧 .env** (“Import a local legacy .env”) reads only a file you explicitly select, up to 16 KiB. It fills the two key fields for this interaction and does not connect automatically; closing clears the Secret.
 - Old `usage.sqlite3` and `usage.sqlite3.initialized` files are left untouched and no longer read or created. A missing or corrupt old ledger does not block setup or translation.
 - Translation text is sent to Aliyun; the sender's nickname is not included in that translation text. The visible chat history keeps the latest 500 messages for the current session and clears when the helper exits.
 - **Diagnostics are off by default:** no writer thread or log file is created until enabled. The single switch records chat originals, translations and replay inputs/states for translation, automatic talents and double-click broadcasts. There is no separate detailed mode or ten-minute expiry. Logs default to a total cap of 100 MiB, rotating the oldest files and retaining up to seven days. Configured full keys/secrets are recursively redacted; review chat privacy before sharing an export.
+
+In **偏好设置 → 诊断** (Preferences → Diagnostics), **导出诊断日志** runs in the background and displays the completed ZIP path for copying. Inspect the file and share it yourself; the helper does not upload it automatically.
 
 For automatic talents and Tab double-click broadcasts failing together, use a new build containing replay recording, keep the original client language/resolution/scaling, and enable diagnostics before entering a normal match. Enable both helpers, note when an automatic selection fails, double-click one selected talent and one statistic in Tab, then export the ZIP. For translation failures, reproduce incoming chat or manual translation while recording. Include approximate times, game build, match/window mode, Windows scaling and monitor count. An existing EXE does not gain these events from a source update.
 
@@ -113,7 +124,7 @@ The new `helper.read` events distinguish `source=talent` and `source=broadcast`.
 
 `board_profile=98348-quest-cd-1` identifies the quest/cooldown field profile. `board_code_verified=1` means code checks passed for six native getters: talent quest state/value, baseline quest index/state/value, and HeroicAbilLink. A zero means verification has not passed; changed code leaves the result unknown instead of trusting the same field offsets.
 
-Quest events include `quest_raw_state/quest_raw_progress`, the interpreted `quest_state/quest_progress`, and `progress_reason`. Allied heroic events include `cooldown_state/cooldown_seconds/cooldown_reason`. The same optional 100-MiB recording includes these observations, chat originals and translations. Unknown or unobserved values remain unknown.
+Quest events include `quest_raw_state/quest_raw_progress`, the interpreted `quest_state/quest_progress`, and `progress_reason`. Allied heroic events include `cooldown_state/cooldown_seconds/cooldown_reason`. `cooldown_alias_count` counts merged ordinary talent targets representing the same heroic; raw read counts remain unchanged. The same optional 100-MiB recording includes these observations, chat originals and translations. Unknown or unobserved values remain unknown.
 
 Both features share the supported-build check (currently 98348), process/module access, native local-player identity and hero/talent catalog reads. Matching failures at `connect` or `identity` indicate a possible shared cause. Automatic talents do not use Tab pixel coordinates, so a 2K coordinate conversion problem alone does not explain both failures. English-client compatibility still needs live validation; added diagnostics locate failures rather than claim to fix them.
 
@@ -161,12 +172,12 @@ To build a Windows package:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
-.\.venv\Scripts\python.exe -m tools.build_release --output "releases/v2.0"
+.\.venv\Scripts\python.exe -m tools.build_release --output "releases/v2.1"
 ```
 
 The build first runs `npm ci` and `npm run build`, checks the frontend output, then freezes Python with PyInstaller. It includes `frontend/dist`, the Windows WebView2 bridge, and pythonnet dynamic libraries; it does not bundle Node.js, a development server, or Qt/CEF browser backends. The target computer needs WebView2 Runtime.
 
-The command above writes `releases/v2.0/HotsHelper-2.0.0-Windows-x64.zip`. The ZIP’s directory and `风暴英雄助手.exe` retain their Chinese names. The internal version is `2.0.0`, the channel is `stable`, and the GitHub release tag is `v2.0`. Running the local build command alone does not create a Git tag or public Release. The build explicitly stages public seed data and bundled UI files and rejects local credentials, databases, preferences, logs and sampling files from the release bundle.
+The command above writes `releases/v2.1/HotsHelper-2.1.0-Windows-x64.zip`. The ZIP’s directory and `风暴英雄助手.exe` retain their Chinese names. The internal version is `2.1.0`, the channel is `stable`, and the GitHub release tag is `v2.1`. Running the local build command alone does not create a Git tag or public Release. The build explicitly stages public seed data and bundled UI files and rejects local credentials, databases, preferences, logs and sampling files from the release bundle.
 
 Packaging runs `--check-installation` for native operations and seed data, `--check-desktop-installation` for desktop resources and dependencies, and `--check-desktop-rendering` to load the local WebView2 page and verify the React demo state and JavaScript bridge. All three must pass before creating the ZIP; the manifest records each result. The bundled “查看界面效果.cmd” starts an offline preview directly. These checks confirm loading and bridging; visual similarity, DPI behavior and in-game behavior still require separate validation.
 
@@ -174,7 +185,7 @@ Old packages are cleaned up only after the new package passes its installation c
 
 ## Validation scope
 
-For v2.0’s final full-suite count, artifact checks, build commit and SHA256, see the [v2.0 Release record](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.0). The earlier unified source at commit `51daf8e` (merged as `69ec5a3`) passed **1,247 tests across 113 isolated test modules, plus 20 acquisition probes**. These figures describe the earlier verification baseline, not the new v1.2 test pass. See the [v1.2 release](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v1.2) for its historical test counts, artifact checks, source commit, and SHA256. Source-test results alone do not establish that every in-game scenario or update path has been exercised.
+The final v2.1 regression run passed **570 Python tests and 33 frontend tests**. For validation scope, artifact checks, build commit and SHA256, see the [v2.1 Release record](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1). The earlier unified source at commit `51daf8e` (merged as `69ec5a3`) passed **1,247 tests across 113 isolated test modules, plus 20 acquisition probes**. These figures describe the earlier verification baseline, not the new v1.2 test pass. See the [v1.2 release](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v1.2) for its historical test counts, artifact checks, source commit, and SHA256. Source-test results alone do not establish that every in-game scenario or update path has been exercised.
 
 Local checks target Chinese client build 98348. Talent and statistics callouts have been confirmed in team chat in an earlier fix package, and favorite-talent checks include selected heroes and special talent tiers. The following still need broader manual validation:
 

@@ -93,13 +93,20 @@ class DesktopApi:
         self._client=client
         self._window=None
         self._maximized=False
+        self._topmost=None
 
     def snapshot(self):
         try:
             reply=self._client.request('snapshot')
             if not reply.get('ok'):raise DesktopError(reply.get('error','无法读取助手状态。'))
             # 兼容原生协议以 result 或 snapshot 包装快照。
-            return reply.get('snapshot',reply.get('result',reply.get('data',reply)))
+            snapshot=reply.get('snapshot',reply.get('result',reply.get('data',reply)))
+            preferences=snapshot.get('management',{}).get('preferences',{}) if isinstance(snapshot,dict) else {}
+            topmost=preferences.get('topmost')
+            if self._window is not None and type(topmost) is bool and topmost!=self._topmost:
+                self._window.on_top=topmost
+                self._topmost=topmost
+            return snapshot
         except DesktopError as failure:
             return {'error':str(failure),'connected':False}
 

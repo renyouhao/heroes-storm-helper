@@ -62,6 +62,24 @@ class BoardSnapshot:
     coordinate_space: str = 'screen'
 
 
+@dataclass(frozen=True)
+class _MappedTalent:
+    hit: HitSnapshot
+    hero_id: str
+    rect: tuple[float, float, float, float]
+    image: int
+    face_id: str | None
+    catalog_bound: bool
+
+    def aliases_cooldown(self, record, hero_id):
+        # 同一屏幕位置可能是不同目标；这里只归并已绑定的同一原生大招覆盖层。
+        return (self.hit.player_slot == record.player_slot
+                and self.hit.team_relation == 'ally' and self.hero_id == hero_id
+                and self.rect == record.rect
+                and (self.image == record.image
+                     or self.catalog_bound and self.face_id == record.ability_id))
+
+
 def _capture_identity(capture):
     root, path, render_size, talents, inputs, stats, quests, cooldowns = capture
     # 战斗数值可以正常变化；行、指标、名称、矩形和原生格/标签仍必须逐一相同。
@@ -575,7 +593,7 @@ class BoardReader:
     def poll(self, target_pid, hwnd, now):
         memory = None
         self.last_read_bytes = self.last_read_calls = 0
-        self.last_diagnostic = dict(stage='connect', expected_build=98348)
+        self.last_diagnostic = dict(stage='connect', expected_build=98348, cooldown_alias_count=0)
         self._reader.last_diagnostic = {}
         connected = False
         try:
@@ -617,9 +635,9 @@ class BoardReader:
                 raw_stat_count=len(second[5]), raw_quest_count=len(second[6]),
                 raw_cooldown_count=len(second[7]), coordinate_rejected=0, metadata_rejected=0,
                 progress_rejected=0, cooldown_rejected=0)
-            hits = []
+            hits, mapped_talents, cooldown_aliases = [], [], set()
             if self.text_provider is not None and self.viewport_converter is not None:
-                for slot, relation, hero_id, names, tier_id, level, talent_id, rect, _, _, progress in second[3]:
+                for slot, relation, hero_id, names, tier_id, level, talent_id, rect, _, image, progress in second[3]:
                     if progress[0] in ('unknown', 'untracked'):
                         self.last_diagnostic['progress_rejected'] += 1
                         continue
@@ -643,10 +661,16 @@ class BoardReader:
                             or not screen[0] < screen[2] or not screen[1] < screen[3]):
                         self.last_diagnostic['coordinate_rejected'] += 1
                         continue
-                    hits.append(HitSnapshot(pid, hwnd, token, slot, relation, level, talent_id,
-                                            name, effect, screen, float(now), float(now) + .75,
-                                            True, True, True, names[0], names[1],
-                                            quest_progress=progress[1], quest_state=progress[0]))
+                    hit = HitSnapshot(pid, hwnd, token, slot, relation, level, talent_id,
+                                      name, effect, screen, float(now), float(now) + .75,
+                                      True, True, True, names[0], names[1],
+                                      quest_progress=progress[1], quest_state=progress[0])
+                    hits.append(hit)
+                    face_id = get('face_id')
+                    catalog_bound = (type(catalog_level) is int and catalog_level == level
+                                     and type(catalog_tier) is int and catalog_tier == tier_id)
+                    mapped_talents.append(_MappedTalent(hit, hero_id, rect, image,
+                        face_id if isinstance(face_id, str) else None, catalog_bound))
             if self.viewport_converter is not None:
                 for slot, relation, hero_id, names, quest_id, index, rect, _, _, progress in second[6]:
                     if progress[0] not in ('known', 'complete'):
@@ -681,9 +705,15 @@ class BoardReader:
                             or not screen[0] < screen[2] or not screen[1] < screen[3]):
                         self.last_diagnostic['coordinate_rejected'] += 1
                         continue
-                    text = self.text_provider(hero_id, record.ability_id) if self.text_provider else None
-                    get = text.get if isinstance(text, dict) else lambda key: getattr(text, key, None)
-                    name = get('talent_name') or record.ability_name
+                    aliases = [talent for talent in mapped_talents
+                               if talent.hit.rect == screen and talent.aliases_cooldown(record, hero_id)]
+                    alias = aliases[0] if len(aliases) == 1 else None
+                    if alias is not None:
+                        name = alias.hit.talent_name
+                    else:
+                        text = self.text_provider(hero_id, record.ability_id) if self.text_provider else None
+                        get = text.get if isinstance(text, dict) else lambda key: getattr(text, key, None)
+                        name = get('talent_name') or record.ability_name
                     hits.append(CooldownHitSnapshot(pid=pid, hwnd=hwnd, match_token=token,
                         player_slot=record.player_slot, team_relation='ally',
                         ability_id=record.ability_id, ability_name=name,
@@ -691,6 +721,12 @@ class BoardReader:
                         rect=screen, observed_at=float(now), valid_until=float(now) + .75,
                         panel_visible=True, mapping_trusted=True,
                         player_name=names[0], hero_name=names[1]))
+                    if alias is not None:
+                        cooldown_aliases.add(id(alias.hit))
+            if cooldown_aliases:
+                # 多个潜在别名仍保留全部目标，由唯一命中规则拒绝真正的歧义。
+                hits = [hit for hit in hits if id(hit) not in cooldown_aliases]
+                self.last_diagnostic['cooldown_alias_count'] = len(cooldown_aliases)
             if self.viewport_converter is not None:
                 for slot, relation, names, metric, value, rect, _, _ in second[5]:
                     screen = self.viewport_converter(hwnd, rect, second[2])

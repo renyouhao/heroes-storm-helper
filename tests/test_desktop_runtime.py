@@ -68,6 +68,65 @@ def fake_window():
 
 
 class DesktopRuntimeTests(unittest.TestCase):
+    def test_manual_failure_stays_with_its_job_until_edit_or_retry(self):
+        w = fake_window()
+        runtime = TkRuntime(w)
+        runtime.dispatch('translate', {'text': '你好', 'target': 'en'})
+        w.vm.apply(AppEvent('error', 0, {'job_id': 'job-1', 'error': '网络超时，请重试。'}))
+        w.vm.apply(AppEvent('status', 0, '游戏已连接'))
+        self.assertEqual(runtime.snapshot()['manualState'], 'failed')
+        self.assertEqual(runtime.snapshot()['manualError'], '网络超时，请重试。')
+        runtime.dispatch('draft', {'text': '新内容'})
+        self.assertEqual(runtime.snapshot()['manualState'], 'idle')
+        self.assertEqual(runtime.snapshot()['manualError'], '')
+
+    def test_old_job_or_generation_error_never_overwrites_current_manual_task(self):
+        w = fake_window()
+        runtime = TkRuntime(w)
+        runtime.dispatch('translate', {'text': '你好', 'target': 'en'})
+        w.vm.apply(AppEvent('error', 0, {'job_id': 'old-job', 'error': '旧错误'}))
+        self.assertEqual(runtime.snapshot()['manualState'], 'translating')
+        w.vm.apply(AppEvent('error', -1, {'job_id': 'job-1', 'error': '旧连接错误'}))
+        self.assertEqual(runtime.snapshot()['manualState'], 'translating')
+        w.vm.apply(AppEvent('manual_result', 0, {'job_id': 'job-1', 'translated': 'Hello'}))
+        w.vm.apply(AppEvent('error', 0, {'job_id': 'job-1', 'error': '迟到错误'}))
+        self.assertEqual(runtime.snapshot()['manualState'], 'done')
+
+    def test_helper_snapshot_preserves_actual_running_and_recent_result(self):
+        w = fake_window()
+        w.board_panel._running = False
+        w.board_panel.last_result = Var('最近结果：请核对聊天框，不自动补发。')
+        helper = TkRuntime(w).snapshot()['helpers']['board']
+        self.assertFalse(helper['running'])
+        self.assertIn('核对聊天框', helper['lastResult'])
+
+    def test_management_is_a_snapshot_and_prepare_never_opens_a_native_dialog(self):
+        w = fake_window()
+        runtime = TkRuntime(w)
+        self.assertEqual(runtime.snapshot()['management']['preferences']['font_size'], 12)
+        runtime.dispatch('ui_prepare')
+        w.quick_input.cancel.assert_called_once_with()
+        w.window_options.assert_not_called()
+        w.configure_account.assert_not_called()
+        w.open_updates.assert_not_called()
+
+    def test_update_hint_only_indicates_a_confirmed_available_update(self):
+        from hots_chat.update_service import UpdateStatus
+        w = fake_window()
+        runtime = TkRuntime(w)
+        self.assertFalse(runtime.snapshot()['updateAvailable'])
+        release = SimpleNamespace(version='2.1.0')
+        for state in ('idle', 'checking', 'current', 'error', 'cancelled'):
+            with self.subTest(state=state):
+                w.update_service = SimpleNamespace(latest=UpdateStatus(state, release=release))
+                self.assertFalse(runtime.snapshot()['updateAvailable'])
+        for state in ('available', 'downloading', 'downloaded', 'preparing', 'restarting'):
+            with self.subTest(state=state):
+                w.update_service = SimpleNamespace(latest=UpdateStatus(state, release=release))
+                self.assertTrue(runtime.snapshot()['updateAvailable'])
+                w.update_service.latest = UpdateStatus(state)
+                self.assertFalse(runtime.snapshot()['updateAvailable'])
+
     def test_legacy_runtime_theme_snapshot_is_lavender_without_changing_draft(self):
         w = fake_window()
         w.input.text = '保留尚未提交的草稿'
@@ -261,8 +320,7 @@ class DesktopRuntimeIntegrationTests(unittest.TestCase):
             try:
                 runtime.dispatch('open_settings')
                 root.update()
-                dialogs = [dialog for dialog in runtime._toplevels()
-                           if dialog not in runtime._background_windows]
+                dialogs = list(runtime._active_dialogs())
                 self.assertEqual(len(dialogs), 1)
                 self.assertEqual(dialogs[0].state(), 'normal')
                 self.assertEqual(str(dialogs[0].transient()), '')
@@ -270,8 +328,7 @@ class DesktopRuntimeIntegrationTests(unittest.TestCase):
                 dialogs[0].destroy()
                 runtime.dispatch('phrase_edit')
                 root.update()
-                dialogs = [dialog for dialog in runtime._toplevels()
-                           if dialog not in runtime._background_windows]
+                dialogs = list(runtime._active_dialogs())
                 self.assertEqual(len(dialogs), 1)
                 self.assertEqual(dialogs[0].state(), 'normal')
                 self.assertEqual(root.state(), 'withdrawn')

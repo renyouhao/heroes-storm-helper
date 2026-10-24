@@ -5,6 +5,7 @@ Python attributes are deliberately absent from the contract.
 """
 from .channels import CHANNEL_PRESETS
 from .repeat import validate_repeat_config
+from .desktop_actions import ACTION_COMMANDS, validate_action, DesktopActionError
 
 
 class ProtocolError(ValueError):
@@ -23,12 +24,18 @@ _FIELDS = {
     'phrase_favorite': ('id',), 'phrase_edit': ('id',),
     'phrase_delete': ('id',), 'phrase_import': (), 'phrase_export': ('id',),
     'retry_message': ('id',), 'message_details': ('id',),
+    'ui_prepare': (),
 }
-COMMANDS = frozenset(_FIELDS)
+COMMANDS = frozenset(_FIELDS) | ACTION_COMMANDS
 
 
 def validate_command(command, payload=None):
     """Return a fresh, validated payload; reject unknown actions and fields."""
+    if isinstance(command, str) and command in ACTION_COMMANDS:
+        try:
+            return validate_action(command, payload)
+        except DesktopActionError as error:
+            raise ProtocolError(str(error)) from None
     if not isinstance(command, str) or command not in _FIELDS:
         raise ProtocolError('不支持的桌面操作。')
     payload = {} if payload is None else payload

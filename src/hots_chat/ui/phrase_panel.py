@@ -68,6 +68,7 @@ class PhrasePanel(ttk.Frame):
                 self.changed();dialog.destroy()
             except ValueError as failure:messagebox.showerror('保存失败',str(failure),parent=dialog)
         ttk.Button(dialog,text='保存',command=save).pack(pady=8)
+        return dialog
     def import_file(self):
         name=filedialog.askopenfilename(filetypes=[('JSON','*.json')],parent=self)
         if not name:return

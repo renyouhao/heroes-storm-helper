@@ -31,7 +31,7 @@ _NUMBERS = frozenset(('generation', 'characters', 'elapsed_ms', 'queue_depth', '
     'winerror', 'retry_count', 'build', 'expected_build', 'read_calls', 'read_bytes',
     'client_width', 'client_height', 'origin_x', 'origin_y', 'render_width', 'render_height',
     'raw_talent_count', 'raw_stat_count', 'coordinate_rejected', 'metadata_rejected',
-    'raw_quest_count', 'raw_cooldown_count', 'progress_rejected', 'cooldown_rejected',
+    'raw_quest_count', 'raw_cooldown_count', 'progress_rejected', 'cooldown_rejected', 'cooldown_alias_count',
     'talent_hit_count', 'stat_hit_count', 'quest_hit_count', 'cooldown_hit_count',
     'quest_progress', 'quest_raw_state', 'quest_raw_progress', 'cooldown_seconds', 'player_slot',
     'quest_node_checks', 'cooldown_node_checks', 'label_visible', 'label_numeric', 'label_matches',

@@ -1,5 +1,6 @@
 """按热键出现的中文输入条，译文仅复制，由用户在游戏中粘贴。"""
 from dataclasses import dataclass
+from sqlite3 import Error as DatabaseError
 import tkinter as tk
 from tkinter import ttk,font as tkfont
 
@@ -8,6 +9,7 @@ from .brand_icon import apply_assistant_icon
 from .theme import overlay_colors,style_native_window
 from ..appearance import DEFAULT_THEME
 from ..layout import display_metrics,quick_input_layout
+from ..phrases import suggest_phrases
 from .widget_lifecycle import widget_descendants,detach_destroyed_tree,clear_variable_traces
 
 
@@ -52,6 +54,11 @@ class QuickInput:
         self._status_width=0
         self._status_suffix='… 按 Enter 重试'
         self.icon_loaded=False
+        self._phrase_frame=self._phrase_list=self._phrase_hint=None
+        self._phrase_candidates=()
+        self._phrase_filled=False
+        self._phrase_click_armed=False
+        self._phrase_panel_mode='hidden'
 
     def _create_window(self):
         self.window = tk.Toplevel(self.root)
@@ -94,6 +101,25 @@ class QuickInput:
         self.status_label.pack(fill='x',pady=(6,0))
         ttk.Label(body,text=KEYBOARD_HINT,
                   style='Overlay.Muted.TLabel').pack(anchor='w',pady=(3,0))
+        self._phrase_frame=ttk.Frame(body,style='Overlay.TFrame')
+        self._phrase_hint=ttk.Label(self._phrase_frame,style='Overlay.Muted.TLabel',
+                                    text='主窗口可收藏短句；Tab 进入候选，↑↓ 选择，Tab 填入，Enter 翻译。',
+                                    justify='left')
+        self._phrase_hint.pack(fill='x',pady=(0,3))
+        self._phrase_list=tk.Listbox(self._phrase_frame,width=1,height=1,
+                                    font=self._entry_font,exportselection=False,
+                                    activestyle='dotbox',relief='flat',borderwidth=0,
+                                    highlightthickness=1,takefocus=True)
+        self._phrase_list.pack(fill='x')
+        self._phrase_list.bind('<ButtonPress-1>',self._on_phrase_press)
+        self._phrase_list.bind('<ButtonRelease-1>',self._on_phrase_click)
+        self._phrase_list.bind('<Tab>',self._on_phrase_tab)
+        self._phrase_list.bind('<Up>',lambda event:self._move_phrase(-1))
+        self._phrase_list.bind('<Down>',lambda event:self._move_phrase(1))
+        self._phrase_list.bind('<KeyPress-Return>',self._on_return_press)
+        self._phrase_list.bind('<KeyRelease-Return>',self._on_return_release)
+        self._phrase_list.bind('<KeyPress-KP_Enter>',self._on_return_press)
+        self._phrase_list.bind('<KeyRelease-KP_Enter>',self._on_return_release)
         self.status.trace_add('write',self._status_changed)
         self.text.trace_add('write', self._on_edit)
         self.entry.bind('<KeyPress-Return>', self._on_return_press)
@@ -101,6 +127,8 @@ class QuickInput:
         self.entry.bind('<KeyPress-KP_Enter>', self._on_return_press)
         self.entry.bind('<KeyRelease-KP_Enter>', self._on_return_release)
         self.entry.bind('<FocusOut>', self._on_focus_out)
+        self.entry.bind('<Tab>',self._on_phrase_tab)
+        self.entry.bind('<KeyRelease>',self._refresh_phrases)
         self.window.bind('<Escape>', lambda event: self.cancel())
         self.window.bind('<Control-Tab>', self._toggle_target)
         self.refresh_layout(self._metrics,force=True)
@@ -133,10 +161,26 @@ class QuickInput:
             self._entry_font.configure(size=max(12,self.settings.font_size))
         self.body.configure(padding=(metrics.px(12),metrics.px(10)))
         layout=quick_input_layout(metrics,font_size=self.settings.font_size,position=position)
+        if self._phrase_list is not None:
+            self._phrase_list.configure(background=palette['field'],foreground=palette['text'],
+                                        selectbackground=palette['selection'],selectforeground=palette['text'],
+                                        highlightbackground=palette['border'],highlightcolor=palette['accent'])
+            self._phrase_hint.configure(wraplength=max(1,layout.width-metrics.px(24)))
+            if self._phrase_candidates:self._phrase_list.configure(height=len(self._phrase_candidates))
+            self._render_phrase_labels(max(1,layout.width-metrics.px(32)))
         self._status_width=max(1,layout.width-metrics.px(24))
         self._status_changed()
         self.window.update_idletasks()
-        layout=quick_input_layout(metrics,font_size=self.settings.font_size,height=self.window.winfo_reqheight(),position=position)
+        required_height=self.window.winfo_reqheight()
+        layout=quick_input_layout(metrics,font_size=self.settings.font_size,height=required_height,position=position)
+        if self._phrase_candidates and required_height>layout.height:
+            line_height=max(1,self._entry_font.metrics('linespace'))
+            overflow=required_height-layout.height
+            rows=max(1,len(self._phrase_candidates)-(overflow+line_height-1)//line_height)
+            self._phrase_list.configure(height=rows)
+            self.window.update_idletasks()
+            layout=quick_input_layout(metrics,font_size=self.settings.font_size,
+                                      height=self.window.winfo_reqheight(),position=position)
         self.window.geometry(layout.geometry)
         style_native_window(self.window,palette)
         return True
@@ -203,6 +247,8 @@ class QuickInput:
                 self._select_on_open=False
             self._native.activate(self._own_window)
             self._set_visible(True)
+            self._phrase_filled=False
+            self._refresh_phrases()
         except (OSError, tk.TclError):
             # 布局、焦点或原生激活失败也必须撤回，避免字幕永久停留在输入模式。
             self._withdraw()
@@ -227,6 +273,7 @@ class QuickInput:
             pass
         finally:
             self._set_visible(False)
+            self._hide_phrases(relayout=False)
 
     def _on_window_unmap(self, event):
         if event.widget is not self.window:
@@ -259,12 +306,15 @@ class QuickInput:
 
     def _on_edit(self, *args):
         self._select_on_open=False
+        self._phrase_filled=False
         self._invalidate()
         if self.status is not None:
             self.status.set('准备就绪；译文仅复制，由你在游戏中粘贴。')
+        self._refresh_phrases()
 
     def _target_changed(self):
         self._invalidate()
+        self._phrase_filled=False
         self.settings.target_language = self.target.get()
         self.status.set('已选择' + ('韩语' if self.target.get() == 'ko' else '英语') + '；Enter 翻译并复制。')
         if self.on_target_changed:
@@ -274,6 +324,122 @@ class QuickInput:
                 self.status.set('语言已切换，保存设置失败：' + str(failure))
         if self._visible:
             self.entry.focus_set()
+        self._refresh_phrases()
+
+    def _phrase_composing(self):
+        try:
+            return bool(self._native and self._native.return_is_composing(self.entry.winfo_id()))
+        except (OSError,tk.TclError):
+            return True
+
+    def _hide_phrases(self,*,relayout=True):
+        changed=self._phrase_panel_mode!='hidden'
+        self._phrase_candidates=()
+        self._phrase_click_armed=False
+        self._phrase_panel_mode='hidden'
+        if self._phrase_frame is not None:self._phrase_frame.pack_forget()
+        if changed and relayout and not self._closed:self.refresh_layout(force=True)
+
+    def _refresh_phrases(self,event=None):
+        if self._phrase_list is None or self._closed:return
+        book=getattr(self.controller,'phrases',None)
+        if (not self._visible or self._phrase_filled or book is None or self._phrase_composing()):
+            self._hide_phrases()
+            return
+        try:
+            candidates=suggest_phrases(book.list(),self.text.get(),self.target.get())
+        except (OSError,ValueError,DatabaseError):
+            candidates=()
+        mode='list' if candidates else 'hint' if not self.text.get().strip() else 'hidden'
+        if candidates==self._phrase_candidates and mode==self._phrase_panel_mode:return
+        self._phrase_candidates=candidates
+        self._phrase_panel_mode=mode
+        if mode=='hidden':
+            self._phrase_frame.pack_forget()
+        else:
+            self._phrase_frame.pack(fill='x',pady=(8,0))
+            self._phrase_hint.configure(text=('主窗口可收藏短句；Tab 进入候选，↑↓ 选择，Tab 填入，Enter 翻译。'
+                                                if candidates else '输入中文查找短句；常用短句可在主窗口收藏。'))
+            if candidates:self._phrase_list.pack(fill='x')
+            else:self._phrase_list.pack_forget()
+        self.refresh_layout(force=True)
+
+    def _render_phrase_labels(self,width):
+        if self._phrase_list is None:return
+        selected=self._phrase_list.curselection()
+        self._phrase_list.delete(0,'end')
+        for candidate in self._phrase_candidates:
+            suffix='  · '+('本机可用' if candidate.local_available else '需翻译')
+            text=' '.join(candidate.phrase.source_text.split())
+            if self._entry_font.measure(text+suffix)>width:
+                low,high=0,len(text)
+                while low<high:
+                    middle=(low+high+1)//2
+                    if self._entry_font.measure(text[:middle]+'…'+suffix)<=width:low=middle
+                    else:high=middle-1
+                text=text[:low]+'…'
+            self._phrase_list.insert('end',text+suffix)
+        if self._phrase_candidates:
+            index=min(selected[0],len(self._phrase_candidates)-1) if selected else 0
+            self._phrase_list.selection_set(index)
+            self._phrase_list.activate(index)
+
+    def _on_phrase_tab(self,event):
+        if getattr(event,'state',0)&0xD:return  # Shift/Ctrl/Alt+Tab 保留原有导航或语言切换。
+        if self._closed or not self._visible:return
+        if self._phrase_composing():return 'break'
+        if event.widget is self.entry:
+            self._refresh_phrases()
+            if self._phrase_candidates:
+                self._phrase_list.focus_set()
+                return 'break'
+        elif event.widget is self._phrase_list:
+            self._fill_phrase()
+            return 'break'
+
+    def _move_phrase(self,step):
+        if (self._closed or not self._visible or not self._phrase_candidates
+                or self.window.focus_get() is not self._phrase_list):return
+        if self._phrase_composing():return 'break'
+        selected=self._phrase_list.curselection()
+        index=max(0,min(len(self._phrase_candidates)-1,(selected[0] if selected else 0)+step))
+        self._phrase_list.selection_clear(0,'end')
+        self._phrase_list.selection_set(index)
+        self._phrase_list.activate(index)
+        self._phrase_list.see(index)
+        return 'break'
+
+    def _on_phrase_press(self,event):
+        self._phrase_click_armed=False
+        if self._closed or not self._visible or not self._phrase_candidates:return 'break'
+        if self._phrase_composing():return 'break'
+        self._phrase_click_armed=True
+        self._invalidate()
+
+    def _on_phrase_click(self,event):
+        armed,self._phrase_click_armed=self._phrase_click_armed,False
+        if not armed:return 'break'
+        if self._closed or not self._visible or not self._phrase_candidates:return 'break'
+        if self._phrase_composing():return 'break'
+        index=self._phrase_list.nearest(event.y)
+        bounds=self._phrase_list.bbox(index)
+        if bounds and bounds[1]<=event.y<bounds[1]+bounds[3]:self._fill_phrase(index)
+        return 'break'
+
+    def _fill_phrase(self,index=None):
+        if self._closed or not self._visible or self._phrase_composing():return
+        selected=self._phrase_list.curselection()
+        index=selected[0] if index is None and selected else index
+        if index is None or not 0<=index<len(self._phrase_candidates):return
+        source=self._phrase_candidates[index].phrase.source_text
+        self._invalidate()
+        self.text.set(source)
+        self._select_on_open=False
+        self._phrase_filled=True
+        self._hide_phrases()
+        self.entry.focus_set()
+        self.entry.icursor(tk.END)
+        self.status.set('已填入短句；Enter 翻译并复制，仍由你在游戏中粘贴。')
 
     def _sync_target_display(self,*args):
         if self.target_display is not None:
@@ -423,7 +589,7 @@ class QuickInput:
         self._invalidate()
         if self._visible:
             self._restore_focus()
-            self._withdraw()
+        self._withdraw()
         self._prior_window = 0
         return 'break'
 
@@ -441,7 +607,7 @@ class QuickInput:
                     # 销毁控件时 WM_NCDESTROY 仍会拆除回调，保持回调对象活到销毁结束。
                     pass
                 finally:
-                    for variable in (self.text,self.target,self.status):clear_variable_traces(variable)
+                    for variable in (self.text,self.target,self.status,self.target_display):clear_variable_traces(variable)
                     if self.window is not None:
                         real_window=isinstance(self.window,tk.Misc)
                         descendants=widget_descendants(self.window) if real_window else ()
@@ -452,3 +618,6 @@ class QuickInput:
                 # callbacks bound to the main Tk window.
                 self.on_target_changed = self.on_visibility_changed = self._position_provider = None
                 self._clipboard=None
+                self._phrase_candidates=()
+                self._phrase_panel_mode='hidden'
+                self._phrase_frame=self._phrase_list=self._phrase_hint=None
