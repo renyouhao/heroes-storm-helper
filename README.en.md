@@ -4,23 +4,23 @@
 
 A Windows companion for Heroes of the Storm: read incoming English and Korean chat in Chinese, translate your Chinese replies into English or Korean, and use optional helpers for loot chests, repeated key presses, favorite talents, and team callouts.
 
-**Current source/local package target: v2.4 · Application/package version: 2.4.0 · Configured channel: `stable`.** The public download below remains **v2.3**; a local v2.4 build does not create a GitHub Release. Downloadable versions, assets and checksums are determined by the actual Release. The application is distributed as **风暴英雄助手** and uses a Chinese interface. Existing credentials, phrasebook data and preferences remain in place; previous theme choices migrate to Soft Lavender.
+**Current release: v2.4 · Application/package version: 2.4.0 · Channel: `stable`.** The [v2.4 Release](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.4) is published; downloads and checksums are linked below. The application is distributed as **风暴英雄助手** and uses a Chinese interface. Existing credentials, phrasebook data and preferences remain in place; previous theme choices migrate to Soft Lavender.
 
 **Supported validation target: Windows x64, Chinese game client build 98348.** This English introduction does not mean the English game client has been validated. Game updates require another compatibility check.
 
 ## Download
 
-The link below is the published **v2.3 binary package**, including update shutdown handoff, preparation-stage messages and automatic startup checks, plus the earlier startup and Brightwing fixes. **When upgrading from v2.1/v2.2, manually replace the full package.** A running old updater does not acquire the handoff fix from the new download.
+The link below is the published **v2.4 release package**, including Aliyun/DeepSeek support, English callouts, capture and subtitle-monitor improvements. It retains the earlier startup, Brightwing and update shutdown-handoff fixes. **When upgrading from v2.1/v2.2, manually replace the full package.** A running old updater does not acquire the handoff fix from the new download.
 
-The **local v2.4 build** includes untimestamped match-chat capture, known-format support for draft-team chat (【征召团队】), subtitle monitor selection, enhanced diagnostics and the complete Aliyun/DeepSeek service selection, API-key, balance and context controls. The earlier v2.3 match-diagnostics test build used the old baseline and did not include DeepSeek; the public v2.3 package does not include these additions either.
+The **v2.4 release package** includes untimestamped match-chat capture, known-format support for draft-team chat (【征召团队】), subtitle monitor selection, enhanced diagnostics and complete Aliyun/DeepSeek service selection, API-key, balance and context controls. English callouts use offline data and identify non-Latin player names as `Player N`. The earlier v2.3 match-diagnostics test build used the old baseline and did not include DeepSeek; use this release package for the additions.
 
-**[Download v2.3 for Windows x64](https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.3/HotsHelper-2.3.0-Windows-x64.zip)** · [Release notes and SHA256](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.3) · [All versions](https://github.com/renyouhao/heroes-storm-helper/releases)
+**[Download v2.4 for Windows x64](https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.4/HotsHelper-2.4.0-Windows-x64.zip)** · [SHA256 checksum](https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.4/HotsHelper-2.4.0-Windows-x64.zip.sha256) · [Release notes](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.4) · [All versions](https://github.com/renyouhao/heroes-storm-helper/releases)
 
-Download `HotsHelper-2.3.0-Windows-x64.zip`, extract the entire archive, and run `风暴英雄助手.exe`. The directory and executable inside the ZIP retain their Chinese names. Keep the `_internal` folder alongside the executable. Python and separate SDK installation are not required for the packaged application.
+Download `HotsHelper-2.4.0-Windows-x64.zip`, extract the entire archive, and run `风暴英雄助手.exe`. The directory and executable inside the ZIP retain their Chinese names. Keep the `_internal` folder alongside the executable. Python and separate SDK installation are not required for the packaged application.
 
 GitHub's **Source code (zip/tar.gz)** downloads contain the source rather than the ready-to-run Windows application. When switching packages, exit the old helper before launching the new copy.
 
-**Older updater stuck on preparation with a disconnected page:** close the entire old helper, extract a new package containing the fix into a new directory, keep `_internal`, and run `风暴英雄助手.exe`. Credentials, phrases and preferences continue to use the existing user-data directory. The public v2.3 package contains this fix; download the complete ZIP above.
+**Older updater stuck on preparation with a disconnected page:** close the entire old helper, extract a new package containing the fix into a new directory, keep `_internal`, and run `风暴英雄助手.exe`. Credentials, phrases and preferences continue to use the existing user-data directory. The v2.4 release package contains this fix; download the complete ZIP above.
 
 ## Current interface
 
@@ -34,7 +34,7 @@ Read incoming chat above and write Chinese in the reply area below. Choose Engli
 
 ## Getting started
 
-The two-service choice and onboarding below apply to **v2.4 source/local builds**. The public **v2.3 download above does not yet include them**.
+The two-service choice and onboarding below apply to the published **v2.4 release package** linked above.
 
 1. Download and extract the complete Windows package above. Borderless windowed game mode is recommended.
 2. As a new user, click **选择翻译服务** (“Choose translation service”) on the main page. The account page first shows Aliyun and DeepSeek cards with neither selected. Choosing one reveals its credential form. You can also skip setup and read original chat text.
@@ -113,7 +113,7 @@ Under **外观**, **内容字号** changes the main content text and **主窗口
 <details>
 <summary>检查更新 — release notes and explicit update actions</summary>
 
-Release notes use headings and lists that wrap to the available width. The v2.1 screenshot shows the state before a check. The v2.3 source checks once in the background on normal startup; click **检查更新** for a manual check, then choose the available download/install action. The sidebar dot represents a confirmed newer release and remains while installation is pending.
+Release notes use headings and lists that wrap to the available width. The v2.1 screenshot shows the state before a check. Since v2.3, normal startup checks once in the background; click **检查更新** for a manual check, then choose the available download/install action. The sidebar dot represents a confirmed newer release and remains while installation is pending.
 
 <img src="docs/images/v2.1/05-updates.png" width="100%" alt="Current update dialog before a check, showing the current version, a release-notes placeholder, and check, download, and restart controls">
 
@@ -157,7 +157,7 @@ Choose `S` or alternating `Y+S`, set the interval, and click **保存配置**. R
 - **Configurable key repetition.** Choose `S` or alternating `Y+S`; each mode has its own saved interval of 20–5000 ms, with 20 ms as the default for new settings. `F8` starts/stops repetition; its shortcut can be changed to another F1–F12 key.
 - **Automatic favorite talents — off by default.** Uses the game's existing favorite selection through its shortcut, then reads back whether that tier has been selected. It needs no translation key.
 - **Tab double-click callouts — off by default.** Selected talent callouts begin with “注意” (“Attention”) and include verified quest progress in the same cell. Standalone baseline quests and verified positive numbers from the dedicated Tab cooldown label for allied heroics use their own icons; statistics callouts report only the clicked metric. Talent summaries and known quest names are bundled offline. No translation key is required.
-- **Client updates.** Current source checks official stable releases once in the background on normal startup and shows the update dot when a newer release is confirmed; manual checks remain available. Choose when to download, verify, restart and update. The published v2.3 package includes startup checks and the shutdown handoff fix; older packages should be replaced manually. The updater supports `HotsHelper-<version>-Windows-x64.zip` assets; v2.3 and application version 2.3.0 represent the same version, and downgrades are not offered. Older local 1.1.0 packages require a manual download because their updater only recognizes Chinese asset names.
+- **Client updates.** Current source checks official stable releases once in the background on normal startup and shows the update dot when a newer release is confirmed; manual checks remain available. Choose when to download, verify, restart and update. The published v2.4 package retains startup checks and the shutdown handoff fix introduced in v2.3; older packages should be replaced manually. The updater supports `HotsHelper-<version>-Windows-x64.zip` assets; v2.4 and application version 2.4.0 represent the same version, and downgrades are not offered. Older local 1.1.0 packages require a manual download because their updater only recognizes Chinese asset names.
 - **Emote handling and optional diagnostics.** Complete image-emote tags display as `[表情]`; emote-only messages skip cloud translation. Diagnostics are off by default and can be enabled for troubleshooting.
 
 </details>
@@ -181,7 +181,7 @@ Under **偏好设置 → 外观** (Preferences → Appearance), content font siz
 
 Chat rows separate the nickname, channel, time, message, and translation. Circular avatars use local decorative illustrations; they do not identify the player's actual hero. Chinese input and translation preview appear side by side, with English/Korean pill choices for the target language. Translate, copy the result, and paste/send it yourself in the game. The separate `Ctrl+T` input remains available.
 
-Manual translation errors stay beside the reply area and retain the draft for correction or retry. Copy uses the backend's current valid result. Helper pages distinguish waiting, running and stopped states and retain the latest outcome. Release notes have headings, paragraphs and lists that wrap to the available width. Normal startup in v2.3 checks once in the background; opening update management does not trigger another check, and manual checks remain available. Its sidebar dot reflects a confirmed newer release and remains while installation is pending.
+Manual translation errors stay beside the reply area and retain the draft for correction or retry. Copy uses the backend's current valid result. Helper pages distinguish waiting, running and stopped states and retain the latest outcome. Release notes have headings, paragraphs and lists that wrap to the available width. Since v2.3, normal startup checks once in the background; opening update management does not trigger another check, and manual checks remain available. Its sidebar dot reflects a confirmed newer release and remains while installation is pending.
 
 Small windows automatically reduce spacing and supporting text and rearrange navigation and actions while retaining input, preview, and language choices. In-game subtitles and the quick-input bar remain separate.
 
@@ -343,7 +343,7 @@ To build a Windows package:
 
 The build first runs `npm ci` and `npm run build`, checks the frontend output, then freezes Python with PyInstaller. It includes `frontend/dist`, the Windows WebView2 bridge, and pythonnet dynamic libraries; it does not bundle Node.js, a development server, or Qt/CEF browser backends. The target computer needs WebView2 Runtime.
 
-The command above writes `releases/v2.4/HotsHelper-2.4.0-Windows-x64.zip`. The ZIP’s directory and `风暴英雄助手.exe` retain their Chinese names. The internal version is `2.4.0` and the channel is `stable`. Running the local build command alone does not create a Git tag or public Release; this document does not link an unpublished v2.4 asset. The build explicitly stages public seed data and bundled UI files and rejects local credentials, databases, preferences, logs and sampling files from the release bundle.
+The command above writes `releases/v2.4/HotsHelper-2.4.0-Windows-x64.zip`. The ZIP’s directory and `风暴英雄助手.exe` retain their Chinese names. The internal version is `2.4.0` and the channel is `stable`. Running the local build command alone does not create a Git tag or public Release; the download above points to the published v2.4 release package. The build explicitly stages public seed data and bundled UI files and rejects local credentials, databases, preferences, logs and sampling files from the release bundle.
 
 Packaging runs `--check-installation` for native operations and seed data, `--check-desktop-installation` for desktop resources and dependencies, and `--check-desktop-rendering` to load the local WebView2 page and verify the React demo state and JavaScript bridge. All three must pass before creating the ZIP; the manifest records each result. The bundled “查看界面效果.cmd” starts an offline preview directly. These checks confirm loading and bridging; visual similarity, DPI behavior and in-game behavior still require separate validation.
 
@@ -353,7 +353,7 @@ Old packages are cleaned up only after the new package passes its installation c
 
 ## Validation scope
 
-The v2.3 fix passed **179 related Python tests, 33 frontend tests and a frontend build**, covering update transactions, host PID propagation, native snapshot availability, one-time host shutdown and IPC lock ordering. The **2.3.0 release build** passed installation, desktop dependency and actual WebView2 rendering/bridge checks; 99 frozen application modules match the `v2.3` source tag. The public ZIP passed updater detection, download, SHA256 verification and isolated extraction; 2.2.0 finds the update and 2.3.0 is not offered the same version. Real cross-version in-place replacement remains unverified. See the [v2.3 Release](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.3) for assets and checksums.
+The historical v2.3 fix passed **179 related Python tests, 33 frontend tests and a frontend build**, covering update transactions, host PID propagation, native snapshot availability, one-time host shutdown and IPC lock ordering. The **2.3.0 release build** passed installation, desktop dependency and actual WebView2 rendering/bridge checks; 99 frozen application modules match the `v2.3` source tag. The public ZIP passed updater detection, download, SHA256 verification and isolated extraction; 2.2.0 finds the update and 2.3.0 is not offered the same version. Real cross-version in-place replacement remains unverified. See the [v2.3 Release](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.3) for assets and checksums.
 
 The v2.2 release source `38df948` passed **375 Python tests across 24 isolated test modules and 33 frontend tests**, plus Python syntax and dependency checks. The frozen package passed installation, desktop dependency and actual WebView2 rendering/bridge checks. After adding download markers to all three managed DLLs, startup removed them and rendering passed again. The real published asset passed the 2.1 updater's check, download, SHA256 verification and isolated extraction; no in-place installation was performed. The affected computers/live game still need verification. See the [v2.2 Release](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.2) for assets and checksums.
 
@@ -392,6 +392,6 @@ For fuller behavior notes, troubleshooting steps, and historical validation deta
 
 Build 98348 supports **all 16 model-decoder branches, 0–15**, with a verified compute-code fingerprint for each. Branches 2, 5, 8, 11 and 14 additionally require a runtime salt. Reads recheck the selector, table root, encoded slot, used keys, and salt pointer/value before trusting the result. All algorithms passed synthetic reads and independent native-instruction comparisons; this does not mean all 16 branches were exercised on affected players’ machines or that newer game builds are supported.
 
-Version note: `v1.1` remains a source-preparation tag; its Release was never published. During release preparation, GitHub stripped Chinese characters from the asset name. The tag is preserved, and the asset naming contract is corrected in `v1.2`, using an ASCII ZIP name shared by the publisher and updater. **Existing local 1.1.0 packages recognize only Chinese ZIP names, so download v2.3 manually using the link above.** Your local user data stays in place.
+Version note: `v1.1` remains a source-preparation tag; its Release was never published. During release preparation, GitHub stripped Chinese characters from the asset name. The tag is preserved, and the asset naming contract is corrected in `v1.2`, using an ASCII ZIP name shared by the publisher and updater. **Existing local 1.1.0 packages recognize only Chinese ZIP names, so download v2.4 manually using the link above.** Your local user data stays in place.
 
 </details>

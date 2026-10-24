@@ -50,15 +50,15 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
     </aside>
     <main class="content" id="reportContent">
 <header class="hero" id="start">
-  <p class="eyebrow">第一次使用也能照着做 · 本次源码／新构建使用说明</p>
+  <p class="eyebrow">第一次使用也能照着做 · v2.4 正式版使用说明</p>
   <h1 data-review-id="beginner:title">风暴英雄助手<br><span class="marker">先选翻译服务，再填自己的 Key</span></h1>
   <p class="lead">先在助手里选择 DeepSeek 或阿里云，再按对应路线准备个人密钥。连接成功后，就能看英文、韩文的中文译文，并用中文回复。不需要会写代码，也不必同时开通两家服务。</p>
   <div class="meta"><span>文档修订：2026-10-24</span><span>DeepSeek 官方文档核对：2026-10-24</span><span>面向：Windows 新用户及已有阿里云账户的玩家</span></div>
   <div class="route" aria-label="入门顺序"><span>① 先选一家翻译服务</span><b>→</b><span>② 准备对应 Key 并连接</span><b>→</b><span>③ 回游戏看译文</span></div>
   <p class="small">已有可用的个人账户？直接看<a href="#connect">第 05 节：连接与切换</a>。也可以先关闭账户页，继续看聊天原文、使用开箱或连按，之后再配置翻译。</p>
-  <div class="callout" data-review-id="beginner:dual-provider-scope"><strong>先确认你用的构建。</strong>本页新增的双服务选择、DeepSeek 翻译与余额查询，适用于包含本次改动的源码或新构建。<strong>目前公开的 v2.3 包还没有 DeepSeek</strong>；更新这份指南不会改变已下载的 EXE，也不表示已发布包含新功能的安装包。版本、附件和校验值仍以实际 Release 为准。</div>
+  <div class="callout" data-review-id="beginner:dual-provider-scope"><strong>v2.4（2.4.0）正式包已发布。</strong>本页的双服务选择、DeepSeek 翻译、余额查询、英文播报及多屏字幕适用于本次正式包。<a href="https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.4/HotsHelper-2.4.0-Windows-x64.zip">下载 Windows x64 完整 ZIP</a> · <a href="https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.4/HotsHelper-2.4.0-Windows-x64.zip.sha256">SHA256 校验文件</a> · <a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.4">发行说明</a>。先退出旧助手，再完整解压运行；旧 EXE 不会因更新这份指南获得新功能。真实征召聊天、物理双屏与不同 DPI 体验仍需实机复测。</div>
 <p class="small" data-review-id="beginner:release-history">版本说明：v1.1 仅为源码准备标签，没有公开发布 Release。此前 v1.2 发布准备时，GitHub 截去了中文附件名中的中文部分，因此保留原标签，修复发布资产命名约定后改发 v1.2。ZIP 附件统一使用 ASCII 名称，包内目录与“风暴英雄助手.exe”继续使用中文。公开 v1.2 使用《风暴英雄》图标；v2.0 将 EXE、任务栏及窗口标题统一为紫色六角旋涡标志。</p>
-<p class="small" data-review-id="beginner:prerelease">既有桌面界面说明：主界面采用 React + WebView2，沿用柔雾紫单主题、紫色图标及 B 方案悬浮窗布局。升级后，旧阿里云密钥、语言资料、窗口位置和快捷键继续使用原用户目录；<strong>已有阿里云账户不会被自动换成 DeepSeek</strong>。本指南对应 v2.4（2.4.0）源码与本地正式构建；公开下载仍以实际 Release 为准。</p>
+<p class="small" data-review-id="beginner:prerelease">既有桌面界面说明：主界面采用 React + WebView2，沿用柔雾紫单主题、紫色图标及 B 方案悬浮窗布局。升级后，旧阿里云密钥、语言资料、窗口位置和快捷键继续使用原用户目录；<strong>已有阿里云账户不会被自动换成 DeepSeek</strong>。本指南对应已发布的 v2.4（2.4.0）正式包，下载与校验入口见上方发行说明。</p>
 <p class="small" data-review-id="beginner:v21-changes">v2.1 更新：偏好设置、账户、更新与短句编辑共用一个 React 页内弹层，主窗口字号和置顶作用于实际界面；状态、更新提示点和发布说明排版更清楚。原生 Ctrl+T 提供本地短句候选，改进有效译文复制与失败后输入恢复，并将同一 R 天赋与 CD 覆盖层归并为一个命中目标。</p>
 <p class="small" data-review-id="beginner:decoder-scope">build 98348 的模型解码覆盖 <strong>0–15 全部 16 分支</strong>，每个分支核对计算代码指纹；其中 2、5、8、11、14 另读取游戏运行时的动态 salt。16 个算法已完成合成读取与独立原生指令对照；朋友机器并未逐个实测全部分支，英文、2K和不同对局仍需现场验收。日志默认关闭，开启后统一录制原文、译文及复现数据，总上限 100 MiB。</p>
 </header>
@@ -221,7 +221,7 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <p>此前真实只读样本包含凯尔萨斯热能对流 0→2 层、敌方阿尔萨斯基础任务 6→8 层和我方大招 38／29 秒。v2.1 修复后，仅确认萨拉塔斯试用中 45 秒对应同一 R 的唯一冷却命中；最终聊天发送仍待用户反馈。这些记录不代表全部英雄、语言、分辨率或完整发送流程均已实测；16 条名称映射也不等于 16 英雄实机验收。</p>
 <p>开启同一个诊断开关后，会记录任务状态和层数、大招显示秒数及拒绝原因，并包含 reader 离线回放帧；board_profile 标明任务／冷却适配方案，board_code_verified 为 1 表示六处原生 getter 代码校验通过，0 表示尚未通过，代码变化时返回未知。日志总上限仍为默认 100 MiB，也包含聊天原文和译文，分享前检查隐私。开发者可用 <code>--component reader</code> 重放 <code>quest_progress</code> 与 <code>cooldown_display</code> 判定，不恢复整个真实游戏 UI。</p>
 </article></section>
-<section class="section" id="updates"><h2>07D · 有新版本时怎么升级</h2><article class="card" data-review-id="beginner:updates"><p>如果正在使用 1.1.0 本地包，旧更新器只识别中文 ZIP 名，无法匹配新的 GitHub ASCII 附件；请手动下载 HotsHelper-2.1.0-Windows-x64.zip，先退出旧助手，再解压启动新版。本机 Key、语言资料和偏好仍在原用户目录，不用搬动。1.2.0 起的更新器支持 HotsHelper-&lt;版本&gt;-Windows-x64.zip 命名。 <a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1">打开 v2.1 发行页</a>。</p><ol class="steps"><li>点主窗侧栏底部<strong>检查更新</strong>，再点页内更新界面的检查按钮。仅打开这个界面不会联网，检查由你明确发起。</li><li>有新版本时，先看说明，再点<strong>下载更新</strong>。下载失败可以重试；没有可信校验信息时，按提示到官方发行页手动下载。</li><li>下载校验成功，点<strong>重启并更新</strong>。助手会退出，升级程序备份并替换程序后重新打开；个人 Key、语言资料和设置保留。</li></ol><p>当前源码中，“检查更新”旁的提示点只在手动检查确认有可用新版本后显示；尚未检查、已是最新版或检查失败时不显示，下载完成但尚未安装时仍保留。发布说明按标题、段落和列表排版，文字随说明区宽度自动换行；调整主窗口长宽时，页内说明区自适应排版，长内容可滚动阅读。上述界面细节以包含这些改动的构建为准。</p><p>保留整个程序文件夹，把它放在自己有写入权限的普通目录。从源码运行时只能检查和下载；更新页里的 ZIP 路径可以选中复制，关闭助手或重新检查会清理未安装的暂存包。升级失败会尝试恢复旧程序。此机制的临时目录替换与回滚已测试，真实发行 EXE 跨版本升级仍待验收。</p></article></section>
+<section class="section" id="updates"><h2>07D · 有新版本时怎么升级</h2><article class="card" data-review-id="beginner:updates"><p>如果正在使用 1.1.0 本地包，旧更新器只识别中文 ZIP 名，无法匹配新的 GitHub ASCII 附件；请手动下载 HotsHelper-2.4.0-Windows-x64.zip，先退出旧助手，再解压启动新版。本机 Key、语言资料和偏好仍在原用户目录，不用搬动。1.2.0 起的更新器支持 HotsHelper-&lt;版本&gt;-Windows-x64.zip 命名。 <a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.4">打开 v2.4 发行页</a>。</p><ol class="steps"><li>点主窗侧栏底部<strong>检查更新</strong>，再点页内更新界面的检查按钮。正常启动会后台检查一次；也可点页内按钮手动检查，仅打开界面不会额外发起检查。</li><li>有新版本时，先看说明，再点<strong>下载更新</strong>。下载失败可以重试；没有可信校验信息时，按提示到官方发行页手动下载。</li><li>下载校验成功，点<strong>重启并更新</strong>。助手会退出，升级程序备份并替换程序后重新打开；个人 Key、语言资料和设置保留。</li></ol><p>v2.4 正常启动会后台检查一次，也支持手动检查；确认有可用新版本后，“检查更新”旁显示提示点。尚未确认新版时不显示；已确认新版后的临时网络失败或取消不会清除提示点，下载完成但尚未安装时仍保留。发布说明按标题、段落和列表排版，文字随说明区宽度自动换行；调整主窗口长宽时，页内说明区自适应排版，长内容可滚动阅读。上述界面细节以包含这些改动的构建为准。</p><p>保留整个程序文件夹，把它放在自己有写入权限的普通目录。从源码运行时只能检查和下载；更新页里的 ZIP 路径可以选中复制，关闭助手或重新检查会清理未安装的暂存包。升级失败会尝试恢复旧程序。此机制的临时目录替换与回滚已测试，真实发行 EXE 跨版本升级仍待验收。</p></article></section>
 <section class="section" id="loot"><h2>08 · 在补给箱页面连续开箱</h2>
 <article class="card" data-review-id="beginner:loot"><ol class="steps">
 <li>在助手主界面点<strong>开箱助手 → 准备开箱</strong>。</li>
@@ -251,7 +251,7 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <details class="faq-item" data-review-id="beginner:faq-capture"><summary>提示找不到聊天／大厅消息没接上</summary><p>确认游戏和助手都开着，频道先选“全部聊天”。在游戏里手动发一条普通团队、队伍或密语消息，等它连接，不需要特意再发第二条。0.3.10 已调整首句补收；如果还在用旧版，请先退出旧程序并打开新版。仍不行就到“设置 → 连接 → 手动重新连接”。如果之前停过采集，先点“恢复采集”。独立战网客户端里的聊天不在采集范围；游戏已覆盖或释放的记录也无法补回。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-identity"><summary>连接提示密钥验证失败</summary><p><strong>DeepSeek：</strong>确认选中的是 DeepSeek，填写的是开放平台完整 API Key，密钥没有被撤销，网络可访问官方 API。这里只需要一个 API Key，不填阿里云 ID／Secret或网页登录密码。</p><p><strong>阿里云：</strong>核对 ID 和 Secret 是否来自同一把 Key，有无漏字符、多空格、Key 被禁用或删除，以及网络能否访问阿里云。Secret 丢失时到官网创建新 Key。根据窗口的阶段和固定错误提示排查，反馈时不要发送完整密钥。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-cloud"><summary>密钥验证通过，翻译测试或保存阶段失败</summary><p><strong>DeepSeek：</strong>检查开放平台是否有可用于 API 的余额、服务是否受限，以及网络是否稳定。能登录官网不等于 API 翻译测试已经成功。</p><p><strong>阿里云：</strong>检查机器翻译通用版是否开通，当前 RAM 用户是否有翻译权限，以及账户是否欠费或受限。</p><p><strong>本机保存失败：</strong>检查当前 Windows 用户及用户数据目录写入权限。失败的切换不会自动改用另一家；修正后重试，或明确选回已保存账户并验证。每次翻译测试都会调用所选云服务。</p></details>
-<details class="faq-item" data-review-id="beginner:faq-provider-choice"><summary>账户页只显示两张服务卡片，或者找不到 DeepSeek</summary><p>第一次还没有保存任何账户时，页面先请你选择 DeepSeek 或阿里云，选中后才显示对应输入框。已有阿里云账户的用户会保留原服务，可在管理账户里选择另一家，不会强制切换。</p><p>如果完全没有 DeepSeek 选项，先确认是否使用包含本次改动的源码或新构建；<strong>当前公开 v2.3 包还没有 DeepSeek</strong>。不要因为看了新指南就反复重填旧包里的阿里云字段。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-provider-choice"><summary>账户页只显示两张服务卡片，或者找不到 DeepSeek</summary><p>第一次还没有保存任何账户时，页面先请你选择 DeepSeek 或阿里云，选中后才显示对应输入框。已有阿里云账户的用户会保留原服务，可在管理账户里选择另一家，不会强制切换。</p><p>如果完全没有 DeepSeek 选项，请确认运行的是 v2.4（2.4.0）或更高版本；<strong>旧 v2.3 及此前对局日志诊断测试包没有这些入口</strong>。先退出旧助手，从本页上方下载并完整解压正式包，不要反复重填旧包里的阿里云字段。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-deepseek-balance"><summary>DeepSeek 余额没更新，或者查询失败</summary><p>先确认当前服务是已连接的 DeepSeek，再点查询账户余额。查询在后台进行，不会清空中文草稿或关闭快捷输入。失败时看余额区域的错误；显示的旧金额和更新时间属于上次成功查询，不代表刚刚刷新成功。余额不是剩余字符数，也不能直接换算成固定可翻译条数。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-month"><summary>旧版本的用量文件需要处理吗？</summary><p>不用处理。旧 usage.sqlite3 和 usage.sqlite3.initialized 保留原样，当前版本不读取、不新建、不迁移或修复；旧账本缺失或损坏不影响启动、配置或翻译。凭据、语言资料、偏好和日志继续使用原来的 HotsChatHelper 用户目录。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-copy"><summary>Ctrl+T 翻译了，游戏里却没发出去</summary><p>它只帮你复制。请回到游戏打开聊天框，Ctrl+V 粘贴，再按 Enter 发送。输入法还在选字时，先确定汉字，再按一次 Enter 提交翻译。快捷键无反应可以从助手主界面的“快捷输入”按钮打开。</p></details>
@@ -273,7 +273,7 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <section class="section" id="quick"><h2>一页速查：平时就看这张卡</h2>
 <article class="card" data-review-id="beginner:quick"><div class="section-heading"><h3>复制给自己，或者发给新用户</h3><button type="button" data-copy-target="quickSteps">复制速查卡</button></div>
 <pre id="quickSteps">先打开助手，再回游戏。
-版本边界：双服务选择与 DeepSeek 需要本次源码／新构建；当前公开 v2.3 包还没有 DeepSeek。更新指南不会改变旧 EXE，发行附件以实际 Release 为准。
+当前正式版：v2.4（2.4.0），包含双服务选择、DeepSeek、英文播报和多屏字幕。完整包：https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.4/HotsHelper-2.4.0-Windows-x64.zip；校验与发行说明：https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.4。旧 EXE 不会因更新指南获得这些功能。
 看翻译：自动翻译勾上，频道先选“全部聊天”，等新的英文／韩文消息。
 首次配置：无已存账户时先看到两张卡片、不预选 → 选择一家服务，也可先关闭看原文。
 DeepSeek：打开官方入口 → 登录并创建 API Key → 余额不足时按需充值 → 回助手只填 API Key → 连接并开始使用。
@@ -298,9 +298,9 @@ DeepSeek 上下文：默认最多附带同会话前 3 条匿名标识原文，�
 <li><a href="https://ram.console.aliyun.com/">RAM 控制台</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/create-a-ram-user">创建 RAM 用户</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair">创建 Key</a></li>
 <li><a href="https://help.aliyun.com/zh/machine-translation/getting-started/ram-user-authorization">翻译权限说明</a> · <a href="https://help.aliyun.com/zh/ram/create-a-custom-policy">创建自定义权限策略</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user">给用户授权</a></li>
 <li><a href="https://mt.console.aliyun.com/service">阿里云机器翻译控制台</a> · <a href="https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview">阿里云额度与收费规则</a></li>
-<li><a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1">既有 v2.1 发行记录</a> · <a href="https://github.com/renyouhao/heroes-storm-helper/releases">实际已发布的 Windows x64 完整包</a>。本次文档更新没有发布新包，公开 v2.3 仍不包含 DeepSeek。</li>
-</ul><p class="small" data-review-id="beginner:verification">此前统一源码 51daf8e（并入 69ec5a3）完成 1247 项测试（113 个模块各用独立进程）和 20 项采集探针；这些数字仅属于原验证基线。既有 v2.1 最终回归通过 570 项 Python 测试和 33 项前端测试；验证范围、包校验、提交与 SHA256 以 <a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1">对应 Release 记录</a>为准，不代表本次新增双服务已经发布。</p><p class="small">本次修订补齐双服务配置、切换、上下文、费用查询、征召团队和字幕显示器操作；其他游戏功能章节保留既有说明。指南可单文件离线阅读，只有打开官方入口、申请 Key 和实际云翻译需要联网。右上角“导出 PDF”调用打印窗口，选择“另存为 PDF”保存；逐段点评保存在当前浏览器，不会自动发给开发者。</p></article>
-<details class="card step-card no-print"><summary>复制全文的纯文字版</summary><button type="button" data-copy-target="originalMarkdown">复制全文</button><pre id="originalMarkdown">第一次使用也能照着做 · 本次源码／新构建使用说明
+<li><a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.4">v2.4 正式发行说明</a> · <a href="https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.4/HotsHelper-2.4.0-Windows-x64.zip">Windows x64 完整包</a> · <a href="https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.4/HotsHelper-2.4.0-Windows-x64.zip.sha256">SHA256 校验文件</a> · <a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1">历史 v2.1 发行记录</a>。</li>
+</ul><p class="small" data-review-id="beginner:verification">此前统一源码 51daf8e（并入 69ec5a3）完成 1247 项测试（113 个模块各用独立进程）和 20 项采集探针；这些数字仅属于原验证基线。既有 v2.1 最终回归通过 570 项 Python 测试和 33 项前端测试；验证范围、包校验、提交与 SHA256 以 <a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1">对应 Release 记录</a>为准，不代表 v2.4 新增功能已全部通过实机验收。</p><p class="small">本次修订补齐双服务配置、切换、上下文、费用查询、征召团队和字幕显示器操作；其他游戏功能章节保留既有说明。指南可单文件离线阅读，只有打开官方入口、申请 Key 和实际云翻译需要联网。右上角“导出 PDF”调用打印窗口，选择“另存为 PDF”保存；逐段点评保存在当前浏览器，不会自动发给开发者。</p></article>
+<details class="card step-card no-print"><summary>复制全文的纯文字版</summary><button type="button" data-copy-target="originalMarkdown">复制全文</button><pre id="originalMarkdown">第一次使用也能照着做 · v2.4 正式版使用说明
 
 风暴英雄助手
 先选翻译服务，再填自己的 Key
@@ -313,11 +313,11 @@ DeepSeek 上下文：默认最多附带同会话前 3 条匿名标识原文，�
 
 已有可用的个人账户？直接看第 05 节：连接与切换。也可以先关闭账户页，继续看聊天原文、使用开箱或连按，之后再配置翻译。
 
-先确认你用的构建。本页新增的双服务选择、DeepSeek 翻译与余额查询，适用于包含本次改动的源码或新构建。目前公开的 v2.3 包还没有 DeepSeek；更新这份指南不会改变已下载的 EXE，也不表示已发布包含新功能的安装包。版本、附件和校验值仍以实际 Release 为准。
+v2.4（2.4.0）正式包已发布。本页的双服务选择、DeepSeek 翻译、余额查询、英文播报及多屏字幕适用于本次正式包。下载 Windows x64 完整 ZIP：https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.4/HotsHelper-2.4.0-Windows-x64.zip；SHA256 校验文件：https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.4/HotsHelper-2.4.0-Windows-x64.zip.sha256；发行说明：https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.4。先退出旧助手，再完整解压运行；旧 EXE 不会因更新这份指南获得新功能。真实征召聊天、物理双屏与不同 DPI 体验仍需实机复测。
 
 版本说明：v1.1 仅为源码准备标签，没有公开发布 Release。此前 v1.2 发布准备时，GitHub 截去了中文附件名中的中文部分，因此保留原标签，修复发布资产命名约定后改发 v1.2。ZIP 附件统一使用 ASCII 名称，包内目录与“风暴英雄助手.exe”继续使用中文。公开 v1.2 使用《风暴英雄》图标；v2.0 将 EXE、任务栏及窗口标题统一为紫色六角旋涡标志。
 
-既有桌面界面说明：主界面采用 React + WebView2，沿用柔雾紫单主题、紫色图标及 B 方案悬浮窗布局。升级后，旧阿里云密钥、语言资料、窗口位置和快捷键继续使用原用户目录；已有阿里云账户不会被自动换成 DeepSeek。本指南对应 v2.4（2.4.0）源码与本地正式构建；公开下载仍以实际 Release 为准。
+既有桌面界面说明：主界面采用 React + WebView2，沿用柔雾紫单主题、紫色图标及 B 方案悬浮窗布局。升级后，旧阿里云密钥、语言资料、窗口位置和快捷键继续使用原用户目录；已有阿里云账户不会被自动换成 DeepSeek。本指南对应已发布的 v2.4（2.4.0）正式包，下载与校验入口见上方发行说明。
 
 v2.1 更新：偏好设置、账户、更新与短句编辑共用一个 React 页内弹层，主窗口字号和置顶作用于实际界面；状态、更新提示点和发布说明排版更清楚。原生 Ctrl+T 提供本地短句候选，改进有效译文复制与失败后输入恢复，并将同一 R 天赋与 CD 覆盖层归并为一个命中目标。
 
@@ -616,13 +616,13 @@ v2.4 可在“双击播报”页的“发给队友的播报语言”选择中文
 
 07D · 有新版本时怎么升级
 
-如果正在使用 1.1.0 本地包，旧更新器只识别中文 ZIP 名，无法匹配新的 GitHub ASCII 附件；请手动下载 HotsHelper-2.1.0-Windows-x64.zip，先退出旧助手，再解压启动新版。本机 Key、语言资料和偏好仍在原用户目录，不用搬动。1.2.0 起的更新器支持 HotsHelper-&lt;版本&gt;-Windows-x64.zip 命名。 打开 v2.1 发行页（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1）。
+如果正在使用 1.1.0 本地包，旧更新器只识别中文 ZIP 名，无法匹配新的 GitHub ASCII 附件；请手动下载 HotsHelper-2.4.0-Windows-x64.zip，先退出旧助手，再解压启动新版。本机 Key、语言资料和偏好仍在原用户目录，不用搬动。1.2.0 起的更新器支持 HotsHelper-&lt;版本&gt;-Windows-x64.zip 命名。 打开 v2.4 发行页（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.4）。
 
-• 点主窗侧栏底部检查更新，再点页内更新界面的检查按钮。仅打开这个界面不会联网，检查由你明确发起。
+• 点主窗侧栏底部检查更新，再点页内更新界面的检查按钮。正常启动会后台检查一次；也可点页内按钮手动检查，仅打开界面不会额外发起检查。
 • 有新版本时，先看说明，再点下载更新。下载失败可以重试；没有可信校验信息时，按提示到官方发行页手动下载。
 • 下载校验成功，点重启并更新。助手会退出，升级程序备份并替换程序后重新打开；个人 Key、语言资料和设置保留。
 
-当前源码中，“检查更新”旁的提示点只在手动检查确认有可用新版本后显示；尚未检查、已是最新版或检查失败时不显示，下载完成但尚未安装时仍保留。发布说明按标题、段落和列表排版，文字随说明区宽度自动换行；调整主窗口长宽时，页内说明区自适应排版，长内容可滚动阅读。上述界面细节以包含这些改动的构建为准。
+v2.4 正常启动会后台检查一次，也支持手动检查；确认有可用新版本后，“检查更新”旁显示提示点。尚未确认新版时不显示；已确认新版后的临时网络失败或取消不会清除提示点，下载完成但尚未安装时仍保留。发布说明按标题、段落和列表排版，文字随说明区宽度自动换行；调整主窗口长宽时，页内说明区自适应排版，长内容可滚动阅读。上述界面细节以包含这些改动的构建为准。
 
 保留整个程序文件夹，把它放在自己有写入权限的普通目录。从源码运行时只能检查和下载；更新页里的 ZIP 路径可以选中复制，关闭助手或重新检查会清理未安装的暂存包。升级失败会尝试恢复旧程序。此机制的临时目录替换与回滚已测试，真实发行 EXE 跨版本升级仍待验收。
 
@@ -694,7 +694,7 @@ DeepSeek：检查开放平台是否有可用于 API 的余额、服务是否受�
 
 第一次还没有保存任何账户时，页面先请你选择 DeepSeek 或阿里云，选中后才显示对应输入框。已有阿里云账户的用户会保留原服务，可在管理账户里选择另一家，不会强制切换。
 
-如果完全没有 DeepSeek 选项，先确认是否使用包含本次改动的源码或新构建；当前公开 v2.3 包还没有 DeepSeek。不要因为看了新指南就反复重填旧包里的阿里云字段。
+如果完全没有 DeepSeek 选项，请确认运行的是 v2.4（2.4.0）或更高版本；旧 v2.3 及此前对局日志诊断测试包没有这些入口。先退出旧助手，从本页上方下载并完整解压正式包，不要反复重填旧包里的阿里云字段。
 
 DeepSeek 余额没更新，或者查询失败
 
@@ -780,7 +780,7 @@ DeepSeek：在助手里查 API 账户余额
 复制给自己，或者发给新用户
 
 先打开助手，再回游戏。
-版本边界：双服务选择与 DeepSeek 需要本次源码／新构建；当前公开 v2.3 包还没有 DeepSeek。更新指南不会改变旧 EXE，发行附件以实际 Release 为准。
+当前正式版：v2.4（2.4.0），包含双服务选择、DeepSeek、英文播报和多屏字幕。完整包：https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.4/HotsHelper-2.4.0-Windows-x64.zip；校验与发行说明：https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.4。旧 EXE 不会因更新指南获得这些功能。
 看翻译：自动翻译勾上，频道先选“全部聊天”，等新的英文／韩文消息。
 首次配置：无已存账户时先看到两张卡片、不预选 → 选择一家服务，也可先关闭看原文。
 DeepSeek：打开官方入口 → 登录并创建 API Key → 余额不足时按需充值 → 回助手只填 API Key → 连接并开始使用。
@@ -812,9 +812,9 @@ DeepSeek 的 Key 入口、API 与余额字段按 2026-10-24公开官方文档核
 
 • 阿里云机器翻译控制台（https://mt.console.aliyun.com/service） · 阿里云额度与收费规则（https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview）
 
-• 既有 v2.1 发行记录（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1） · 实际已发布的 Windows x64 完整包（https://github.com/renyouhao/heroes-storm-helper/releases）。本次文档更新没有发布新包，公开 v2.3 仍不包含 DeepSeek。
+• v2.4 正式发行说明（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.4） · Windows x64 完整包（https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.4/HotsHelper-2.4.0-Windows-x64.zip） · SHA256 校验文件（https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.4/HotsHelper-2.4.0-Windows-x64.zip.sha256） · 历史 v2.1 发行记录（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1）。
 
-此前统一源码 51daf8e（并入 69ec5a3）完成 1247 项测试（113 个模块各用独立进程）和 20 项采集探针；这些数字仅属于原验证基线。既有 v2.1 最终回归通过 570 项 Python 测试和 33 项前端测试；验证范围、包校验、提交与 SHA256 以 对应 Release 记录（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1）为准，不代表本次新增双服务已经发布。
+此前统一源码 51daf8e（并入 69ec5a3）完成 1247 项测试（113 个模块各用独立进程）和 20 项采集探针；这些数字仅属于原验证基线。既有 v2.1 最终回归通过 570 项 Python 测试和 33 项前端测试；验证范围、包校验、提交与 SHA256 以 对应 Release 记录（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1）为准，不代表 v2.4 新增功能已全部通过实机验收。
 
 本次修订补齐双服务配置、切换、上下文、费用查询、征召团队和字幕显示器操作；其他游戏功能章节保留既有说明。指南可单文件离线阅读，只有打开官方入口、申请 Key 和实际云翻译需要联网。右上角“导出 PDF”调用打印窗口，选择“另存为 PDF”保存；逐段点评保存在当前浏览器，不会自动发给开发者。</pre></details>
 </section>
