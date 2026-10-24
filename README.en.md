@@ -6,25 +6,116 @@ A Windows companion for Heroes of the Storm: read incoming English and Korean ch
 
 **Source target: v2.1 · Application/package version: 2.1.0 · Configured channel: `stable`.** Downloadable versions, assets and checksums are determined by the actual Release. The application is distributed as **风暴英雄助手** and uses a Chinese interface. Existing credentials, phrasebook data and preferences remain in place; previous theme choices migrate to Soft Lavender.
 
-**New in v2.1:** one React management dialog for preferences, accounts, updates and phrase editing; applied content font size and always-on-top; accurate status/update dots and structured Markdown release notes; local phrase candidates in native `Ctrl+T`; valid-result copying and draft recovery after failure; and merging the same heroic talent/CD overlay into one hit target.
-
-**Introduced in v2.0:** the React + WebView2 desktop, a single Soft Lavender theme and purple hexagonal swirl icon, the existing option-B overlay layout and controls, unified 100-MiB diagnostic recording/replay, and all model-decoder branches for the supported game build.
-
 **Supported validation target: Windows x64, Chinese game client build 98348.** This English introduction does not mean the English game client has been validated. Game updates require another compatibility check.
-
-Build 98348 supports **all 16 model-decoder branches, 0–15**, with a verified compute-code fingerprint for each. Branches 2, 5, 8, 11 and 14 additionally require a runtime salt. Reads recheck the selector, table root, encoded slot, used keys, and salt pointer/value before trusting the result. All algorithms passed synthetic reads and independent native-instruction comparisons; this does not mean all 16 branches were exercised on affected players’ machines or that newer game builds are supported.
 
 ## Download
 
-**[View published Windows x64 ZIPs](https://github.com/renyouhao/heroes-storm-helper/releases)** · [Target v2.1 release entry](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1). The v2.1 asset name is `HotsHelper-2.1.0-Windows-x64.zip`; available downloads and SHA256 values are determined by the actual Release.
+**[Download v2.1 for Windows x64](https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.1/HotsHelper-2.1.0-Windows-x64.zip)** · [Release notes and SHA256](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1) · [All versions](https://github.com/renyouhao/heroes-storm-helper/releases)
 
 Download `HotsHelper-2.1.0-Windows-x64.zip`, extract the entire archive, and run `风暴英雄助手.exe`. The directory and executable inside the ZIP retain their Chinese names. Keep the `_internal` folder alongside the executable. Python and separate SDK installation are not required for the packaged application.
 
 GitHub's **Source code (zip/tar.gz)** downloads contain the source rather than the ready-to-run Windows application. When switching packages, exit the old helper before launching the new copy.
 
-Version note: `v1.1` remains a source-preparation tag; its Release was never published. During release preparation, GitHub stripped Chinese characters from the asset name. The tag is preserved, and the asset naming contract is corrected in `v1.2`, using an ASCII ZIP name shared by the publisher and updater. **Existing local 1.1.0 packages recognize only Chinese ZIP names, so download v2.1 manually using the link above.** Your local user data stays in place.
+## Current interface
 
-## Features
+The screenshots below show the current v2.1 React interface. They use isolated offline sample data and do not demonstrate live game capture, successful cloud translation, or completed in-game actions. The application interface is Chinese.
+
+<img src="docs/images/v2.1/01-chat.png" width="100%" alt="Current v2.1 chat page with offline sample messages, Chinese reply input, language choices, and translation preview">
+
+*v2.1 current React components, isolated offline sample data; not live gameplay/cloud results.*
+
+Read incoming chat above and write Chinese in the reply area below. Choose English or Korean, then translate and copy. Paste and send the result yourself in the game. If translation fails, the reply area keeps your input for correction or retry.
+
+## Getting started
+
+1. Download and extract the complete Windows package above. Borderless windowed game mode is recommended.
+2. Enable **Aliyun Machine Translation General Edition** on your own account. Create a RAM user and AccessKey with the `alimt:TranslateGeneral` permission.
+3. Open **配置翻译服务** (“Configure translation service”) or **偏好设置 → 连接 → 配置账户** (Preferences → Connection → Configure account), enter your AccessKey ID and Secret, and click **连接并开始使用** (“Connect and start using”). The helper verifies identity, translates `你好` as a test, and saves the key with Windows DPAPI only after success.
+4. Start the game. Select the desired chat channels in the helper and check incoming translations. For your first reply, press `Ctrl+T`, enter Chinese, choose English or Korean, and press Enter to translate and copy. Return to the game, paste the result, check it, and send it yourself.
+
+**Account setup — 个人翻译账户.** The image locates the connection form; its fields are deliberately blank and disabled in offline demo mode. Enter your own key only in your normal local application. Closing the dialog cancels unfinished operations; already completed saves or deletions keep their result.
+
+<img src="docs/images/v2.1/02-account.png" width="100%" alt="Personal translation account dialog with empty AccessKey ID and Secret fields, disabled in offline demo mode">
+
+*v2.1 current React components, isolated offline sample data; not live gameplay/cloud results.* No key is entered or shown.
+
+**Native quick input — 快捷中文输入.** `Ctrl+T` opens a separate native Tk input bar. The diagram below explains the flow; it is not a screenshot of that window or the game.
+
+<img src="docs/images/v2.1/quick-input-flow.svg" width="100%" alt="Native quick-input flow: Ctrl+T opens input; type Chinese and choose English or Korean; Enter translates and copies; return to the game to paste and send manually">
+
+*Workflow diagram, not a gameplay or cloud-result screenshot.* If you have saved favorites, a few appear when the input is empty; entering Chinese finds matching local phrases. Press Tab to enter the candidate list, use arrow keys there, then Tab again or click to fill the text. Filling does not translate or send it. Enter translates and copies; `Ctrl+Tab` changes language and Esc closes the bar. Candidate shortcuts leave IME composition alone. A reviewed, exact, unambiguous saved translation for the current language can be reused; other input still needs translation.
+
+You can skip cloud configuration and use original-text display, loot assistance, and key repetition. Cloud translation requires an internet connection and is billed to your own Aliyun account. Identity verification alone does not establish that translation service access, permissions, and billing are ready; setup also runs a translation test.
+
+There is **no local monthly usage ledger, monthly budget confirmation, or local monthly character cap**. Request queues, short-term automatic-translation rate limits, caching, deduplication, and pause controls remain in place.
+
+To check remaining quota, usage, or charges, click **查询剩余额度** (“Check remaining quota”) under **偏好设置 → 连接** (Preferences → Connection). This opens the [Aliyun Machine Translation console](https://mt.console.aliyun.com/service) in your default browser. Log in there to inspect your account; the helper provides a link and does not query account usage automatically.
+
+For detailed setup instructions and troubleshooting, see the [Chinese getting-started guide](artifacts/风暴英雄助手新手指南.html). Download the HTML file to open it offline; the Windows package also includes it.
+
+## Feature previews
+
+Expand a feature to see its current controls. All screenshots use the same isolated offline demonstration; shown states are examples rather than evidence of live game or cloud success.
+
+<details>
+<summary>常用短句 — saved phrases and favorites</summary>
+
+Use **新增短句** to add an expression, the star to favorite it, and **使用短句** to fill the reply area. Candidates in native `Ctrl+T` come from your own saved phrasebook. The favorites and reviewed statuses pictured here are sample data; the bundled seed phrases start unfavorited and unreviewed. Mark a translation as reviewed only after checking it; editing its text clears that status.
+
+<img src="docs/images/v2.1/03-phrases.png" width="100%" alt="Current phrasebook page showing local phrase cards, favorites, and add, edit, and use controls">
+
+*v2.1 current React components, isolated offline sample data; not live gameplay/cloud results.*
+
+</details>
+
+<details>
+<summary>偏好设置 — readable text and window behavior</summary>
+
+Under **外观**, **内容字号** changes the main content text and **主窗口保持置顶** applies to the visible desktop window. Preferences reuse one in-page management dialog. Main-window opacity and position locking remain available only in `-Legacy`.
+
+<img src="docs/images/v2.1/04-preferences.png" width="100%" alt="Current preferences dialog on the Appearance tab with content font size and always-on-top controls">
+
+*v2.1 current React components, isolated offline sample data; not live gameplay/cloud results.*
+
+</details>
+
+<details>
+<summary>检查更新 — release notes and explicit update actions</summary>
+
+Release notes use headings and lists that wrap to the available width. Opening this page alone does not check online: click **检查更新** to check, then choose the available download/install action. The sidebar dot represents a confirmed newer release and remains while installation is pending.
+
+<img src="docs/images/v2.1/05-updates.png" width="100%" alt="Current update dialog before a check, showing the current version, a release-notes placeholder, and check, download, and restart controls">
+
+*v2.1 current React components, isolated offline sample data; not live gameplay/cloud results.* The image shows the idle state before a check, not a real online check or download.
+
+</details>
+
+<details>
+<summary>双击播报 — Tab callouts with their own status</summary>
+
+**开启 Tab 双击播报** is off for a new user. After enabling it, open Tab in the game and double-click a supported item. This page shows the latest outcome and explains rejected attempts. Cooldown callouts require a verified positive allied heroic display; broader live validation is still pending as described below.
+
+<img src="docs/images/v2.1/06-broadcast.png" width="100%" alt="Current double-click callout page with enable switch, usage instructions, and status feedback">
+
+*v2.1 current React components, isolated offline sample data; not live gameplay/cloud results.* No message is sent to a game by this demonstration.
+
+</details>
+
+<details>
+<summary>动作连按 — save a configuration, then start in the game</summary>
+
+Choose `S` or alternating `Y+S`, set the interval, and click **保存配置**. Return to the game and use `F8` to start/stop with the default shortcut; saving alone does not start repetition. **取消连按** ends the current action. Open chat boxes can receive these literal key presses.
+
+<img src="docs/images/v2.1/07-repeat.png" width="100%" alt="Current key-repetition page with mode and interval selection, 保存配置, 取消连按, and action status">
+
+*v2.1 current React components, isolated offline sample data; not live gameplay/cloud results.* No game input is generated by this demonstration.
+
+</details>
+
+## Feature reference
+
+<details>
+<summary>Translation and optional helper capabilities</summary>
 
 - **Incoming chat translation.** Receive team, party, whisper, and all-player chat, with separate lobby and match capture. English and Korean messages can be translated into Chinese. Match-source filtering and bounded rediscovery help avoid staying attached to an old match.
 - **Quick replies with `Ctrl+T`.** Enter Chinese, choose English or Korean, translate, and copy the result. Empty input shows a few favorite phrases; typing Chinese finds matching local candidates. Press Tab to enter the candidate list, use arrow keys there, then Tab or a mouse click to fill the text. Enter translates and copies; you paste/send it yourself in the game.
@@ -38,9 +129,14 @@ Version note: `v1.1` remains a source-preparation tag; its Release was never pub
 - **Manual update checks.** Check the official repository's stable releases, download and verify the package, then choose to restart and update. The updater supports `HotsHelper-<version>-Windows-x64.zip` assets. There is no automatic startup update check or downgrade; v2.1 and application version 2.1.0 represent the same version. Older local 1.1.0 packages require a manual download because their updater only recognizes Chinese asset names.
 - **Emote handling and optional diagnostics.** Complete image-emote tags display as `[表情]`; emote-only messages skip cloud translation. Diagnostics are off by default and can be enabled for troubleshooting.
 
+</details>
+
 ## Interface and navigation
 
-**The v2.1 build uses the desktop interface below.** Keep the complete Windows ZIP contents; source changes do not update an older executable.
+<details>
+<summary>Desktop architecture, behavior, and native overlay previews</summary>
+
+**The v2.1 build uses the desktop interface shown above.** Keep the complete Windows ZIP contents; source changes do not update an older executable.
 
 The six main pages, preferences, update checks, personal-key configuration and phrase editing use **React + TypeScript + CSS**, loading bundled local files through **pywebview + Microsoft Edge WebView2** without a development server or browser tab. Management actions share one in-page dialog; repeated clicks reuse it. Python handles capture, translation, persistence and game input. In-game subtitles and the `Ctrl+T` input bar retain native Tk windows, and `-Legacy` keeps the original Tk interface. These new interactions require a build containing the changes.
 
@@ -48,7 +144,7 @@ The main window follows the selected light-purple prototype, with a lavender sid
 
 Under **偏好设置 → 外观** (Preferences → Appearance), content font size applies to React message/input text, and always-on-top applies to the visible WebView window. Standard and compact layouts are available. Main-window opacity and position locking currently remain available only in `-Legacy`. Opening preferences does not open quick input; disabling its hotkey leaves the quick-input button available.
 
-Chat rows separate the nickname, channel, time, message, and translation. Circular avatars contain nickname text as placeholders; they do not identify the player's actual hero. Chinese input and translation preview appear side by side, with English/Korean pill choices for the target language. Translate, copy the result, and paste/send it yourself in the game. The separate `Ctrl+T` input remains available.
+Chat rows separate the nickname, channel, time, message, and translation. Circular avatars use local decorative illustrations; they do not identify the player's actual hero. Chinese input and translation preview appear side by side, with English/Korean pill choices for the target language. Translate, copy the result, and paste/send it yourself in the game. The separate `Ctrl+T` input remains available.
 
 Manual translation errors stay beside the reply area and retain the draft for correction or retry. Copy uses the backend's current valid result. Helper pages distinguish waiting, running and stopped states and retain the latest outcome. Release notes have headings, paragraphs and lists that wrap to the available width. Opening update management alone does not check online; the user explicitly starts a check. Its sidebar dot reflects a confirmed newer release and remains while installation is pending.
 
@@ -69,24 +165,14 @@ You can also double-click `打开悬浮窗对比.cmd` in the repository root: it
 
 `-方案` accepts `A` or `B`; `-状态` accepts `subtitle`, `panel` or `input`, defaulting to `B` / `input`. Both previews use Tk and the existing project virtual environment, without npm, builds or network access. They do not read the game, credentials or preferences, call cloud services, or register a global `Ctrl+T`; the shortcut works only inside the preview. Select a preset Chinese phrase from the dropdown and click “填入输入条” to try its offline English/Korean results; other input prompts you to select a demo phrase. Copy and translate/copy actions replace the clipboard contents. The preview compares appearance and interaction; it does not establish in-game display, focus or input behavior.
 
-## Getting started
-
-1. Download and extract the complete Windows package above. Borderless windowed game mode is recommended.
-2. Enable **Aliyun Machine Translation General Edition** on your own account. Create a RAM user and AccessKey with the `alimt:TranslateGeneral` permission.
-3. Open **配置翻译服务** (“Configure translation service”) or **偏好设置 → 连接 → 配置账户** (Preferences → Connection → Configure account), enter your AccessKey ID and Secret, and click **连接并开始使用** (“Connect and start using”). The helper verifies identity, translates `你好` as a test, and saves the key with Windows DPAPI only after success.
-4. Start the game. Select the desired chat channels in the helper and check incoming translations. For outgoing replies, press `Ctrl+T`, translate your text, copy it, and paste/send it in the game.
-
-You can skip cloud configuration and use original-text display, loot assistance, and key repetition. Cloud translation requires an internet connection and is billed to your own Aliyun account. Identity verification alone does not establish that translation service access, permissions, and billing are ready; setup also runs a translation test.
-
-There is **no local monthly usage ledger, monthly budget confirmation, or local monthly character cap**. Request queues, short-term automatic-translation rate limits, caching, deduplication, and pause controls remain in place.
-
-To check remaining quota, usage, or charges, click **查询剩余额度** (“Check remaining quota”) under **偏好设置 → 连接** (Preferences → Connection). This opens the [Aliyun Machine Translation console](https://mt.console.aliyun.com/service) in your default browser. Log in there to inspect your account; the helper provides a link and does not query account usage automatically.
-
-For detailed setup instructions and troubleshooting, see the [Chinese getting-started guide](artifacts/风暴英雄助手新手指南.html). Download the HTML file to open it offline; the Windows package also includes it.
+</details>
 
 ## Using the optional game helpers
 
-**Key repetition:** choose a mode and interval, save/apply it, return to the game, and press `F8`. Saving settings ends the current action rather than starting a new one. Esc, Enter, or leaving the game ends repetition; it does not automatically resume when you return. These are literal key presses, so an open chat box can receive `S` or `Y`. Actual timing depends on Windows scheduling and the game's response.
+<details>
+<summary>Detailed operating steps, safeguards, and live-validation limits</summary>
+
+**Key repetition:** choose a mode and interval, click **保存配置** ("Save configuration"), return to the game, and press `F8`. Saving settings ends the current action rather than starting a new one. Esc, Enter, or leaving the game ends repetition; it does not automatically resume when you return. These are literal key presses, so an open chat box can receive `S` or `Y`. Actual timing depends on Windows scheduling and the game's response.
 
 **Favorite talents:** first mark your preferred talents in the game and keep its quick-favorite shortcut set to `Ctrl` + grave accent (the key below Esc). Enable **天赋辅助** in the helper. It reads the current hero's actual talent tiers, including special unlock levels, and defers while another helper owns input. Both the feature and its saved preference start disabled for a new user.
 
@@ -104,6 +190,8 @@ Chat boxes, menus, loot actions, repetition, quick input, and update preparation
 
 The lobby/match label at the bottom of the main window describes the chat capture source, not the callout result. Callout status appears on its own page. Leaving a match invalidates an old pending callout even if Tab remained visible; open the panel and double-click again in the new match.
 
+</details>
+
 ## Local data and privacy
 
 User data lives in `%LOCALAPPDATA%\HotsChatHelper`. Existing preferences, phrasebook data, and encrypted credentials retain this location across upgrades.
@@ -115,6 +203,9 @@ User data lives in `%LOCALAPPDATA%\HotsChatHelper`. Existing preferences, phrase
 - **Diagnostics are off by default:** no writer thread or log file is created until enabled. The single switch records chat originals, translations and replay inputs/states for translation, automatic talents and double-click broadcasts. There is no separate detailed mode or ten-minute expiry. Logs default to a total cap of 100 MiB, rotating the oldest files and retaining up to seven days. Configured full keys/secrets are recursively redacted; review chat privacy before sharing an export.
 
 In **偏好设置 → 诊断** (Preferences → Diagnostics), **导出诊断日志** runs in the background and displays the completed ZIP path for copying. Inspect the file and share it yourself; the helper does not upload it automatically.
+
+<details>
+<summary>Troubleshooting recordings, replay fields, and decoder validation</summary>
 
 For automatic talents and Tab double-click broadcasts failing together, use a new build containing replay recording, keep the original client language/resolution/scaling, and enable diagnostics before entering a normal match. Enable both helpers, note when an automatic selection fails, double-click one selected talent and one statistic in Tab, then export the ZIP. For translation failures, reproduce incoming chat or manual translation while recording. Include approximate times, game build, match/window mode, Windows scaling and monitor count. An existing EXE does not gain these events from a source update.
 
@@ -135,7 +226,12 @@ Use `--component reader` for decoder guards, pointer arithmetic, and quest/coold
 Build 98348 supports model-decoder branches 0–15, with a compute-code fingerprint check for every branch. Branches 2, 5, 8, 11 and 14 require a valid runtime salt; missing values are never replaced with zero. A `decode_pointer` frame records encoded words, two ordered key reads, the salt used when required, and the computed pointer. Its `computed` outcome validates arithmetic only; later model validation can still reject a changed selector, root, slot, key or salt pointer/value. All 16 algorithms passed synthetic reads and 303,810 independent native-instruction comparisons. These are offline results, not live acceptance of every branch on affected players’ machines; English/2K and match-specific behavior still need live validation. A selector is not a fixed user property, and current observations do not establish whether it changes on each match or restart. Historical expected rejections may differ after new codec support; old logs without encoded words, keys or required salt cannot reconstruct those computations.
 - Diagnostic exports contain logs and a safe summary, exclude credential files, databases, and preferences, and are not automatically uploaded. Exporting does not call the cloud translation service.
 
+</details>
+
 ## Run and develop from source
+
+<details>
+<summary>Source setup, tests, packaging, and output cleanup</summary>
 
 Use Windows x64, **Python 3.10+**, **Node.js LTS with npm**, and WebView2 Runtime. Packaged builds use Python 3.12; Node.js is needed only for source setup and frontend builds. From the repository root in PowerShell:
 
@@ -183,7 +279,12 @@ Packaging runs `--check-installation` for native operations and seed data, `--ch
 
 Old packages are cleaned up only after the new package passes its installation check, every ZIP entry matches the manifest's size and SHA256, and `发行校验.json` is written successfully. For `releases/` and its release subdirectories, the current ZIP, manifest, and build directory are retained; only recognized older packages and build directories are removed. Unrelated files and source directories are preserved. A failed build or verification keeps old packages. An external `--output` only cleans recognized products inside that directory, never its parent; directories containing symbolic links or junctions are skipped.
 
+</details>
+
 ## Validation scope
+
+<details>
+<summary>v2.1 regression results and scenarios still requiring manual validation</summary>
 
 The final v2.1 regression run passed **570 Python tests and 33 frontend tests**. For validation scope, artifact checks, build commit and SHA256, see the [v2.1 Release record](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1). The earlier unified source at commit `51daf8e` (merged as `69ec5a3`) passed **1,247 tests across 113 isolated test modules, plus 20 acquisition probes**. These figures describe the earlier verification baseline, not the new v1.2 test pass. See the [v1.2 release](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v1.2) for its historical test counts, artifact checks, source commit, and SHA256. Source-test results alone do not establish that every in-game scenario or update path has been exercised.
 
@@ -197,3 +298,20 @@ Local checks target Chinese client build 98348. Talent and statistics callouts h
 Talent readback confirms that a tier became selected; it does not independently verify the current favorite target. Polling intervals are scheduling targets, not same-frame guarantees. Unknown game builds, identities, or modes do not authorize automatic talent selection or callouts. Spectator and replay use have not been validated.
 
 For fuller behavior notes, troubleshooting steps, and historical validation details, use the [Chinese README](README.md) and [Chinese HTML guide](artifacts/风暴英雄助手新手指南.html).
+
+</details>
+
+## Version notes and compatibility
+
+<details>
+<summary>v2.1 changes, earlier releases, and supported model decoders</summary>
+
+**New in v2.1:** one React management dialog for preferences, accounts, updates and phrase editing; applied content font size and always-on-top; accurate status/update dots and structured Markdown release notes; local phrase candidates in native `Ctrl+T`; valid-result copying and draft recovery after failure; and merging the same heroic talent/CD overlay into one hit target.
+
+**Introduced in v2.0:** the React + WebView2 desktop, a single Soft Lavender theme and purple hexagonal swirl icon, the existing option-B overlay layout and controls, unified 100-MiB diagnostic recording/replay, and all model-decoder branches for the supported game build.
+
+Build 98348 supports **all 16 model-decoder branches, 0–15**, with a verified compute-code fingerprint for each. Branches 2, 5, 8, 11 and 14 additionally require a runtime salt. Reads recheck the selector, table root, encoded slot, used keys, and salt pointer/value before trusting the result. All algorithms passed synthetic reads and independent native-instruction comparisons; this does not mean all 16 branches were exercised on affected players’ machines or that newer game builds are supported.
+
+Version note: `v1.1` remains a source-preparation tag; its Release was never published. During release preparation, GitHub stripped Chinese characters from the asset name. The tag is preserved, and the asset naming contract is corrected in `v1.2`, using an ASCII ZIP name shared by the publisher and updater. **Existing local 1.1.0 packages recognize only Chinese ZIP names, so download v2.1 manually using the link above.** Your local user data stays in place.
+
+</details>
