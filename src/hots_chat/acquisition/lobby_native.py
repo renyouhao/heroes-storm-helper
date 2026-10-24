@@ -8,11 +8,35 @@ from collections import OrderedDict
 from datetime import datetime
 import struct
 import time
+from itertools import count
 
 from .discovery import DiscoveryCancelled
 from .history import HistoryInvalid, PollResult
+from .lobby_draft import LOBBY_CONVERSATION_VTABLE_RVA
 from .memory import StreamingMatcher
 from .parsing import ParsedChat
+
+
+NATIVE_LOBBY_SCHEMA = 2
+NATIVE_COUNT_FIELDS = (
+    'native_node_checks', 'native_message_count', 'native_system_count',
+    'native_party_count', 'native_whisper_count', 'native_unsupported_count',
+    'native_unreadable_count', 'native_invalid_count', 'native_before_start_count',
+    'native_dedup_count', 'native_parsed_count',
+    'native_draft_count', 'native_draft_rejected_count',
+)
+_SCAN_IDS = count(1)
+NATIVE_REJECTION_REASONS = frozenset((
+    'native_invalid_read', 'native_read_unavailable', 'native_read_budget',
+    'native_invalid_node', 'native_invalid_links', 'native_invalid_record',
+    'native_history_changed', 'native_no_supported_conversation', 'native_validation_failed',
+    'native_draft_context_changed',
+))
+
+
+def native_failure_reason(failure):
+    reason = getattr(failure, 'reason', '')
+    return reason if reason in NATIVE_REJECTION_REASONS else 'native_validation_failed'
 
 
 def valid_pointer(value):
@@ -21,10 +45,10 @@ def valid_pointer(value):
 
 def read_exact(memory, address, count):
     if not 0x10000 <= address < 0x7fffffff0000 or not 0 < count <= 4096:
-        raise HistoryInvalid('Invalid native chat read')
+        raise HistoryInvalid('Invalid native chat read', reason='native_invalid_read')
     data = memory.read(address, count)
     if len(data) != count:
-        raise HistoryInvalid('Native chat data is no longer readable')
+        raise HistoryInvalid('Native chat data is no longer readable', reason='native_read_unavailable')
     return data
 
 
@@ -62,6 +86,8 @@ class LobbyLayout:
     def party_table(self):return self.image_base + 0x28e9720
     @property
     def whisper_table(self):return self.image_base + 0x28f01c0
+    @property
+    def lobby_table(self):return self.image_base + LOBBY_CONVERSATION_VTABLE_RVA
 
 
 @dataclass(frozen=True)
@@ -81,12 +107,16 @@ def native_filetime(stamp):
 class LobbyReader:
     def __init__(self, memory, root, image_base, metadata_factory=None,
                  include_history=False, max_nodes=512, byte_budget=262144, cursor=None,
-                 after_filetime=None, drain_nodes=(), record_identities=()):
+                 after_filetime=None, drain_nodes=(), record_identities=(), draft_context=None):
         if not valid_pointer(root) or not valid_pointer(image_base):
             raise HistoryInvalid('Invalid native lobby history location')
         self.memory, self.root = memory, root
         self.layout = LobbyLayout(image_base)
         self.metadata_factory, self.metadata = metadata_factory, None
+        self.draft_context = draft_context
+        self._draft_snapshot = None
+        self._draft_failed = False
+        self._record_changed = False
         self.include_history = include_history
         self.capture_after_filetime = after_filetime
         self.after_filetime = after_filetime if cursor is None else None
@@ -101,6 +131,16 @@ class LobbyReader:
         self.latest_filetime = native_filetime(self.last_stamp)
         self.inspected_cursor = None
         self.inspected_nodes = set()
+        self.total_reads = self.total_read_bytes = self.requested_bytes = 0
+        self._diagnostic_counts = dict.fromkeys(NATIVE_COUNT_FIELDS, 0)
+        self.last_rejection_reason = ''
+
+    def diagnostic_snapshot(self):
+        """Cumulative checks, including repeats; never addresses or chat text."""
+        return dict(self._diagnostic_counts, native_lobby_schema=NATIVE_LOBBY_SCHEMA,
+                    read_calls=self.total_reads, read_bytes=self.total_read_bytes,
+                    requested_bytes=self.requested_bytes,
+                    last_rejection_reason=self.last_rejection_reason)
 
     @property
     def cursor(self):
@@ -125,9 +165,17 @@ class LobbyReader:
 
     def read(self, address, count):
         if count <= 0 or self.poll_bytes + count > self.byte_budget:
-            raise HistoryInvalid('Native lobby polling budget exceeded')
+            raise HistoryInvalid('Native lobby polling budget exceeded', reason='native_read_budget')
         self.poll_bytes += count
-        return read_exact(self.memory, address, count)
+        if not 0x10000 <= address < 0x7fffffff0000 or not 0 < count <= 4096:
+            raise HistoryInvalid('Invalid native chat read', reason='native_invalid_read')
+        self.total_reads += 1
+        self.requested_bytes += count
+        data = self.memory.read(address, count)
+        self.total_read_bytes += len(data)
+        if len(data) != count:
+            raise HistoryInvalid('Native chat data is no longer readable', reason='native_read_unavailable')
+        return data
 
     def _metadata(self):
         if self.metadata is None:
@@ -136,47 +184,112 @@ class LobbyReader:
                 from .lobby_metadata import LobbyMetadata
                 factory = LobbyMetadata
             self.metadata = factory(self, self.layout.image_base)
+            if hasattr(self.metadata, 'draft_context'):
+                self.metadata.draft_context = self.draft_context
             if hasattr(self.metadata, 'begin_poll'):
                 self.metadata.begin_poll()
         return self.metadata
 
+    def _draft_conversation(self):
+        context = self.draft_context
+        current = context.current if context is not None else None
+        if current is None:
+            self._diagnostic_counts['native_draft_rejected_count'] += 1
+            return None
+        if self._draft_snapshot is None:
+            self._draft_snapshot = current
+        if self._draft_snapshot != current or not context.verify(current, memory=self):
+            self._draft_failed = True
+            self.last_rejection_reason = 'native_draft_context_changed'
+            self._diagnostic_counts['native_draft_rejected_count'] += 1
+            return None
+        return current
+
     def entry(self, node, parse=True, classify=False):
+        self._diagnostic_counts['native_node_checks'] += 1
+        try:
+            return self._entry(node, parse, classify)
+        except (HistoryInvalid, OSError, ValueError, struct.error) as failure:
+            self._diagnostic_counts['native_invalid_count'] += 1
+            self.last_rejection_reason = native_failure_reason(failure)
+            raise
+
+    def _entry(self, node, parse, classify):
         if not valid_pointer(node):
-            raise HistoryInvalid('Invalid native chat node')
-        table, following, kind = struct.unpack('<3Q', self.read(node - 8, 24))
+            raise HistoryInvalid('Invalid native chat node', reason='native_invalid_node')
+        header = self.read(node - 8, 24)
+        table, following, kind = struct.unpack('<3Q', header)
         if not valid_pointer(following & ~1) or following & 6:
-            raise HistoryInvalid('Invalid native history link')
+            raise HistoryInvalid('Invalid native history link', reason='native_invalid_links')
         if (table, kind) not in ((self.layout.message_table, 2), (self.layout.system_table, 3)):
-            raise HistoryInvalid('Unsupported native history record')
+            raise HistoryInvalid('Unsupported native history record', reason='native_invalid_record')
         parsed, supported = None, False
         if kind == 3:
+            self._diagnostic_counts['native_system_count'] += 1
             # System rows share the list, but their contents are not collected.
             stamp = (table, kind, self.read(node + 16, 16))
         else:
+            self._diagnostic_counts['native_message_count'] += 1
             payload = self.read(node + 16, 40)
             conversation, sender = struct.unpack_from('<2Q', payload)
             filetime = struct.unpack_from('<Q', payload, 32)[0]
             conversation_table = None
-            if (parse or classify) and valid_pointer(conversation):
-                try:
-                    conversation_table = struct.unpack('<Q', self.read(conversation, 8))[0]
-                except HistoryInvalid:
-                    pass  # An expired conversation must not block a newer live one.
+            draft = None
+            if parse or classify:
+                if valid_pointer(conversation):
+                    try:
+                        conversation_table = struct.unpack('<Q', self.read(conversation, 8))[0]
+                    except HistoryInvalid:
+                        pass  # An expired conversation must not block a newer live one.
+                if conversation_table is None:
+                    classification = 'native_unreadable_count'
+                elif conversation_table == self.layout.party_table:
+                    classification = 'native_party_count'
+                elif conversation_table == self.layout.whisper_table:
+                    classification = 'native_whisper_count'
+                elif conversation_table == self.layout.lobby_table:
+                    classification = 'native_draft_count'
+                    draft = self._draft_conversation()
+                else:
+                    classification = 'native_unsupported_count'
+                self._diagnostic_counts[classification] += 1
                 supported = conversation_table in (self.layout.party_table, self.layout.whisper_table)
+                supported = supported or draft is not None
             stamp = (table, kind, conversation, sender, filetime, payload[16:32])
+            # This class also serves ordinary lobby and Draft All. Only new
+            # records after the verified room boundary can be called draft.
+            boundary = self.after_filetime
+            if draft is not None:
+                boundary = max(boundary or 0, draft.after_filetime)
+            if supported and parse:
+                if (node, stamp) in self._record_identities:
+                    self._diagnostic_counts['native_dedup_count'] += 1
+                elif boundary is not None and filetime <= boundary:
+                    self._diagnostic_counts['native_before_start_count'] += 1
             if (supported and parse and (node, stamp) not in self._record_identities
-                    and (self.after_filetime is None or filetime > self.after_filetime)):
+                    and (boundary is None or filetime > boundary)):
                 if not 125911584000000000 <= filetime <= 157469184000000000:
                     raise HistoryInvalid('Invalid native chat timestamp')
                 text = read_nstring(self, node + 32)
-                channel = '队伍' if conversation_table == self.layout.party_table else '密语'
+                channel = ('征召团队' if draft is not None else
+                           '队伍' if conversation_table == self.layout.party_table else '密语')
                 try:
                     metadata = self._metadata().resolve(conversation, sender)
                 except HistoryInvalid:
                     metadata = None
+                if draft is not None and (self.read(node - 8, 24) != header
+                        or self.read(node + 16, 40) != payload):
+                    # A stable list link does not prove that the record was not
+                    # reused while its body and presence metadata were read.
+                    self._record_changed = True
+                    self._diagnostic_counts['native_invalid_count'] += 1
+                    self.last_rejection_reason = 'native_history_changed'
+                    return dict(node=node, following=following, stamp=stamp,
+                                message=None, supported=supported)
                 name = metadata[1] if metadata and metadata[0] == channel and metadata[1] else '发送者未知'
                 timestamp = datetime.fromtimestamp((filetime - 116444736000000000) / 10000000).strftime('%H:%M:%S')
                 parsed = ParsedChat(timestamp, channel, name, text)
+                self._diagnostic_counts['native_parsed_count'] += 1
         return dict(node=node, following=following, stamp=stamp, message=parsed, supported=supported)
 
     def _walk(self, start, parse=True, forbidden=None, classify=False, batch_size=None, seen_before=()):
@@ -214,6 +327,8 @@ class LobbyReader:
         raise HistoryInvalid('Native history exceeds the safety limit')
 
     def inspect_steps(self):
+        self._draft_snapshot, self._draft_failed = None, False
+        self._record_changed = False
         start = self.root
         self.latest_filetime = 0
         self.inspected_nodes.clear()
@@ -231,10 +346,14 @@ class LobbyReader:
             if root != start:
                 start = root
                 continue
-            if supported and self._fence(first, last):
-                self.inspected_cursor = last['node'], last['stamp']
-                return root
+            if supported:
+                if self._fence(first, last):
+                    self.inspected_cursor = last['node'], last['stamp']
+                    return root
+            else:
+                self.last_rejection_reason = 'native_no_supported_conversation'
             return None
+        self.last_rejection_reason = 'native_history_changed'
         return None
 
     def inspect(self):
@@ -246,8 +365,19 @@ class LobbyReader:
             except StopIteration as completed:return completed.value
 
     def _fence(self, first, last):
-        return (struct.unpack('<Q', self.read(first['node'], 8))[0] == first['following']
-                and struct.unpack('<Q', self.read(last['node'], 8))[0] == last['following'])
+        if self._record_changed:
+            self.last_rejection_reason = 'native_history_changed'
+            return False
+        if (self._draft_failed or (self._draft_snapshot is not None
+                and (self.draft_context is None or self.draft_context.current != self._draft_snapshot
+                     or not self.draft_context.verify(self._draft_snapshot, memory=self)))):
+            self.last_rejection_reason = 'native_draft_context_changed'
+            self._diagnostic_counts['native_draft_rejected_count'] += 1
+            return False
+        stable = (struct.unpack('<Q', self.read(first['node'], 8))[0] == first['following']
+                  and struct.unpack('<Q', self.read(last['node'], 8))[0] == last['following'])
+        if not stable:self.last_rejection_reason = 'native_history_changed'
+        return stable
 
     def _baseline_steps(self, gap):
         collect = self.include_history and (not gap or self.capture_after_filetime is not None)
@@ -308,6 +438,10 @@ class LobbyReader:
 
     def poll(self):
         self.poll_bytes = 0
+        # A suspended baseline retains its context until its commit fence.
+        if self._baseline_iterator is None:
+            self._draft_snapshot, self._draft_failed = None, False
+            self._record_changed = False
         if self.metadata is not None and hasattr(self.metadata, 'begin_poll'):
             self.metadata.begin_poll()
         if self._baseline_iterator is not None or not self.initialized:
@@ -340,8 +474,9 @@ class LobbyReader:
 class LobbyDiscovery:
     """Incrementally search the observed native message class, never heap text copies."""
     def __init__(self, memory, cancelled, image_base, ignore_snapshots=None,
-                 preferred_roots=(), regions=None):
+                 preferred_roots=(), regions=None, draft_context=None):
         self.memory, self.cancelled, self.image_base = memory, cancelled, image_base
+        self.draft_context = draft_context
         self.finished = False
         self.regions = iter(memory.regions() if regions is None else regions)
         self.ignore_snapshots = ignore_snapshots if ignore_snapshots is not None else {}
@@ -353,6 +488,43 @@ class LobbyDiscovery:
         self.validator = self.inspector = None
         self.matcher = StreamingMatcher(struct.pack('<Q', LobbyLayout(image_base).message_table))
         self.scanned_bytes = 0
+        self.scan_id = next(_SCAN_IDS)
+        self.started_at = time.perf_counter()
+        self.scan_region_count = self.requested_bytes = self.short_read_count = self.read_calls = 0
+        self._diagnostic_counts = dict.fromkeys(NATIVE_COUNT_FIELDS, 0)
+        self._inspection_reads = self._inspection_bytes = self._inspection_requested = 0
+        self.candidate_count = self.valid_snapshot_count = self.invalid_candidate_count = 0
+        self.ignored_snapshot_count = 0
+        self.last_rejection_reason = ''
+
+    def diagnostic_snapshot(self):
+        counts = dict(self._diagnostic_counts)
+        current = self.inspector.diagnostic_snapshot() if self.inspector is not None else {}
+        for key in NATIVE_COUNT_FIELDS:
+            counts[key] += current.get(key, 0)
+        return dict(counts, native_lobby_schema=NATIVE_LOBBY_SCHEMA, scan_id=self.scan_id,
+            candidate_count=self.candidate_count, valid_snapshot_count=self.valid_snapshot_count,
+            invalid_candidate_count=self.invalid_candidate_count, ignored_snapshot_count=self.ignored_snapshot_count,
+            scan_region_count=self.scan_region_count, requested_bytes=self.requested_bytes + self._inspection_requested + current.get('requested_bytes', 0),
+            short_read_count=self.short_read_count, read_calls=self.read_calls + self._inspection_reads + current.get('read_calls', 0),
+            read_bytes=self.scanned_bytes + self._inspection_bytes + current.get('read_bytes', 0),
+            elapsed_ms=(time.perf_counter() - self.started_at) * 1000,
+            last_rejection_reason=self.last_rejection_reason or current.get('last_rejection_reason', ''))
+
+    def _new_inspector(self, root):
+        self.candidate_count += 1
+        self.inspector = LobbyReader(self.memory, root, self.image_base, draft_context=self.draft_context)
+
+    def _retire_inspector(self):
+        inspector = self.inspector
+        if inspector is not None:
+            snapshot = inspector.diagnostic_snapshot()
+            for key in NATIVE_COUNT_FIELDS:self._diagnostic_counts[key] += snapshot[key]
+            self._inspection_reads += snapshot['read_calls']
+            self._inspection_bytes += snapshot['read_bytes']
+            self._inspection_requested += snapshot['requested_bytes']
+        self.validator = self.inspector = None
+        return inspector
 
     def step(self, byte_budget=64 * 1024 * 1024, time_budget=0.05):
         if self.cancelled.is_set():
@@ -373,9 +545,9 @@ class LobbyDiscovery:
                         return None
                 except StopIteration as completed:
                     root = completed.value
-                    inspector = self.inspector
-                    self.validator = self.inspector = None
+                    inspector = self._retire_inspector()
                     if root is not None:
+                        self.valid_snapshot_count += 1
                         # Avoid validating the same ring once per record in the heap.
                         if len(self.seen_nodes) < 131072:
                             self.seen_nodes.update(inspector.inspected_nodes)
@@ -385,8 +557,14 @@ class LobbyDiscovery:
                                 region = None
                             return LobbyLocation(root, self.scanned_bytes, inspector.inspected_cursor,
                                                  inspector.latest_filetime, region)
-                except (HistoryInvalid, ValueError, struct.error):
-                    self.validator = self.inspector = None
+                        self.ignored_snapshot_count += 1
+                    else:
+                        self.invalid_candidate_count += 1
+                        self.last_rejection_reason = inspector.last_rejection_reason or 'native_validation_failed'
+                except (HistoryInvalid, ValueError, struct.error) as failure:
+                    self.invalid_candidate_count += 1
+                    self.last_rejection_reason = native_failure_reason(failure)
+                    self._retire_inspector()
                 continue
             if not self.preferred_finished:
                 try:
@@ -396,7 +574,7 @@ class LobbyDiscovery:
                 else:
                     if not valid_pointer(root) or root in self.seen_nodes:
                         continue
-                    self.inspector = LobbyReader(self.memory, root, self.image_base)
+                    self._new_inspector(root)
                     cursor = self.ignore_snapshots.get(root)
                     if cursor is not None:
                         try:
@@ -406,8 +584,9 @@ class LobbyDiscovery:
                         except HistoryInvalid:
                             unchanged = False
                         if unchanged:
+                            self.ignored_snapshot_count += 1
                             self.seen_nodes.add(root)
-                            self.inspector = None
+                            self._retire_inspector()
                             validations += 1
                             if validations >= 128:
                                 return None
@@ -422,12 +601,13 @@ class LobbyDiscovery:
                 else:
                     if candidate % 8 or candidate + 8 in self.seen_nodes:
                         continue
-                    self.inspector = LobbyReader(self.memory, candidate + 8, self.image_base)
+                    self._new_inspector(candidate + 8)
                     self.validator = self.inspector.inspect_steps()
                     continue
             if self.region is None or self.offset >= self.region[1]:
                 try:
                     self.region = next(self.regions)
+                    self.scan_region_count += 1
                     self.offset = 0
                 except StopIteration:
                     self.finished = True
@@ -440,7 +620,10 @@ class LobbyDiscovery:
                 self.region = None
                 continue
             address = base + self.offset
+            self.read_calls += 1
+            self.requested_bytes += count
             data = self.memory.read(address, count)
+            self.short_read_count += int(len(data) != count)
             self.offset += count
             requested += count
             self.scanned_bytes += len(data)

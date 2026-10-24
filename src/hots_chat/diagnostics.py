@@ -48,7 +48,12 @@ _NUMBERS = _NUMBERS | frozenset(('capture_schema', 'scan_id', 'reader_id', 'scan
     'timestamp_format_rejected_count', 'channel_unsupported_count', 'channel_filtered_count',
     'message_format_rejected_count', 'parsed_message_count', 'candidate_read_failure_count',
     'candidate_layout_rejected_count', 'candidate_link_rejected_count', 'candidate_budget_rejected_count',
-    'timestamped_message_count', 'untimestamped_message_count'))
+    'timestamped_message_count', 'untimestamped_message_count',
+    'native_lobby_schema', 'native_node_checks', 'native_message_count', 'native_system_count',
+    'native_party_count', 'native_whisper_count', 'native_unsupported_count', 'native_unreadable_count',
+    'native_invalid_count', 'native_before_start_count', 'native_dedup_count', 'native_parsed_count',
+    'native_draft_count', 'native_draft_rejected_count', 'native_draft_context_checks',
+    'native_draft_context_changes', 'native_draft_context_rejected'))
 _ENUM_TEXT = {
     'target_language': frozenset(('zh', 'en')),
     'quest_state': frozenset(('', 'known', 'complete', 'unknown', 'untracked')),

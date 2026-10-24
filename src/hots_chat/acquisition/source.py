@@ -6,10 +6,9 @@ from .memory import ReadOnlyGame, find_game_processes
 from .history import HistoryReader, HistoryInvalid, HistoryCleared, MATCH_CAPTURE_SCHEMA
 from .discovery import discover, DiscoveryCancelled, DiscoveryPending, IncrementalDiscovery
 from ..models import AppEvent, ChatEvent
-from ..channels import DISPLAY_CHANNELS
 
 
-MATCH_CHANNELS = DISPLAY_CHANNELS
+MATCH_CHANNELS = ('团队', '所有玩家')
 
 
 class ChatSource:

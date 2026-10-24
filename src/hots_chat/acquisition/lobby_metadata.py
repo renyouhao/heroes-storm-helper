@@ -2,6 +2,7 @@
 import struct
 
 from .history import HistoryInvalid
+from .lobby_draft import LOBBY_CONVERSATION_VTABLE_RVA
 
 
 PARTY_VTABLE_RVA = 0x28e9720
@@ -17,16 +18,17 @@ class LobbyPropertyMissing(HistoryInvalid):
 
 
 class LobbyMetadata:
-    """Resolve only the two observed native conversation classes.
+    """Resolve verified native conversation classes and presence identities.
 
     User objects contain a presence handle, not a display-name NString. Names
     come from the native presence cache, with the game's RID/BattleTag choice.
     Every call uses fresh pointers; the owning reader accounts for read budgets.
     """
 
-    def __init__(self, memory, image_base):
+    def __init__(self, memory, image_base, *, draft_context=None):
         self.memory = memory
         self.image_base = image_base
+        self.draft_context = draft_context
         self._poll_cache = None
 
     def begin_poll(self):
@@ -254,9 +256,14 @@ class LobbyMetadata:
 
     def resolve(self, conversation_ptr, sender_ptr):
         vtable = self._u64(conversation_ptr)
+        draft = vtable == self.image_base + LOBBY_CONVERSATION_VTABLE_RVA
         if vtable not in (self.image_base + PARTY_VTABLE_RVA,
-                          self.image_base + WHISPER_VTABLE_RVA):
+                          self.image_base + WHISPER_VTABLE_RVA,
+                          self.image_base + LOBBY_CONVERSATION_VTABLE_RVA):
             return None
+        snapshot = self.draft_context.current if draft and self.draft_context is not None else None
+        if draft and (snapshot is None or not self.draft_context.verify(snapshot, memory=self.memory)):
+            raise HistoryInvalid('Draft context is unavailable', reason='native_draft_context_changed')
         sender_handle = self._user_handle(sender_ptr)
         if (vtable == self.image_base + WHISPER_VTABLE_RVA
                 and sender_handle == self._own_handle()):
@@ -274,6 +281,11 @@ class LobbyMetadata:
         sender = self._presence(backend, sender_handle)
         if sender is None:
             raise HistoryInvalid('Lobby sender presence is unavailable')
+        if draft:
+            name = self._party_name(backend, sender)
+            if not self.draft_context.verify(snapshot, memory=self.memory):
+                raise HistoryInvalid('Draft context changed', reason='native_draft_context_changed')
+            return '征召团队', name
         if vtable == self.image_base + PARTY_VTABLE_RVA:
             return '队伍', self._party_name(backend, sender)
         rid_accounts = self._rid_accounts(backend)

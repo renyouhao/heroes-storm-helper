@@ -10,9 +10,21 @@ import time
 
 from .discovery import DiscoveryCancelled
 from .history import HistoryInvalid
-from .lobby_native import LobbyDiscovery, LobbyReader
+from .lobby_draft import LobbyDraftContext
+from .lobby_native import (LobbyDiscovery, LobbyReader, NATIVE_COUNT_FIELDS,
+                           NATIVE_LOBBY_SCHEMA, NATIVE_REJECTION_REASONS, native_failure_reason)
 from .memory import ReadOnlyGame, find_game_processes
 from ..models import AppEvent, ChatEvent
+
+
+_TOTAL_FIELDS = NATIVE_COUNT_FIELDS + (
+    'native_draft_context_checks', 'native_draft_context_changes', 'native_draft_context_rejected',
+    'read_calls', 'read_bytes', 'requested_bytes', 'short_read_count', 'scan_region_count',
+    'candidate_count', 'valid_snapshot_count', 'invalid_candidate_count', 'ignored_snapshot_count',
+)
+_SNAPSHOT_FIELDS = frozenset(_TOTAL_FIELDS + (
+    'native_lobby_schema', 'scan_id', 'elapsed_ms', 'last_rejection_reason',
+))
 
 
 class ModuleEntry(ctypes.Structure):
@@ -50,7 +62,8 @@ def main_module_base(pid):
 class LobbySource:
     def __init__(self, selected_pid=None, process_finder=find_game_processes,
                  game_factory=ReadOnlyGame, clock=None, module_base_finder=main_module_base,
-                 reader_factory=LobbyReader, discovery_factory=LobbyDiscovery, wall_clock=None):
+                 reader_factory=LobbyReader, discovery_factory=LobbyDiscovery, wall_clock=None,
+                 draft_context_factory=LobbyDraftContext):
         self.selected_pid = selected_pid
         self.process_finder, self.game_factory = process_finder, game_factory
         self.clock = clock or time.monotonic
@@ -59,9 +72,16 @@ class LobbySource:
         self.diagnostics = None
         self.module_base_finder = module_base_finder
         self.reader_factory, self.discovery_factory = reader_factory, discovery_factory
+        self.draft_context_factory = draft_context_factory
         self.generation, self.last_attempt = 0, -float('inf')
         self.thread = None
         self._stop, self._reconnect = threading.Event(), threading.Event()
+        self._diagnostic_totals = dict.fromkeys(_TOTAL_FIELDS, 0)
+        self._scan_serial = self._reader_serial = 0
+
+    def diagnostic_snapshot(self):
+        """Source-instance cumulative checks survive reader/cursor eviction."""
+        return dict(self._diagnostic_totals, native_lobby_schema=NATIVE_LOBBY_SCHEMA)
 
     @property
     def running(self):
@@ -103,12 +123,135 @@ class LobbySource:
         failures = 0
         next_scan, serial = 0., 0
         connected = False
+        last_trace = OrderedDict()
+        active_scans = {}
+        found_scan_ids = OrderedDict()
+        draft_context = None
+        context_previous = {}
+        context_reason = None
+
+        def trace(stage, outcome, *, interval=0, **fields):
+            recorder = self.diagnostics
+            if recorder is None:return
+            try:
+                enabled = getattr(recorder, 'snapshot', None)
+                if callable(enabled) and not enabled().get('enabled'):return
+                now = self.clock()
+                key = (stage, outcome, fields.get('scan_id'), fields.get('reader_id'))
+                if interval and now - last_trace.get(key, -float('inf')) < interval:return
+                if interval:
+                    last_trace[key] = now
+                    last_trace.move_to_end(key)
+                    while len(last_trace) > 256:last_trace.popitem(last=False)
+                fields.setdefault('native_lobby_schema', NATIVE_LOBBY_SCHEMA)
+                recorder.record('capture.state', source='lobby', stage=stage, outcome=outcome,
+                                generation=self.generation, **fields)
+            except Exception:
+                pass
+
+        def snapshot(target):
+            try:
+                method = getattr(target, 'diagnostic_snapshot', None)
+                value = method() if callable(method) else {}
+                if not isinstance(value, dict):return {}
+                result = {key: field for key, field in value.items() if key in _SNAPSHOT_FIELDS}
+                if result.get('last_rejection_reason') not in NATIVE_REJECTION_REASONS:
+                    result.pop('last_rejection_reason', None)
+                return result
+            except Exception:
+                return {}
+
+        def accumulate(before, after):
+            for field in _TOTAL_FIELDS:
+                previous, current = before.get(field, 0), after.get(field, 0)
+                if type(previous) is int and type(current) is int:
+                    self._diagnostic_totals[field] += max(0, current - previous)
+
+        def observe_draft(*, observe=True):
+            nonlocal context_previous, context_reason
+            if draft_context is None:return
+            if observe:draft_context.observe()
+            current = snapshot(draft_context)
+            accumulate(context_previous, current)
+            context_previous = current
+            reason = draft_context.last_reason
+            changed = reason != context_reason
+            context_reason = reason
+            trace('draft_context', 'verified' if draft_context.current is not None else 'unavailable',
+                  interval=0 if changed else 3, reason=reason, **current)
+
+        def scan_trace(target, outcome, *, failure=None, reason=''):
+            context = active_scans.get(id(target))
+            if context is None:return
+            fields = snapshot(target)
+            fields['scan_id'] = context['scan_id']
+            if reason:fields['reason'] = reason
+            if failure is not None:
+                fields.update(error_type=type(failure).__name__,
+                              winerror=getattr(failure, 'winerror', None),
+                              reason=native_failure_reason(failure))
+            trace(context['stage'], outcome, interval=4 if outcome == 'progress' else 0, **fields)
+
+        def cancel_scans(reason):
+            for context in tuple(active_scans.values()):
+                scan_trace(context['target'], 'cancelled', reason=reason)
+            active_scans.clear()
+
+        def scan_step(target, **options):
+            if id(target) not in active_scans and not target.finished:
+                self._scan_serial += 1
+                active_scans[id(target)] = dict(target=target,
+                    stage=getattr(target, '_diagnostic_stage', 'discovery'), scan_id=self._scan_serial)
+                scan_trace(target, 'started', reason='retry_after_error')
+            before = snapshot(target)
+            try:
+                location = target.step(**options)
+            except DiscoveryCancelled as failure:
+                scan_trace(target, 'cancelled', failure=failure)
+                active_scans.pop(id(target), None)
+                raise
+            except (HistoryInvalid, OSError, ValueError, RuntimeError, struct.error) as failure:
+                scan_trace(target, 'error', failure=failure)
+                active_scans.pop(id(target), None)
+                raise
+            finally:
+                accumulate(before, snapshot(target))
+            scan_trace(target, 'found' if location is not None else
+                       'exhausted' if target.finished else 'progress')
+            if location is not None:
+                context = active_scans.get(id(target))
+                if context is not None:
+                    found_scan_ids[location.root] = context['scan_id']
+                    found_scan_ids.move_to_end(location.root)
+                    while len(found_scan_ids) > 128:found_scan_ids.popitem(last=False)
+            if target.finished:active_scans.pop(id(target), None)
+            return location
+
+        def poll_reader(target, stage='poll'):
+            before = snapshot(target)
+            fields = dict(reader_id=getattr(target, 'diagnostic_id', 0),
+                          scan_id=getattr(target, 'diagnostic_scan_id', 0), published_count=serial)
+            try:
+                result = target.poll()
+            except (HistoryInvalid, OSError, ValueError, RuntimeError, struct.error) as failure:
+                fields.update(snapshot(target))
+                trace(stage, 'error', reason=native_failure_reason(failure),
+                      error_type=type(failure).__name__, winerror=getattr(failure, 'winerror', None), **fields)
+                raise
+            finally:
+                accumulate(before, snapshot(target))
+            fields.update(snapshot(target))
+            fields.update(message_count=len(result.messages), gap_count=int(result.gap))
+            outcome = 'retry' if result.retry else 'messages' if result.messages else 'idle'
+            trace(stage, outcome, interval=3 if outcome in ('idle', 'retry') else 0, **fields)
+            return result
 
         def state(value):
             nonlocal capture_state
             if value != capture_state:
                 capture_state = value
                 emit(AppEvent('capture_state', self.generation, value))
+                trace('state', 'changed', reason=value)
 
         def transition(message):
             self.generation += 1
@@ -131,12 +274,19 @@ class LobbySource:
                     drain_nodes.pop(old_root, None)
                     record_identities.pop(old_root, None)
 
-        def discovery(regions=None, ignore_seen=True, watch=False):
-            return self.discovery_factory(game, self._stop, image_base,
+        def discovery(regions=None, ignore_seen=True, watch=False, stage='discovery'):
+            target = self.discovery_factory(game, self._stop, image_base,
                                           ignore_snapshots=cursors if ignore_seen else {},
                                           preferred_roots=tuple(root for root in reversed(cursors)
                                                                 if not watch or reader is None or root != reader.root),
                                           regions=regions)
+            if hasattr(target, 'draft_context'):target.draft_context = draft_context
+            self._scan_serial += 1
+            try:target._diagnostic_stage = stage
+            except (AttributeError, TypeError):pass
+            active_scans[id(target)] = dict(target=target, stage=stage, scan_id=self._scan_serial)
+            scan_trace(target, 'started')
+            return target
 
         def replacement(location):
             # A cursor belongs to one ring. Reusing another readable ring's tail
@@ -144,11 +294,21 @@ class LobbySource:
             cursor = cursors.get(location.root)
             if location.region is not None:
                 areas[location.root] = location.region
-            return self.reader_factory(game, location.root, image_base, cursor=cursor,
+            target = self.reader_factory(game, location.root, image_base, cursor=cursor,
                                        drain_nodes=drain_nodes.get(location.root, ()),
                                        record_identities=record_identities.get(location.root, ()),
                                        include_history=True,
                                        after_filetime=capture_after_filetime)
+            if hasattr(target, 'draft_context'):target.draft_context = draft_context
+            self._reader_serial += 1
+            try:
+                target.diagnostic_id = self._reader_serial
+                target.diagnostic_scan_id = found_scan_ids.get(location.root, 0)
+            except (AttributeError, TypeError):
+                pass
+            trace('reader', 'attached', reader_id=self._reader_serial,
+                  scan_id=found_scan_ids.get(location.root, 0), **snapshot(target))
+            return target
 
         def publish(result, owner=None):
             nonlocal connected, serial, last_activity, probe_backoff
@@ -157,7 +317,7 @@ class LobbySource:
             owner = owner or reader
             if not connected:
                 state('大厅已连接')
-                emit(AppEvent('status', self.generation, '已连接大厅，持续接收队伍与密语。'))
+                emit(AppEvent('status', self.generation, '已连接大厅，持续接收队伍、密语与已验证的征召团队。'))
                 connected = True
             if result.gap:
                 emit(AppEvent('gap', self.generation, '大厅聊天记录已变化，采集已恢复，期间可能有遗漏。'))
@@ -169,13 +329,16 @@ class LobbySource:
                 chat = ChatEvent(f'{self.generation}:{serial}', self.generation, parsed.channel,
                                  parsed.sender, parsed.time, parsed.text)
                 emit(AppEvent('chat', self.generation, chat))
+                trace('publish', 'forwarded', source_message_id=chat.message_id,
+                      channel=chat.channel, reader_id=getattr(owner, 'diagnostic_id', 0),
+                      scan_id=getattr(owner, 'diagnostic_scan_id', 0), published_count=serial)
             remember(owner.root, owner.cursor, owner)
             state('大厅已连接')
 
         def poll_inventory():
             nonlocal inventory_reader, inventory_warning_emitted
             try:
-                inventory_result = inventory_reader.poll()
+                inventory_result = poll_reader(inventory_reader, 'inventory_poll')
             except HistoryInvalid:
                 # A stale inventory candidate must not stall the remaining
                 # scan. Its partial baseline has not committed a cursor.
@@ -190,23 +353,34 @@ class LobbySource:
                 inventory_reader = None
 
         try:
+            trace('lifecycle', 'started', **self.diagnostic_snapshot())
             while not self._stop.is_set():
                 try:
                     scanned = False
+                    trace('summary', 'snapshot', interval=3, reader_status=capture_state or 'starting',
+                          reason='source_lifetime_totals', published_count=serial, **self.diagnostic_snapshot())
                     processes = self.process_finder()
                     if self.selected_pid is not None and not any(p.pid == self.selected_pid for p in processes):
                         self.selected_pid = None
                     candidates = [p for p in processes if self.selected_pid is None or p.pid == self.selected_pid]
                     process = candidates[0] if len(candidates) == 1 else None
                     key = (process.pid, process.path.lower(), process.build) if process else None
+                    trace('process', 'observed', interval=3, process_count=len(processes),
+                          candidate_count=len(candidates), build=process.build if process else None,
+                          expected_build=98348)
                     if session is not None and key != session:
+                        observe_draft(observe=False)
+                        cancel_scans('process_changed')
                         if game:game.close()
                         game = pid = image_base = reader = scanner = None
+                        draft_context = None
+                        context_previous, context_reason = {}, None
                         probe = nearby = watcher = None
                         cursors.clear()
                         areas.clear()
                         drain_nodes.clear()
                         record_identities.clear()
+                        found_scan_ids.clear()
                         inventory_reader = None
                         census = True
                         failures = 0
@@ -217,6 +391,7 @@ class LobbySource:
                         transition('大厅采集保持开启，等待游戏连接。')
                     if self._reconnect.is_set():
                         self._reconnect.clear()
+                        cancel_scans('requested_reconnect')
                         if reader:remember(reader.root, reader.cursor)
                         reader = scanner = None
                         probe = nearby = watcher = None
@@ -249,15 +424,20 @@ class LobbySource:
                             raise OSError('Invalid game image address')
                         if game.read(image_base, 2) != b'MZ':
                             raise OSError('Invalid game image')
+                        draft_context = self.draft_context_factory(game, image_base,
+                            capture_after_filetime=capture_after_filetime, wall_clock=self.wall_clock)
                         transition('正在接入大厅聊天；接收本次采集开启后的消息。')
+                    # Observe room boundaries even while discovery has no ring.
+                    # Diagnostics only consume the resulting business snapshot.
+                    observe_draft()
                     if reader is None:
                         state('大厅等待聊天，采集保持开启')
                         if self.clock() < next_scan:
                             self._stop.wait(.5)
                             continue
                         if scanner is None:
-                            scanner = discovery(ignore_seen=False)
-                        location = scanner.step()
+                            scanner = discovery(ignore_seen=False, stage='initial')
+                        location = scan_step(scanner)
                         scanned = True
                         if location is None:
                             if scanner.finished:
@@ -268,13 +448,20 @@ class LobbySource:
                         reader = replacement(location)
                         if census:
                             probe = scanner
+                            if id(probe) in active_scans:
+                                active_scans[id(probe)]['stage'] = 'inventory'
+                                try:probe._diagnostic_stage = 'inventory'
+                                except (AttributeError, TypeError):pass
+                                scan_trace(probe, 'progress', reason='continued_initial_scan')
+                        else:
+                            active_scans.pop(id(scanner), None)
                         scanner = None
-                        result = reader.poll()
+                        result = poll_reader(reader)
                         if result.retry:
                             self._stop.wait(.1)
                             continue
                     else:
-                        result = reader.poll()
+                        result = poll_reader(reader)
                     failures = 0
                     publish(result)
                     if result.retry:
@@ -285,12 +472,13 @@ class LobbySource:
                     # the lobby. Watch saved tails cheaply instead of waiting
                     # for the active reader to throw an error.
                     if watcher is None:
-                        watcher = discovery(regions=(), watch=True)
-                    candidate = watcher.step(time_budget=.01)
+                        watcher = discovery(regions=(), watch=True, stage='watcher')
+                    candidate = scan_step(watcher, time_budget=.01)
                     if candidate is not None:
                         if candidate.root != reader.root:
                             reader = replacement(candidate)
-                            publish(reader.poll())
+                            publish(poll_reader(reader))
+                        active_scans.pop(id(watcher), None)
                         watcher = None
                     elif watcher.finished:
                         watcher = None
@@ -299,7 +487,7 @@ class LobbySource:
                         if inventory_reader is not None:
                             poll_inventory()
                         elif probe is not None and not scanned:
-                            candidate = probe.step()
+                            candidate = scan_step(probe)
                             if candidate is not None:
                                 if candidate.root != reader.root:
                                     inventory_reader = replacement(candidate)
@@ -326,25 +514,31 @@ class LobbySource:
                                     ranges.append(area)
                                 if len(ranges) == 8:
                                     break
-                            nearby = discovery(regions=ranges)
+                            nearby = discovery(regions=ranges, stage='nearby')
                         if nearby is not None:
-                            candidate = nearby.step(byte_budget=4 * 1048576, time_budget=.01)
+                            candidate = scan_step(nearby, byte_budget=4 * 1048576, time_budget=.01)
                             if candidate is not None:
                                 if candidate.root != reader.root:
                                     reader = replacement(candidate)
-                                    publish(reader.poll())
+                                    publish(poll_reader(reader))
+                                if watcher is not None:
+                                    scan_trace(watcher, 'cancelled', reason='reader_replaced')
+                                    active_scans.pop(id(watcher), None)
                                 watcher = None
                             elif nearby.finished:
                                 nearby = None
                                 next_nearby = self.clock() + (1 if quiet else 2)
                         if probe is None and self.clock() >= next_probe:
-                            probe = discovery()
+                            probe = discovery(stage='discovery')
                         if probe is not None:
-                            candidate = probe.step()
+                            candidate = scan_step(probe)
                             if candidate is not None:
                                 if candidate.root != reader.root:
                                     reader = replacement(candidate)
-                                    publish(reader.poll())
+                                    publish(poll_reader(reader))
+                                if watcher is not None:
+                                    scan_trace(watcher, 'cancelled', reason='reader_replaced')
+                                    active_scans.pop(id(watcher), None)
                                 watcher = None
                                 probe_backoff = 5.
                             elif probe.finished:
@@ -354,22 +548,23 @@ class LobbySource:
                 except DiscoveryCancelled:
                     break
                 except OSError as failure:
-                    if self.diagnostics is not None:
-                        self.diagnostics.record('capture.state',source='lobby',outcome='error',
-                            stage='poll' if reader is not None else 'connect',
-                            error_type=type(failure).__name__,winerror=getattr(failure,'winerror',None))
+                    trace('poll' if reader is not None else 'connect', 'error',
+                          error_type=type(failure).__name__, winerror=getattr(failure,'winerror',None))
+                    cancel_scans('read_error')
+                    observe_draft(observe=False)
                     if reader:remember(reader.root, reader.cursor)
                     if game:game.close()
                     game = pid = image_base = reader = scanner = None
+                    draft_context = None
+                    context_previous, context_reason = {}, None
                     probe = nearby = watcher = None
                     inventory_reader = None
                     connected = False
                     self.last_attempt = self.clock()
                     state('大厅连接等待重试，采集保持开启')
                 except (HistoryInvalid, ValueError, RuntimeError, struct.error) as failure:
-                    if self.diagnostics is not None:
-                        self.diagnostics.record('capture.state',source='lobby',outcome='error',
-                            stage='poll' if reader is not None else 'discover',error_type=type(failure).__name__)
+                    trace('poll' if reader is not None else 'discover', 'error',
+                          error_type=type(failure).__name__, reason=native_failure_reason(failure))
                     if reader:remember(reader.root, reader.cursor)
                     failures += 1
                     if reader is not None and failures <= 5:
@@ -378,6 +573,7 @@ class LobbySource:
                         self._stop.wait(.1)
                         continue
                     reader = scanner = None
+                    cancel_scans('validation_error')
                     probe = nearby = watcher = None
                     inventory_reader = None
                     connected = False
@@ -385,5 +581,8 @@ class LobbySource:
                     state('大厅等待新聊天，持续定位')
                 self._stop.wait(.05 if probe is not None else .5)
         finally:
+            observe_draft(observe=False)
+            cancel_scans('source_stopped')
+            trace('lifecycle', 'stopped', published_count=serial, **self.diagnostic_snapshot())
             if game:game.close()
             state('已停止')

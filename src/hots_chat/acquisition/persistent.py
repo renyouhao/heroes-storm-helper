@@ -6,12 +6,11 @@ import threading
 from .memory import ReadOnlyGame, find_game_processes
 from .source import ChatSource
 from ..models import AppEvent, ChatEvent
-from ..channels import DISPLAY_CHANNELS
 
 
 _UNKNOWN = object()
-_CHANNELS = {'match': frozenset(DISPLAY_CHANNELS),
-             'lobby': frozenset(('队伍', '密语'))}
+_CHANNELS = {'match': frozenset(('团队', '所有玩家')),
+             'lobby': frozenset(('队伍', '密语', '征召团队'))}
 _LABELS = {'match': '对局', 'lobby': '大厅'}
 _DIAGNOSTIC_STATES = {
     '已停止':'stopped','已连接':'connected','大厅已连接':'connected',

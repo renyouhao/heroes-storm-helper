@@ -1,10 +1,11 @@
-"""征召选人阶段的已知显示历史结构；不猜测原生会话偏移，不访问游戏或云。"""
+"""征召来源归属与旧显示格式能力；仅用合成来源，不访问游戏或云。"""
 from datetime import datetime, timezone
 import json
 from pathlib import Path
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 import zipfile
 
 from hots_chat.acquisition.discovery import DiscoveryPending, IncrementalDiscovery, discover
@@ -73,7 +74,9 @@ class DraftDisplayChatTests(unittest.TestCase):
         self.assertEqual([(row.channel, row.text) for row in result.messages], [('征召团队', 'real draft')])
         self.assertFalse(any(address == nodes[-1] + 24 and count > 96 for address, count in memory.calls))
 
-    def test_draft_match_draft_transitions_deliver_each_message_once(self):
+    def test_classic_format_capability_can_transition_when_explicitly_enabled(self):
+        # This is a standalone format-capability probe, not production ownership.
+        # The persistent native lobby source owns real draft chat by default.
         game = ConcurrentHistories()
         game.set_history(0, [draft_line('draft first')])
         clock, events, changed = [0.], [], set()
@@ -97,12 +100,27 @@ class DraftDisplayChatTests(unittest.TestCase):
         source = ChatSource(process_finder=lambda: [GameProcess(1, game.path, 98348)],
                             game_factory=lambda pid: game, clock=lambda: clock[0])
         source._stop = VirtualStop(clock, 10., advance)
-        source._run(events.append)
+        with patch('hots_chat.acquisition.source.MATCH_CHANNELS', DISPLAY_CHANNELS):
+            source._run(events.append)
         messages = [event.payload for event in events if event.kind == 'chat']
         self.assertEqual([(row.channel, row.text) for row in messages], [
             ('征召团队', 'draft first'), ('征召团队', 'draft second'),
             ('团队', 'match first'), ('团队', 'match second'), ('征召团队', 'next draft')])
         self.assertEqual(len({row.message_id for row in messages}), len(messages))
+
+    def test_default_match_source_ignores_draft_but_keeps_team_and_all_players(self):
+        game = ConcurrentHistories()
+        game.set_history(0, [draft_line('draft belongs to native lobby')])
+        game.set_history(1, [chat_line('normal team')])
+        game.set_history(2, [chat_line('all players').replace('[团队]', '[所有玩家]', 1)])
+        clock, events = [0.], []
+        source = ChatSource(process_finder=lambda:[GameProcess(1, game.path, 98348)],
+                            game_factory=lambda pid:game, clock=lambda:clock[0])
+        source._stop = VirtualStop(clock, 6., lambda now:None)
+        source._run(events.append)
+        messages = [event.payload for event in events if event.kind == 'chat']
+        self.assertEqual([(message.channel, message.text) for message in messages],
+                         [('团队', 'normal team'), ('所有玩家', 'all players')])
 
     def test_draft_is_in_team_presets_and_has_its_own_filter(self):
         self.assertIn('征召团队', SUPPORTED_CHANNELS)
@@ -149,7 +167,8 @@ class DraftChatFlowTests(unittest.TestCase):
         self.temporary.cleanup()
 
     def deliver(self, text, channel):
-        self.source.match_source.chat(text, channel)
+        worker = self.source.lobby_source if channel == '征召团队' else self.source.match_source
+        worker.chat(text, channel)
         self.controller.drain_events()
         with self.controller.condition:
             self.assertTrue(self.controller.condition.wait_for(lambda: self.controller.idle, timeout=3))
@@ -171,22 +190,40 @@ class DraftChatFlowTests(unittest.TestCase):
         self.assertEqual(received['channel'], '征召团队')
         identifier = received['message_id']
         merged = next(row for row in rows if row.get('stage') == 'merge' and row.get('outcome') == 'forwarded')
+        self.assertEqual(merged['source'], 'lobby')
         self.assertEqual(merged['message_id'], identifier)
         for event in ('translation.submitted', 'translation.request', 'translation.result'):
             self.assertTrue(any(row.get('event') == event and row.get('message_id') == identifier for row in rows))
         self.assertEqual([job.text for job in self.engine.calls], ['ban healer please'])
 
-    def test_draft_filter_rejects_regular_team_and_native_source_cannot_duplicate_draft(self):
+    def test_draft_filter_rejects_regular_team_and_match_cannot_duplicate_native_draft(self):
         self.controller.set_channels(CHANNEL_PRESETS['仅征召团队'])
-        self.source.lobby_source.chat('native should not own draft', '征召团队')
+        self.source.match_source.chat('display should not own draft', '征召团队')
         self.deliver('normal team should be filtered', '团队')
         self.deliver('ban healer please', '征召团队')
         self.assertEqual([job.text for job in self.engine.calls], ['ban healer please'])
         rows = self.export_rows()
-        self.assertTrue(any(row.get('source') == 'lobby' and row.get('stage') == 'merge'
+        self.assertTrue(any(row.get('source') == 'match' and row.get('stage') == 'merge'
                             and row.get('reason') == 'channel_filtered' for row in rows))
         self.assertTrue(any(row.get('stage') == 'controller' and row.get('reason') == 'channel_filtered'
                             for row in rows))
+
+    def test_persistent_source_enforces_one_owner_for_each_channel(self):
+        events = []
+        source = PersistentChatSource(process_finder=lambda:[PROCESS],
+            match_factory=ControlledWorker, lobby_factory=ControlledWorker)
+        self.addCleanup(source.stop)
+        source.start(events.append)
+        source.match_source.connect();source.lobby_source.connect()
+        accepted = [('lobby', '征召团队'), ('match', '团队'), ('match', '所有玩家'),
+                    ('lobby', '队伍'), ('lobby', '密语')]
+        rejected = [('match', '征召团队'), ('lobby', '团队'), ('lobby', '所有玩家'),
+                    ('match', '队伍'), ('match', '密语')]
+        for owner, channel in accepted + rejected:
+            worker = source.match_source if owner == 'match' else source.lobby_source
+            worker.chat(owner + ':' + channel, channel)
+        observed = [(event.payload.channel, event.payload.text) for event in events if event.kind == 'chat']
+        self.assertEqual(observed, [(channel, owner + ':' + channel) for owner, channel in accepted])
 
 
 if __name__ == '__main__':
