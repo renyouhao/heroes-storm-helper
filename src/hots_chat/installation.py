@@ -11,6 +11,7 @@ def check_installation(output,*,display_mode=None):
     from .ui.main_window import create_app
     from .display_runtime import TkDisplayRuntime,window_dpi
     from .talent_catalog import TalentCatalog
+    from .quest_catalog import QuestCatalog
     import tkinter as tk
     from alibabacloud_alimt20181012.client import Client
     with tempfile.TemporaryDirectory(prefix='hots-installation-check-') as tmp:
@@ -28,13 +29,18 @@ def check_installation(output,*,display_mode=None):
             root.update();window.pump()
             catalog=TalentCatalog()
             catalog_ok=catalog.hero_count==91 and catalog.talent_count==1941
-            result={'passed':blank_ok and len(window.vm.messages)==3 and len(controller.phrases.list())==12 and catalog_ok and window.icon_loaded,
+            quests=QuestCatalog()
+            arthas=quests.resolve('Arthas','ArthasFrostmourneHungersTokenCounter')
+            quest_ok=quests.quest_count > 0 and arthas is not None and arthas.quest_name=='霜之哀伤的饥渴'
+            result={'passed':blank_ok and len(window.vm.messages)==3 and len(controller.phrases.list())==12 and catalog_ok and quest_ok and window.icon_loaded,
                     'demo_messages':len(window.vm.messages),'public_phrases':len(controller.phrases.list()),
                     'cloud_requests':0,'game_access':False,'real_credentials_read':False,'tk_available':True,
                     'sdk_import_available':Client is not None}
             result['application_icon_set']=window.icon_loaded
             result['public_talent_catalog']={'available':catalog_ok,'heroes':catalog.hero_count,
                                              'talents':catalog.talent_count}
+            result['public_quest_catalog']={'available':quest_ok,'heroes':quests.hero_count,
+                                           'quests':quests.quest_count}
             result['blank_user_raw_mode']=blank_ok
             result['display']={'awareness':display_mode,'dpi':window_dpi(root),
                                'scale':window._layout_metrics.scale,

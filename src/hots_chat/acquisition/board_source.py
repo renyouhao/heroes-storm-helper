@@ -10,9 +10,11 @@ import math
 import re
 import struct
 
-from ..talent_broadcast import HitSnapshot, StatHitSnapshot
+from ..talent_broadcast import HitSnapshot, StatHitSnapshot, QuestHitSnapshot, CooldownHitSnapshot
 from ..board_sender import ChatInputState
 from .talent_source import TalentReader, _Memory, _Unknown, _guards, _model, _link, _catalog
+from .board_values import parse_quest_progress
+from .board_cooldown import read_row_cooldowns
 
 
 ROOT_RVA = 0x338b2e8
@@ -21,6 +23,18 @@ PANEL_VTABLE = 0x2689b88
 ROW_VTABLE = 0x2689920
 TREE_VTABLE = 0x26916f0
 ICON_VTABLE = 0x2680e88
+BASELINE_QUEST_VTABLE = 0x269ab08
+BOARD_FIELD_GETTERS = {
+    # 完整的叶子 getter；HeroicAbilLink 取验证过字段的完整前两条指令。
+    0x87d080: bytes.fromhex('8b8178010000c3'),
+    0x87d090: bytes.fromhex('8b817c010000c3'),
+    0x90ae30: bytes.fromhex('8b8148010000c3'),
+    0x90ae40: bytes.fromhex('8b8178010000c3'),
+    0x90ae50: bytes.fromhex('8b814c010000c3'),
+    0x8d9190: bytes.fromhex('4883ec28488b8170010000'),
+}
+_BOARD_CODE_FIELDS = ('talent_quest_state', 'talent_quest_value', 'baseline_index',
+                      'baseline_quest_state', 'baseline_quest_value', 'heroic_ability_link')
 IMAGE_VTABLE = 0x2757668
 NAME_VTABLE = 0x26928d0
 HERO_NAME_VTABLE = 0x26913b8
@@ -42,18 +56,21 @@ class BoardSnapshot:
     match_token: str = ''
     status: str = 'unknown'
     reason: str = ''
-    hits: tuple[HitSnapshot | StatHitSnapshot, ...] = ()
+    hits: tuple[HitSnapshot | StatHitSnapshot | QuestHitSnapshot | CooldownHitSnapshot, ...] = ()
     chat_active: bool | None = None
     menu_active: bool | None = None
     coordinate_space: str = 'screen'
 
 
 def _capture_identity(capture):
-    root, path, render_size, talents, inputs, stats = capture
+    root, path, render_size, talents, inputs, stats, quests, cooldowns = capture
     # 战斗数值可以正常变化；行、指标、名称、矩形和原生格/标签仍必须逐一相同。
     stat_targets = tuple((slot, relation, names, metric, rect, cell, label)
         for slot, relation, names, metric, _value, rect, cell, label in stats)
-    return root, path, render_size, talents, inputs, stat_targets
+    talent_targets = tuple(record[:10] + (record[10][2],) for record in talents)
+    quest_targets = tuple(record[:9] + (record[9][2],) for record in quests)
+    return (root, path, render_size, talent_targets, inputs, stat_targets, quest_targets,
+            tuple((record.identity, names, hero_id) for record, names, hero_id in cooldowns))
 
 
 class _BoardMemory(_Memory):
@@ -136,6 +153,47 @@ def _display_text(memory, base, frame):
     return value
 
 
+def _quest_progress(memory, base, icon, *, baseline=False, player_slot=None,
+                    target_index=None, hero_id='', target_id=''):
+    """原生 QuestProgress/QuestProgressValue 与当前可见标签交叉验证。
+
+    Talent getters 87d080/87d090；baseline getters 90ae40/90ae50。
+    标签隐藏时的残留数字不代表当前层数，有限任务完成后仅播报已完成。
+    """
+    offset = 0x14c if baseline else 0x17c
+    state, value = memory.u32(icon + 0x178), memory.u32(icon + offset)
+    labels = tuple(child for child in _children(memory, icon)
+                   if memory.u64(child) == base + LABEL_VTABLE)
+    label = labels[0] if len(labels) == 1 else 0
+    visible = bool(label and _visible(memory, label))
+    text = _label_text(memory, base, label, allow_empty=True) if visible else None
+    # 日志只需数值标签；其它文本统一为 None，仍可回放 non_numeric 拒绝。
+    numeric = text if isinstance(text, str) and re.fullmatch(r'[0-9,]{1,80}', text) else None
+    observations = dict(raw_state=state, raw_progress=value, label_count=len(labels),
+        label_visible=visible, label_text=numeric,
+        stable=memory.u32(icon + 0x178) == state and memory.u32(icon + offset) == value)
+    result = parse_quest_progress(**observations)
+    context = dict(player_slot=player_slot, kind='quest' if baseline else 'talent',
+                   index=target_index, hero_id=hero_id, target_id=target_id)
+    try:
+        recorder = getattr(memory, 'diagnostics', None)
+        if recorder is not None and recorder.snapshot().get('enabled'):
+            recorder.record('helper.read', source='broadcast', stage='quest',
+                player_slot=player_slot, hit_kind=context['kind'],
+                **({'quest_index': target_index} if baseline else {'tier_id': target_index}),
+                quest_read_stage='value', quest_node_checks=int(bool(label)),
+                quest_raw_state=state, quest_raw_progress=value, quest_state=result['state'],
+                quest_progress=result['progress'], progress_reason=result['reason'],
+                label_visible=int(visible), label_numeric=int(numeric is not None),
+                label_matches=int(result['state'] == 'known'))
+            recorder.record('replay.frame', component='reader', operation='quest_progress',
+                source='broadcast', payload=dict(schema=1, context=context,
+                                                input=observations, expected=result))
+    except Exception:
+        pass
+    return result['state'], result['progress'], label
+
+
 def _render_rect(rect, scales, render_size):
     if rect is None:
         return None
@@ -153,10 +211,11 @@ class BoardReader:
     viewport_converter(hwnd, render_rect_ltrb, render_size_wh) -> screen int rect。
     input_state_provider(memory,base,root) -> (bool|None,bool|None)，可缺省。
     """
-    def __init__(self, *, text_provider=None, viewport_converter=None,
+    def __init__(self, *, text_provider=None, quest_text_provider=None, viewport_converter=None,
                  input_state_provider=None, diagnostics=None, **talent_reader_options):
         self.diagnostics = diagnostics
         self.text_provider = text_provider
+        self.quest_text_provider = quest_text_provider
         self.viewport_converter = viewport_converter
         self.input_state_provider = input_state_provider
         self._reader = TalentReader(**talent_reader_options)
@@ -302,7 +361,7 @@ class BoardReader:
                 raise _Unknown('统计格成员链重复或超过界限')
             seen.add(frame)
             kind = memory.u64(frame) - base
-            if not _visible(memory, frame) or kind in (TREE_VTABLE, NAME_VTABLE, HERO_NAME_VTABLE):
+            if not _visible(memory, frame) or kind in (TREE_VTABLE, NAME_VTABLE, HERO_NAME_VTABLE, 0x269b190):
                 continue
             if kind != SCORE_GROUP_VTABLE:
                 queue.extend(_children(memory, frame))
@@ -356,6 +415,55 @@ class BoardReader:
             return 'enemy'
         return 'unknown'
 
+    @staticmethod
+    def _baseline_quests(memory, base, tree, slot, relation, hero_id, names, scales, render_size):
+        """读取同一可信玩家天赋树下的原生基础任务图标，不把未选天赋当任务。"""
+        queue, seen, indices, records = deque([tree]), set(), set(), []
+        while queue:
+            frame = queue.popleft()
+            if frame in seen or len(seen) >= 128:
+                raise _Unknown('基础任务成员链重复或超过界限')
+            seen.add(frame)
+            if not _visible(memory, frame):
+                continue
+            kind = memory.u64(frame) - base
+            if kind in (ICON_VTABLE, SCORE_GROUP_VTABLE):
+                continue
+            if kind != BASELINE_QUEST_VTABLE:
+                queue.extend(_children(memory, frame))
+                continue
+            index = memory.u32(frame + 0x148)
+            if index > 1 or index in indices:
+                raise _Unknown('基础任务索引不正确或重复')
+            indices.add(index)
+            handle = memory.u64(frame + 0x150)
+            quest_id, catalog_index = _link(memory, handle)
+            # 原生 Behavior resolver 201d8f0；不触发延迟解析器。
+            manager = memory.u64(base + 0x3388b18)
+            bucket = memory.u64(manager + 0x70)
+            count, table = memory.u32(bucket + 0x38), memory.u64(bucket + 0x48)
+            if not 0 <= catalog_index < count <= 65536:
+                raise _Unknown('基础任务目录索引不正确')
+            descriptor = memory.u64(table + catalog_index * 8)
+            if (not descriptor or descriptor & 31 or memory.read(descriptor, 1)[0] & 1
+                    or not memory.u32(descriptor + 0x160) & (1 << 12)):
+                raise _Unknown('基础任务目录尚未解析或类型不正确')
+            image = memory.u64(frame + 0x160)
+            _vtable(memory, base, image, IMAGE_VTABLE)
+            if image not in _children(memory, frame) or not _visible(memory, image):
+                continue
+            rect = _render_rect(_rect(memory, image), scales, render_size)
+            if rect is None:
+                continue
+            progress = _quest_progress(memory, base, frame, baseline=True, player_slot=slot,
+                target_index=index, hero_id=hero_id, target_id=quest_id)
+            if (memory.u64(frame + 0x150) != handle
+                    or memory.u64(table + catalog_index * 8) != descriptor):
+                raise _Unknown('基础任务绑定正在变化')
+            records.append((slot, relation, hero_id, names, quest_id, index, rect,
+                            frame, image, progress))
+        return tuple(records)
+
     def _capture(self, memory, base, binding):
         guards = _guards(memory, base)
         root = memory.u64(base + ROOT_RVA)
@@ -369,7 +477,7 @@ class BoardReader:
         self.last_diagnostic.update(render_width=render_size[0], render_height=render_size[1])
         path = self._locate(memory, base, root)
         input_state = self._input_fields(memory, base, root)
-        records, stat_records = [], []
+        records, stat_records, quest_records, cooldown_records = [], [], [], []
         if path is not None and all(_visible(memory, frame) for frame in path):
             panel = path[-1]
             count, array = memory.u32(panel + 0x188), memory.u64(panel + 0x198)
@@ -411,6 +519,10 @@ class BoardReader:
                 handle = memory.u64(model + 0x50)
                 hero_id, index = _link(memory, handle)
                 catalog = _catalog(memory, base, index)
+                quest_records.extend(self._baseline_quests(memory, base, tree, slot, relation,
+                    hero_id, names, scales, render_size))
+                cooldown_records.extend((record, names, hero_id) for record in read_row_cooldowns(
+                    memory, base, row, slot, relation, scales, render_size))
                 tier_count, tier_array = memory.u32(catalog + 0x518), memory.u64(catalog + 0x528)
                 entry_count, entry_array = memory.u32(catalog + 0x500), memory.u64(catalog + 0x510)
                 if not 0 < tier_count <= 32 or not 0 < entry_count <= 256:
@@ -451,10 +563,14 @@ class BoardReader:
                     if rect is None:
                         continue
                     render = _render_rect(rect, scales, render_size)
-                    records.append((slot, relation, hero_id, names, tier_id, level, talent_id, render, icon, image))
+                    progress = _quest_progress(memory, base, icon, player_slot=slot,
+                        target_index=tier_id, hero_id=hero_id, target_id=talent_id)
+                    records.append((slot, relation, hero_id, names, tier_id, level, talent_id,
+                                    render, icon, image, progress))
         if _guards(memory, base) != guards or memory.u64(base + ROOT_RVA) != root:
             raise _Unknown('游戏 UI 会话正在变化')
-        return root, path, render_size, tuple(records), input_state, tuple(stat_records)
+        return (root, path, render_size, tuple(records), input_state, tuple(stat_records),
+                tuple(quest_records), tuple(cooldown_records))
 
     def poll(self, target_pid, hwnd, now):
         memory = None
@@ -475,6 +591,16 @@ class BoardReader:
                 raise _Unknown('游戏模块验证失败')
             process_token = (pid, created, base, build)
             binding = self._reader._resolve(memory, base, process_token)
+            self.last_diagnostic.update(stage='board_profile', board_profile='98348-quest-cd-1',
+                                        board_code_verified=0)
+            for field, (rva, expected) in zip(_BOARD_CODE_FIELDS, BOARD_FIELD_GETTERS.items()):
+                actual = memory.read(base + rva, len(expected))
+                if actual != expected:
+                    self.last_diagnostic.update(board_code_field=field,
+                        board_code_fingerprint=hashlib.sha256(actual).hexdigest(),
+                        board_expected_fingerprint=hashlib.sha256(expected).hexdigest())
+                    raise _Unknown('任务与冷却字段映射代码已变化')
+            self.last_diagnostic['board_code_verified'] = 1
             self.last_diagnostic['stage'] = 'board'
             first = self._capture(memory, base, binding)
             second = self._capture(memory, base, binding)
@@ -488,10 +614,15 @@ class BoardReader:
                 raise _Unknown('游戏进程代次已变化')
             token = self._token(process_token, binding)
             self.last_diagnostic.update(stage='coordinates', raw_talent_count=len(second[3]),
-                raw_stat_count=len(second[5]), coordinate_rejected=0, metadata_rejected=0)
+                raw_stat_count=len(second[5]), raw_quest_count=len(second[6]),
+                raw_cooldown_count=len(second[7]), coordinate_rejected=0, metadata_rejected=0,
+                progress_rejected=0, cooldown_rejected=0)
             hits = []
             if self.text_provider is not None and self.viewport_converter is not None:
-                for slot, relation, hero_id, names, tier_id, level, talent_id, rect, _, _ in second[3]:
+                for slot, relation, hero_id, names, tier_id, level, talent_id, rect, _, _, progress in second[3]:
+                    if progress[0] in ('unknown', 'untracked'):
+                        self.last_diagnostic['progress_rejected'] += 1
+                        continue
                     text = self.text_provider(hero_id, talent_id)
                     if text is None:
                         self.last_diagnostic['metadata_rejected'] += 1
@@ -514,7 +645,52 @@ class BoardReader:
                         continue
                     hits.append(HitSnapshot(pid, hwnd, token, slot, relation, level, talent_id,
                                             name, effect, screen, float(now), float(now) + .75,
-                                            True, True, True, names[0], names[1]))
+                                            True, True, True, names[0], names[1],
+                                            quest_progress=progress[1], quest_state=progress[0]))
+            if self.viewport_converter is not None:
+                for slot, relation, hero_id, names, quest_id, index, rect, _, _, progress in second[6]:
+                    if progress[0] not in ('known', 'complete'):
+                        self.last_diagnostic['progress_rejected'] += 1
+                        continue
+                    # 离线资料必须按当前英雄及精确基础任务ID匹配，避免旧图标串到新英雄。
+                    text = self.quest_text_provider(hero_id, quest_id) if self.quest_text_provider else None
+                    get = text.get if isinstance(text, dict) else lambda key: getattr(text, key, None)
+                    name = get('quest_name')
+                    if not isinstance(name, str) or not name.strip():
+                        self.last_diagnostic['metadata_rejected'] += 1
+                        name = f'基础任务{index + 1}'
+                    screen = self.viewport_converter(hwnd, rect, second[2])
+                    if (not isinstance(screen, tuple) or len(screen) != 4
+                            or any(type(v) is not int for v in screen)
+                            or not screen[0] < screen[2] or not screen[1] < screen[3]):
+                        self.last_diagnostic['coordinate_rejected'] += 1
+                        continue
+                    hits.append(QuestHitSnapshot(pid=pid, hwnd=hwnd, match_token=token,
+                        player_slot=slot, team_relation=relation, quest_id=quest_id, quest_name=name,
+                        progress=progress[1], state=progress[0], rect=screen, observed_at=float(now),
+                        valid_until=float(now) + .75, panel_visible=True, mapping_trusted=True,
+                        player_name=names[0], hero_name=names[1]))
+            if self.viewport_converter is not None:
+                for record, names, hero_id in second[7]:
+                    if record.state not in ('cooldown', 'ready'):
+                        self.last_diagnostic['cooldown_rejected'] += 1
+                        continue
+                    screen = self.viewport_converter(hwnd, record.rect, second[2])
+                    if (not isinstance(screen, tuple) or len(screen) != 4
+                            or any(type(v) is not int for v in screen)
+                            or not screen[0] < screen[2] or not screen[1] < screen[3]):
+                        self.last_diagnostic['coordinate_rejected'] += 1
+                        continue
+                    text = self.text_provider(hero_id, record.ability_id) if self.text_provider else None
+                    get = text.get if isinstance(text, dict) else lambda key: getattr(text, key, None)
+                    name = get('talent_name') or record.ability_name
+                    hits.append(CooldownHitSnapshot(pid=pid, hwnd=hwnd, match_token=token,
+                        player_slot=record.player_slot, team_relation='ally',
+                        ability_id=record.ability_id, ability_name=name,
+                        remaining_seconds=record.remaining_seconds, state=record.state,
+                        rect=screen, observed_at=float(now), valid_until=float(now) + .75,
+                        panel_visible=True, mapping_trusted=True,
+                        player_name=names[0], hero_name=names[1]))
             if self.viewport_converter is not None:
                 for slot, relation, names, metric, value, rect, _, _ in second[5]:
                     screen = self.viewport_converter(hwnd, rect, second[2])

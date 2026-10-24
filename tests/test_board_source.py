@@ -17,6 +17,9 @@ except ModuleNotFoundError:
 class BoardMemory(TalentMemory):
     def __init__(self):
         super().__init__()
+        from hots_chat.acquisition.board_source import BOARD_FIELD_GETTERS
+        for rva, code in BOARD_FIELD_GETTERS.items():
+            self.put(self.base + rva, code)
         self.root = self.frame(0x2653738)
         self.container = self.frame(0x27d96d8)
         self.panel = self.frame(0x2689b88)

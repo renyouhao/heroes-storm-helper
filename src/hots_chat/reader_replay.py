@@ -100,6 +100,23 @@ def replay_reader_frame(operation,payload):
         return dict(status='invalid',reason='unsupported_reader_schema')
     if operation == 'decode_pointer':
         return _replay_model_decode(payload)
+    if operation in ('quest_progress', 'cooldown_display'):
+        values = payload.get('input')
+        if operation == 'quest_progress':
+            from .acquisition.board_values import parse_quest_progress as parse
+            keys = {'raw_state', 'raw_progress', 'label_count', 'label_visible', 'label_text', 'stable'}
+        else:
+            from .acquisition.board_cooldown import parse_cooldown_display as parse
+            keys = {'ability_id', 'label_visible', 'label_text', 'selected', 'binding_valid', 'reference_valid'}
+        if not isinstance(values, dict) or set(values) != keys:
+            return dict(status='invalid', reason='invalid_ui_value_observations')
+        try:
+            observed = parse(**values)
+        except (ValueError, TypeError):
+            return dict(status='invalid', reason='invalid_ui_value_observations')
+        matched = observed == payload.get('expected')
+        return dict(status='matched' if matched else 'mismatch', matched=matched,
+            mismatches=[] if matched else ['ui_value_result'], **observed)
     values=payload.get('input')
     keys={'api','talent','decoder'} if operation=='guards' else {'decoder'} if operation=='model_decoder' else set()
     if (not keys or not isinstance(values,dict) or set(values)!=keys

@@ -1,7 +1,7 @@
-"""天赋和统计双击播报的纯业务边界；不读取游戏、不安装钩子、不发送输入。
+"""Tab 项目双击播报的纯业务边界；不读取游戏、不安装钩子、不发送输入。
 
 HitSnapshot 必须由独立映射器验证实际天赋格、队伍、已选天赋与本局身份。
-StatHitSnapshot 必须验证统计格、指标与数值；两者共享同一会话的限频。
+任务与冷却快照必须验证真实 UI 绑定和显示状态；所有项目共享同一会话的限频。
 本模块不把坐标推算或未知文字升级为可信命中。所有调用应在同一调度线程串行执行。
 """
 from dataclasses import dataclass, replace
@@ -41,6 +41,8 @@ class HitSnapshot:
     hero_name: str = ''
     advice: str = ''
     advice_verified: bool = False
+    quest_progress: int | None = None
+    quest_state: str = ''
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,46 @@ class StatHitSnapshot:
     rect: tuple[int, int, int, int]
     observed_at: float
     valid_until: float
+    panel_visible: bool = False
+    mapping_trusted: bool = False
+    player_name: str = ''
+    hero_name: str = ''
+
+
+@dataclass(frozen=True, kw_only=True)
+class QuestHitSnapshot:
+    pid: int
+    hwnd: int
+    match_token: str
+    player_slot: int
+    team_relation: str
+    quest_id: str
+    quest_name: str
+    rect: tuple[int, int, int, int]
+    observed_at: float
+    valid_until: float
+    progress: int | None = None
+    state: str = ''
+    panel_visible: bool = False
+    mapping_trusted: bool = False
+    player_name: str = ''
+    hero_name: str = ''
+
+
+@dataclass(frozen=True, kw_only=True)
+class CooldownHitSnapshot:
+    pid: int
+    hwnd: int
+    match_token: str
+    player_slot: int
+    team_relation: str
+    ability_id: str
+    ability_name: str
+    rect: tuple[int, int, int, int]
+    observed_at: float
+    valid_until: float
+    remaining_seconds: float | None = None
+    state: str = ''
     panel_visible: bool = False
     mapping_trusted: bool = False
     player_name: str = ''
@@ -166,6 +208,17 @@ def _speaker(hit):
     return f'【{relation}】{identity}'
 
 
+def _quest_detail(progress, state, *, allow_static=False):
+    if state == '' and allow_static and progress is None:
+        return ''
+    valid_progress = type(progress) is int and 0 <= progress < 2**32
+    if state == 'known' and valid_progress:
+        return f'任务层数：{progress:,}'
+    if state == 'complete' and (progress is None or valid_progress):
+        return '任务已完成' + (f'（{progress:,}层）' if progress is not None else '')
+    return None
+
+
 def format_talent_message(hit, *, include_advice=False, max_chars=150):
     """只格式化可信已选天赋的已知摘要；不联网、不现场生成效果或战术建议。"""
     if type(max_chars) is not int or not 100 <= max_chars <= 240:
@@ -179,19 +232,63 @@ def format_talent_message(hit, *, include_advice=False, max_chars=150):
     talent, effect = map(_clean, (hit.talent_name, hit.effect_summary))
     if speaker is None or not _known(talent) or not _known(effect):
         return None
-    talent = _bounded(talent, 28)
-    prefix = f'{speaker}｜{hit.tier_level}级天赋「{talent}」：'
+    quest = _quest_detail(hit.quest_progress, hit.quest_state, allow_static=True)
+    if quest is None:
+        return None
+    suffix = '；' + quest if quest else ''
+    fixed = f'注意{speaker}｜{hit.tier_level}级天赋「」：'
+    talent = _bounded(talent, min(28, max_chars - len(fixed) - len(suffix) - 1))
+    prefix = f'注意{speaker}｜{hit.tier_level}级天赋「{talent}」：'
     # 摘要来自已核实数据，只取第一句并限制长度，避免原始长正文刷屏。
     sentence_end = re.search(r'[。！？!?；;]', effect)
     effect = effect[:sentence_end.end()] if sentence_end else effect
-    effect = _bounded(effect.strip(), min(70, max_chars - len(prefix)))
-    message = prefix + effect
+    effect = _bounded(effect.strip(), min(70, max_chars - len(prefix) - len(suffix)))
+    message = prefix + effect + suffix
     if include_advice and hit.advice_verified is True:
         advice = _clean(hit.advice)
         budget = max_chars - len(message) - len('；建议：')
         if _known(advice) and budget >= 8:
             message = message.rstrip('。') + '；建议：' + _bounded(advice, min(24, budget))
     return message
+
+
+def _format_item_message(hit, noun, name, detail, max_chars):
+    speaker, name = _speaker(hit), _clean(name)
+    if speaker is None or not _known(name):
+        return None
+    fixed = f'注意{speaker}｜{noun}「」｜{detail}'
+    name = _bounded(name, min(28, max_chars - len(fixed)))
+    return f'注意{speaker}｜{noun}「{name}」｜{detail}'
+
+
+def format_quest_message(hit, *, max_chars=150):
+    """基础任务独立于天赋目录；只使用映射器确认的当前值或完成状态。"""
+    if type(max_chars) is not int or not 100 <= max_chars <= 240:
+        raise ValueError('播报长度必须为100–240个字符。')
+    if (not isinstance(hit, QuestHitSnapshot) or hit.mapping_trusted is not True
+            or not isinstance(hit.quest_id, str) or not _known(hit.quest_id.strip())):
+        return None
+    detail = _quest_detail(hit.progress, hit.state)
+    if detail is None:
+        return None
+    return _format_item_message(hit, '基础任务', hit.quest_name, detail, max_chars)
+
+
+def format_cooldown_message(hit, *, max_chars=150):
+    """忠实播报我方大招冷却显示；不据计时推断可用充能或是否可释放。"""
+    if type(max_chars) is not int or not 100 <= max_chars <= 240:
+        raise ValueError('播报长度必须为100–240个字符。')
+    if (not isinstance(hit, CooldownHitSnapshot) or hit.mapping_trusted is not True
+            or hit.team_relation != 'ally' or not isinstance(hit.ability_id, str)
+            or not _known(hit.ability_id.strip()) or not _finite(hit.remaining_seconds)):
+        return None
+    if hit.state == 'ready' and hit.remaining_seconds == 0:
+        detail = '已就绪'
+    elif hit.state == 'cooldown' and hit.remaining_seconds > 0:
+        detail = f'冷却显示：{hit.remaining_seconds:.12g}秒'
+    else:
+        return None
+    return _format_item_message(hit, '大招', hit.ability_name, detail, max_chars)
 
 
 def format_stat_message(hit, *, max_chars=150):
@@ -210,8 +307,12 @@ def format_stat_message(hit, *, max_chars=150):
 
 
 def _finite(value):
-    return (not isinstance(value, bool) and isinstance(value, (int, float))
-            and math.isfinite(value))
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
 
 
 def _identity(hit):
@@ -219,13 +320,35 @@ def _identity(hit):
         # 数值会持续变化；锁定格子和完整显示身份，数值只用于播报快照。
         return (hit.pid, hit.hwnd, hit.match_token, hit.player_slot, hit.team_relation,
                 'stat', hit.metric_id, hit.rect, hit.player_name, hit.hero_name)
+    if isinstance(hit, (QuestHitSnapshot, CooldownHitSnapshot)):
+        kind, item = (('quest', hit.quest_id) if isinstance(hit, QuestHitSnapshot)
+                      else ('cooldown', hit.ability_id))
+        name = hit.quest_name if isinstance(hit, QuestHitSnapshot) else hit.ability_name
+        return (hit.pid, hit.hwnd, hit.match_token, hit.player_slot, hit.team_relation,
+                kind, item, hit.rect, hit.player_name, hit.hero_name, name)
     return (hit.pid, hit.hwnd, hit.match_token, hit.player_slot, hit.team_relation,
-            'talent', hit.tier_level, hit.talent_id, hit.rect)
+            'talent', hit.tier_level, hit.talent_id, hit.rect, hit.player_name, hit.hero_name,
+            hit.talent_name, hit.effect_summary, hit.advice, hit.advice_verified,
+            hit.quest_state != '')
+
+
+def _target(hit):
+    if isinstance(hit, StatHitSnapshot):
+        return 'stat', hit.metric_id
+    if isinstance(hit, QuestHitSnapshot):
+        return 'quest', hit.quest_id
+    if isinstance(hit, CooldownHitSnapshot):
+        return 'cooldown', hit.ability_id
+    return 'talent', hit.talent_id
+
+
+def _dynamic(hit):
+    return (isinstance(hit, (StatHitSnapshot, QuestHitSnapshot, CooldownHitSnapshot))
+            or isinstance(hit, HitSnapshot) and hit.quest_state in ('known', 'complete'))
 
 
 def _dedupe_key(hit):
-    target = ('stat', hit.metric_id) if isinstance(hit, StatHitSnapshot) else ('talent', hit.talent_id)
-    return hit.pid, hit.hwnd, hit.match_token, hit.player_slot, *target
+    return hit.pid, hit.hwnd, hit.match_token, hit.player_slot, *_target(hit)
 
 
 class TalentBroadcastSession:
@@ -234,7 +357,7 @@ class TalentBroadcastSession:
     double_click_ms/size 必须由调用方读取 Windows 双击设置后传入；size 为以首次
     点击为中心的完整矩形宽高。mouse 永远返回 False，原鼠标事件始终透传。
     tick 只交出一次动作；dispatch 一旦调用 sender，即使部分发送失败也不自动重试。
-    统计值在 tick 交出动作前刷新；动作交出后冻结原文，后续同格数值变化不重建动作。
+    动态值在 tick 交出动作前刷新；动作交出后冻结原文，后续同格数值变化不重建动作。
     """
     def __init__(self, *, double_click_ms, double_click_size, config=None, diagnostics=None):
         self.diagnostics = diagnostics
@@ -282,7 +405,7 @@ class TalentBroadcastSession:
 
     def _valid(self, hit, context, now):
         if (not self.config.enabled or not _finite(now)
-                or not isinstance(hit, (HitSnapshot, StatHitSnapshot))
+                or not isinstance(hit, (HitSnapshot, StatHitSnapshot, QuestHitSnapshot, CooldownHitSnapshot))
                 or not isinstance(context, InputContext)
                 or hit.panel_visible is not True or context.foreground is not True
                 or type(context.pid) is not int or type(context.hwnd) is not int
@@ -307,6 +430,10 @@ class TalentBroadcastSession:
     def _message(self, hit):
         if isinstance(hit, StatHitSnapshot):
             return format_stat_message(hit, max_chars=self.config.max_chars)
+        if isinstance(hit, QuestHitSnapshot):
+            return format_quest_message(hit, max_chars=self.config.max_chars)
+        if isinstance(hit, CooldownHitSnapshot):
+            return format_cooldown_message(hit, max_chars=self.config.max_chars)
         return format_talent_message(hit, include_advice=self.config.include_advice,
                                      max_chars=self.config.max_chars)
 
@@ -357,11 +484,11 @@ class TalentBroadcastSession:
             self._status('limited', '播报限频中：任意两次需间隔2秒，同一项需间隔3秒。')
             return False
         self._token += 1
-        is_stat = isinstance(hit, StatHitSnapshot)
+        kind, _ = _target(hit)
         action = DispatchAction(
             self._token, hit.pid, hit.hwnd, hit.match_token, hit.player_slot,
-            '' if is_stat else hit.talent_id, self._message(hit),
-            kind='stat' if is_stat else 'talent', metric_id=hit.metric_id if is_stat else '')
+            hit.talent_id if isinstance(hit, HitSnapshot) else '', self._message(hit),
+            kind=kind, metric_id=hit.metric_id if isinstance(hit, StatHitSnapshot) else '')
         self._pending = _Pending(action, _identity(hit), min(now + .8, hit.valid_until))
         self._status('pending', '已识别双击，等待安全发送。')
         return False
@@ -375,7 +502,7 @@ class TalentBroadcastSession:
             self.cancel('面板、目标或输入环境已变化，本次播报取消。')
             return None
         message = self._message(hit)
-        if isinstance(hit, StatHitSnapshot):
+        if _dynamic(hit):
             if not pending.offered and message != pending.action.message:
                 pending.action = replace(pending.action, message=message)
         elif message != pending.action.message:

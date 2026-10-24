@@ -12,7 +12,7 @@ class DirectRepeatMainTests(unittest.TestCase):
     def test_product_entry_enables_listener_and_demo_entry_keeps_it_off(self):
         from hots_chat.app import main
         from hots_chat.window_settings import WindowSettings
-        for arguments, enabled in (([], True), (['--demo'], False)):
+        for arguments, enabled in ((['--legacy-ui'], True), (['--legacy-ui', '--demo'], False)):
             with self.subTest(arguments=arguments):
                 controller = SimpleNamespace(close=Mock())
                 mutex = SimpleNamespace(acquire=lambda:True, close=Mock())
@@ -22,6 +22,8 @@ class DirectRepeatMainTests(unittest.TestCase):
                      patch('hots_chat.window_settings.WindowSettings.load', return_value=WindowSettings()), \
                      patch('hots_chat.display_runtime.enable_process_dpi_awareness'), \
                      patch('hots_chat.display_runtime.TkDisplayRuntime'), \
+                     patch('hots_chat.desktop.run_desktop',
+                           side_effect=AssertionError('legacy entry routed to desktop')), \
                      patch('tkinter.Tk', return_value=root), \
                      patch('hots_chat.ui.main_window.create_app') as create:
                     self.assertEqual(main(arguments), 0)

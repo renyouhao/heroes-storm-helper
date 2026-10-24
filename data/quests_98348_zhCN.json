@@ -1,0 +1,358 @@
+{
+  "schema": 1,
+  "build": 98348,
+  "locale": "zhCN",
+  "description": "基础任务离线中文名称，仅收录显式单位行为、Face及本地化资料可交叉核对的映射；不代表所有英雄已经实机验收。",
+  "source": {
+    "repository": "https://github.com/jamiephan/HeroesOfTheStorm_Gamedata",
+    "ref": "e3e57cb640f18002a4feebe3872cefe04072d814",
+    "source_sha256": {
+      "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/arthasdata/arthasdata.xml": "da5a739ab048e52cf070e4cfccb637646ff78f1f620f772f072dbbb6fc1648ad",
+      "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/azmodandata/azmodandata.xml": "fe22a09fee3a9eb40976e3414f79b5bc1a98e6ad324a64d1e3404364ba9e3048",
+      "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/butcherdata/butcherdata.xml": "ea334ed011dd475d786e5f9a7b5d58806ae9716715ba55d4cf913801f9275c88",
+      "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/diablodata/diablodata.xml": "d915e17184a5c32fb6ed6952132126fc249052a3733a54b533823ece475d8062",
+      "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/jainadata/jainadata.xml": "8c77e3225ae4e659166cae572ba83906a7a850a3a104b454e497d9fd3959fa4f",
+      "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/leoricdata/leoricdata.xml": "87dcd45cc74418876d651613196acb0a1feef64d2bb6b91d0cdec67bc2b6ac5b",
+      "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/murkydata/murkydata.xml": "125a4640d7ab425ce5222514295d9b5b3f36910f324217dd3919e991f6600a09",
+      "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/novadata/novadata.xml": "721086138a01ff65659616556ea617c85f968d8bd28ec888fa6397bde0ce113a",
+      "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/tyrandedata/tyrandedata.xml": "8dc1f32eca0299e4007a99ac487bf816ff3a7f8a24e0f3301ea050e3f7b8fd29",
+      "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/witchdoctordata/witchdoctordata.xml": "a7d619ec2af6cff5a083fce60368226824778d3152ee45e1611e56c0c3378efa",
+      "mods/heroesdata.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt": "a2a6b30aa9c07287e418b4417512843b34168f01b749251611dcc4178ab4335a",
+      "mods/heromods/alarak.stormmod/base.stormdata/gamedata/alarakdata.xml": "ef35c7088ba7558bd46aa03463218e3d47763271856b398f73045882e2fc70e7",
+      "mods/heromods/alarak.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt": "bae2b206fb02c06de7e3dfcf7e45a27dd1ad0a6538210aea8c775d7026c002ae",
+      "mods/heromods/kelthuzad.stormmod/base.stormdata/gamedata/kelthuzad.xml": "677d0a9786f2236a5877930717df64cc6aad85ddeca784a590d387cf81708bb1",
+      "mods/heromods/kelthuzad.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt": "69c5ea52b3e21ea340acd69dd4c44c0c5f71ed0969ca8e3f045ff362abb91799",
+      "mods/heromods/nexushunter.stormmod/base.stormdata/gamedata/nexushunterdata.xml": "299392abcc729e0c151556d47b3eca830a6169a93f633faec07651e5f13128f8",
+      "mods/heromods/nexushunter.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt": "9c7d9dc50376c6d1390b64a2ea72bd7eb4d67596224639f41dad947e6c558b1e",
+      "mods/heromods/whitemane.stormmod/base.stormdata/gamedata/whitemanedata.xml": "c35641f280ac370209cc5304eb814074cc1307abb439bbff2daafabe0bc16a1c",
+      "mods/heromods/whitemane.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt": "375bb8c4605a86001c2f65e274e1264fdc2af5fca52cc3f4f5545f986c9661b2",
+      "mods/heromods/xalatath.stormmod/base.stormdata/gamedata/xalatathdata.xml": "1dada9326e5be7c6c52fc1afd3fd56cebc156c876be3ec80d4682e9582d3fef8",
+      "mods/heromods/xalatath.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt": "eb82d009a47a5fa8b07b075f7618e10f2c7a141d6fec3556f2d184b375fbbbf6",
+      "mods/heromods/zuljin.stormmod/base.stormdata/gamedata/zuljindata.xml": "275f639eca75ec83607be2a0869a8ae7c93348871cf4fa576641ebe397dc7a47",
+      "mods/heromods/zuljin.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt": "1cabc23020ef4c281ffa216b26b4158b953234214728c756f8a6e8d7a9ccd3b6"
+    },
+    "attribution": "Heroes of the Storm / 风暴英雄的名称与游戏资料属于其各自权利人。本项目不是暴雪官方产品。该资料来源声明不将游戏原文资源标为本项目原创或MIT授权。"
+  },
+  "heroes": {
+    "Alarak": {
+      "quests": {
+        "AlarakSadismToken": {
+          "quest_name": "施虐",
+          "face_id": "AlarakSadism",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroAlarak",
+            "unit_source": "mods/heromods/alarak.stormmod/base.stormdata/gamedata/alarakdata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heromods/alarak.stormmod/base.stormdata/gamedata/alarakdata.xml",
+            "face_behavior": "AlarakSadismToken",
+            "face_field": "Face",
+            "localization_key": "Button/Name/AlarakSadism",
+            "localization_source": "mods/heromods/alarak.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "Arthas": {
+      "quests": {
+        "ArthasFrostmourneHungersTokenCounter": {
+          "quest_name": "霜之哀伤的饥渴",
+          "face_id": "ArthasFrostmourneHungersToken",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroArthas",
+            "unit_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/arthasdata/arthasdata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/arthasdata/arthasdata.xml",
+            "face_behavior": "ArthasFrostmourneHungersTokenCounter",
+            "face_field": "Face",
+            "localization_key": "Button/Name/ArthasFrostmourneHungersToken",
+            "localization_source": "mods/heroesdata.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "Azmodan": {
+      "quests": {
+        "AzmodanGlobeOfAnnihilationTokenCounter": {
+          "quest_name": "湮灭",
+          "face_id": "AzmodanGlobeOfAnnihilationToken",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroAzmodan",
+            "unit_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/azmodandata/azmodandata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/azmodandata/azmodandata.xml",
+            "face_behavior": "AzmodanGlobeOfAnnihilationTokenCounter",
+            "face_field": "Face",
+            "localization_key": "Button/Name/AzmodanGlobeOfAnnihilationToken",
+            "localization_source": "mods/heroesdata.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "Butcher": {
+      "quests": {
+        "ButcherFreshMeatTokenCounter": {
+          "quest_name": "新鲜的肉",
+          "face_id": "ButcherFreshMeatToken",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroButcher",
+            "unit_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/butcherdata/butcherdata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/butcherdata/butcherdata.xml",
+            "face_behavior": "ButcherFreshMeatTokenCounter",
+            "face_field": "Face",
+            "localization_key": "Button/Name/ButcherFreshMeatToken",
+            "localization_source": "mods/heroesdata.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "Diablo": {
+      "quests": {
+        "DiabloBlackSoulstoneTokenCounter": {
+          "quest_name": "黑暗灵魂石",
+          "face_id": "DiabloBlackSoulstoneToken",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroDiablo",
+            "unit_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/diablodata/diablodata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/diablodata/diablodata.xml",
+            "face_behavior": "DiabloBlackSoulstoneTokenCounter",
+            "face_field": "Face",
+            "localization_key": "Button/Name/DiabloBlackSoulstoneToken",
+            "localization_source": "mods/heroesdata.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "Jaina": {
+      "quests": {
+        "JainaFrostbiteTokenCounter": {
+          "quest_name": "霜寒",
+          "face_id": "JainaFrostbiteToken",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroJaina",
+            "unit_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/jainadata/jainadata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/jainadata/jainadata.xml",
+            "face_behavior": "JainaFrostbiteTokenCounter",
+            "face_field": "Face",
+            "localization_key": "Button/Name/JainaFrostbiteToken",
+            "localization_source": "mods/heroesdata.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "KelThuzad": {
+      "quests": {
+        "KelThuzadMasterOfTheColdDarkToken": {
+          "quest_name": "冰冷黑魔法大师",
+          "face_id": "KelThuzadMasterOfTheColdDarkQuestToken",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroKelThuzad",
+            "unit_source": "mods/heromods/kelthuzad.stormmod/base.stormdata/gamedata/kelthuzad.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heromods/kelthuzad.stormmod/base.stormdata/gamedata/kelthuzad.xml",
+            "face_behavior": "KelThuzadMasterOfTheColdDarkToken",
+            "face_field": "Face",
+            "localization_key": "Button/Name/KelThuzadMasterOfTheColdDarkQuestToken",
+            "localization_source": "mods/heromods/kelthuzad.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "Leoric": {
+      "quests": {
+        "LeoricWrathOfTheBoneKingTokenCounter": {
+          "quest_name": "骨王之怒",
+          "face_id": "LeoricWrathOfTheBoneKing",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroLeoric",
+            "unit_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/leoricdata/leoricdata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/leoricdata/leoricdata.xml",
+            "face_behavior": "LeoricWrathOfTheBoneKingTokenCounter",
+            "face_field": "Face",
+            "localization_key": "Button/Name/LeoricWrathOfTheBoneKing",
+            "localization_source": "mods/heroesdata.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "Murky": {
+      "quests": {
+        "PuffedUpTokenCounter": {
+          "quest_name": "刺豚气胀",
+          "face_id": "MurkyPufferfishPuffedUpToken",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroMurky",
+            "unit_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/murkydata/murkydata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/murkydata/murkydata.xml",
+            "face_behavior": "PuffedUpTokenCounter",
+            "face_field": "Face",
+            "localization_key": "Button/Name/MurkyPufferfishPuffedUpToken",
+            "localization_source": "mods/heroesdata.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "NexusHunter": {
+      "quests": {
+        "NexusHunterFatalWoundsToken": {
+          "quest_name": "血怒",
+          "face_id": "NexusHunterFatalWoundsQuestToken",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroNexusHunter",
+            "unit_source": "mods/heromods/nexushunter.stormmod/base.stormdata/gamedata/nexushunterdata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heromods/nexushunter.stormmod/base.stormdata/gamedata/nexushunterdata.xml",
+            "face_behavior": "NexusHunterFatalWoundsToken",
+            "face_field": "Face",
+            "localization_key": "Button/Name/NexusHunterFatalWoundsQuestToken",
+            "localization_source": "mods/heromods/nexushunter.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "Nova": {
+      "quests": {
+        "NovaPrecisionSniperTokenCounter": {
+          "quest_name": "精准狙击",
+          "face_id": "NovaPrecisionSniperTabScreen",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroNova",
+            "unit_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/novadata/novadata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/novadata/novadata.xml",
+            "face_behavior": "NovaPrecisionSniperTokenCounter",
+            "face_field": "Face",
+            "localization_key": "Button/Name/NovaPrecisionSniperTabScreen",
+            "localization_source": "mods/heroesdata.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "Tyrande": {
+      "quests": {
+        "TyrandeLunarFlareLunarBlazeTokenCounter": {
+          "quest_name": "炽热月火",
+          "face_id": "TyrandeLunarFlareLunarBlazeTalentToken",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroTyrande",
+            "unit_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/tyrandedata/tyrandedata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/tyrandedata/tyrandedata.xml",
+            "face_behavior": "TyrandeLunarFlareLunarBlazeTokenCounter",
+            "face_field": "Face",
+            "localization_key": "Button/Name/TyrandeLunarFlareLunarBlazeTalentToken",
+            "localization_source": "mods/heroesdata.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "Whitemane": {
+      "quests": {
+        "WhitemaneInquisitorsPrayerQuestToken": {
+          "quest_name": "灼痛鞭笞",
+          "face_id": "WhitemaneInquisitor'sPrayerQuestTokens",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroWhitemane",
+            "unit_source": "mods/heromods/whitemane.stormmod/base.stormdata/gamedata/whitemanedata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heromods/whitemane.stormmod/base.stormdata/gamedata/whitemanedata.xml",
+            "face_behavior": "WhitemaneInquisitorsPrayerQuestToken",
+            "face_field": "Face",
+            "localization_key": "Button/Name/WhitemaneInquisitor'sPrayerQuestTokens",
+            "localization_source": "mods/heromods/whitemane.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "WitchDoctor": {
+      "quests": {
+        "WitchDoctorVoodooRitualTokenCounter": {
+          "quest_name": "巫毒祭典",
+          "face_id": "WitchDoctorVoodooRitualToken",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroWitchDoctor",
+            "unit_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/witchdoctordata/witchdoctordata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/witchdoctordata/witchdoctordata.xml",
+            "face_behavior": "WitchDoctorVoodooRitualTokenCounter",
+            "face_field": "Face",
+            "localization_key": "Button/Name/WitchDoctorVoodooRitualToken",
+            "localization_source": "mods/heroesdata.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "Xalatath": {
+      "quests": {
+        "XalatathVoidVolleyQuestTokenCounter": {
+          "quest_name": "虚空低语",
+          "face_id": "XalatathVoidVolleyQuestTokenButton",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroXalatath",
+            "unit_source": "mods/heromods/xalatath.stormmod/base.stormdata/gamedata/xalatathdata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heromods/xalatath.stormmod/base.stormdata/gamedata/xalatathdata.xml",
+            "face_behavior": "XalatathVoidVolleyQuestTokenCounter",
+            "face_field": "Face",
+            "localization_key": "Button/Name/XalatathVoidVolleyQuestTokenButton",
+            "localization_source": "mods/heromods/xalatath.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    },
+    "Zuljin": {
+      "quests": {
+        "ZuljinYouWantAxeQuestMainToken": {
+          "quest_name": "你想吃一斧头？",
+          "face_id": "ZuljinYouWantAxe",
+          "status": "available",
+          "evidence": {
+            "unit_id": "HeroZuljin",
+            "unit_source": "mods/heromods/zuljin.stormmod/base.stormdata/gamedata/zuljindata.xml",
+            "unit_field": "BehaviorArray.Link",
+            "face_source": "mods/heromods/zuljin.stormmod/base.stormdata/gamedata/zuljindata.xml",
+            "face_behavior": "ZuljinYouWantAxeQuestMainToken",
+            "face_field": "Face",
+            "localization_key": "Button/Name/ZuljinYouWantAxe",
+            "localization_source": "mods/heromods/zuljin.stormmod/zhcn.stormdata/localizeddata/gamestrings.txt",
+            "association": "matching Hero<CHero.id> unit plus explicit shared ability links; runtime slot/tree/link binding remains required"
+          }
+        }
+      }
+    }
+  }
+}

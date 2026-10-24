@@ -70,6 +70,7 @@ class UiActionsTests(unittest.TestCase):
     def make_preview_window(self):
         w=MainWindow.__new__(MainWindow)
         w.vm=AppViewModel();w.preview=TextBuffer();w.manual_source=Value()
+        w.preview_title=NS(configure=lambda **kwargs:None);w.target=Value('en')
         w.closed=False;w.screen_ticks=0
         w.loot_helper=NS(drain_status=lambda:[])
         w.root=NS(after=lambda *args:None)

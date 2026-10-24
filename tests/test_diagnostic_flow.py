@@ -187,3 +187,102 @@ class DiagnosticFlowTests(unittest.TestCase):
         finally:
             controller.account_setup.close()
             controller.close()
+
+
+class BoardValueDiagnosticFlowTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name)
+
+    def read_archive(self, recorder, name='values.zip'):
+        path = recorder.export_report(self.base / name)
+        with zipfile.ZipFile(path) as archive:
+            summary = json.loads(archive.read('summary.json'))
+            logs = [name for name in archive.namelist() if name.startswith('helper.log')]
+            rows = [json.loads(line) for name in logs
+                    for line in archive.read(name).decode('utf8').splitlines()]
+            return path, summary, rows, sum(len(archive.read(name)) for name in logs)
+
+    def test_new_reader_fields_are_explicit_and_do_not_copy_private_display_data(self):
+        recorder = DiagnosticRecorder(self.base / 'logs', enabled=True)
+        self.addCleanup(recorder.close)
+        self.assertEqual(recorder.snapshot()['max_total_bytes'], 100 * 1024 * 1024)
+        recorder.record('helper.read', stage='quest', source='broadcast', build=98348,
+            board_profile='98348-quest-cd-1', board_code_verified=1,
+            raw_quest_count=2, raw_cooldown_count=3, progress_rejected=1, cooldown_rejected=1,
+            quest_read_stage='value', quest_node_checks=1, quest_raw_state=4,
+            quest_raw_progress=0, quest_state='known', quest_progress=0,
+            progress_reason='verified', label_visible=1, label_numeric=1, label_matches=1,
+            player_slot=15, label_text='PRIVATE-LABEL', ability_id='PRIVATE-ABILITY',
+            quest_name='PRIVATE-QUEST', raw_pointer=0x12345678)
+        recorder.record('helper.read', stage='cooldown', source='broadcast', cooldown_state='cooldown',
+            cooldown_seconds=12.5, cooldown_reason='cooldown_label_positive_seconds',
+            cooldown_read_stage='cooldown_display', cooldown_node_checks=9,
+            player_slot=0, label_visible=1, label_numeric=1)
+        recorder.record('helper.read', quest_state='PRIVATE-STATE', progress_reason='PRIVATE-REASON',
+            cooldown_state='PRIVATE-STATE', cooldown_reason='PRIVATE-REASON',
+            quest_read_stage='PRIVATE-STAGE', cooldown_read_stage='PRIVATE-STAGE',
+            board_profile='PRIVATE-PROFILE')
+        recorder.record('helper.read', stage='board_profile', outcome='unknown',
+            board_profile='98348-quest-cd-1', board_code_verified=0)
+        _, _, rows, _ = self.read_archive(recorder)
+        quest = next(row for row in rows if row.get('stage') == 'quest')
+        self.assertEqual(quest['quest_progress'], 0)
+        self.assertEqual(quest['quest_raw_progress'], 0)
+        self.assertEqual(quest['progress_reason'], 'verified')
+        self.assertEqual(quest['raw_quest_count'], 2)
+        self.assertEqual(quest['raw_cooldown_count'], 3)
+        self.assertEqual(quest['board_profile'], '98348-quest-cd-1')
+        self.assertEqual(quest['board_code_verified'], 1)
+        failed_profile = next(row for row in rows if row.get('stage') == 'board_profile')
+        self.assertEqual(failed_profile['board_code_verified'], 0)
+        cooldown = next(row for row in rows if row.get('stage') == 'cooldown')
+        self.assertEqual(cooldown['cooldown_seconds'], 12.5)
+        self.assertEqual(cooldown['cooldown_node_checks'], 9)
+        content = json.dumps(rows)
+        for private in ('PRIVATE-LABEL', 'PRIVATE-ABILITY', 'PRIVATE-QUEST', 'PRIVATE-STATE',
+                        'PRIVATE-REASON', 'PRIVATE-STAGE', 'PRIVATE-PROFILE', str(0x12345678)):
+            self.assertNotIn(private, content)
+
+    def test_task_and_cooldown_values_survive_bounded_rotation_honestly(self):
+        recorder = DiagnosticRecorder(self.base / 'rotated', max_total_bytes=4096,
+            max_bytes=1024, enabled=True)
+        self.addCleanup(recorder.close)
+        for value in range(80):
+            recorder.record('helper.read', stage='quest', quest_state='known',
+                quest_progress=value, progress_reason='verified',
+                cooldown_state='cooldown', cooldown_seconds=value + .5,
+                cooldown_reason='cooldown_label_positive_seconds')
+        _, summary, rows, size = self.read_archive(recorder)
+        self.assertLessEqual(size, 4096)
+        self.assertGreater(summary['overwritten'], 0)
+        self.assertTrue(summary['incomplete'])
+        values = [row for row in rows if row.get('event') == 'helper.read']
+        latest = max(values, key=lambda row: row['sequence'])
+        self.assertEqual(latest['quest_progress'], 79)
+        self.assertEqual(latest['cooldown_seconds'], 79.5)
+
+    def test_real_zip_contains_new_snapshots_and_replays_the_actual_business(self):
+        from hots_chat.replay import replay_archive
+        from hots_chat.talent_broadcast import InputContext, TalentBroadcastConfig, TalentBroadcastSession
+        from tests.test_helper_replay import HelperReplayTests
+        recorder = DiagnosticRecorder(self.base / 'replay', enabled=True)
+        self.addCleanup(recorder.close)
+        for hit in HelperReplayTests().task_hits():
+            session = TalentBroadcastSession(double_click_ms=500, double_click_size=(4, 4),
+                config=TalentBroadcastConfig(True), diagnostics=recorder)
+            context = InputContext(hit.pid, hit.hwnd, hit.match_token, True)
+            action = HelperReplayTests().ready(session, hit, context)
+            self.assertIsNotNone(action)
+            self.assertEqual(session.dispatch(action, lambda *_args, **_options: 'sent',
+                hit, context, 10.3).state, 'sent')
+        path, summary, rows, _ = self.read_archive(recorder)
+        self.assertFalse(summary['incomplete'], summary)
+        wire = json.dumps([row['payload'] for row in rows if row['event'] == 'replay.frame'])
+        for value in ('QuestHitSnapshot', 'CooldownHitSnapshot', 'quest_progress', 'remaining_seconds'):
+            self.assertIn(value, wire)
+        result = replay_archive(path)
+        self.assertEqual(result['status'], 'matched', result)
+        self.assertTrue(result['complete'], result)
+        self.assertEqual(result['matched'], result['frames'])

@@ -93,16 +93,50 @@ def _types():
     from .loot_native import GameTarget
     from .talent import TalentConfig, TalentStatus, _Attempt
     from .talent_broadcast import (BroadcastSendResult, DispatchAction, HitSnapshot, InputContext,
-        StatHitSnapshot, TalentBroadcastConfig, TalentBroadcastStatus, _Pending)
+        CooldownHitSnapshot, QuestHitSnapshot, StatHitSnapshot,
+        TalentBroadcastConfig, TalentBroadcastStatus, _Pending)
     return {cls.__name__: cls for cls in (BoardSnapshot, TalentChoice, TalentSnapshot, TalentTier, GameTarget,
         TalentConfig, TalentStatus, _Attempt, BroadcastSendResult, DispatchAction, HitSnapshot,
-        InputContext, StatHitSnapshot, TalentBroadcastConfig, TalentBroadcastStatus, _Pending)}
+        InputContext, CooldownHitSnapshot, QuestHitSnapshot, StatHitSnapshot,
+        TalentBroadcastConfig, TalentBroadcastStatus, _Pending)}
 
 
 def _field_name(class_name, field_name):
     # This is a harmless action counter, not an authentication credential. Keep
     # the recorder's generic credential-key filter intact for real tokens.
     return 'action_token' if (class_name, field_name) == ('DispatchAction', 'token') else field_name
+
+
+_LEGACY_FIELD_DEFAULTS = {'HitSnapshot': {'quest_progress': None, 'quest_state': ''}}
+
+
+def _data_fields(kind, data, cls):
+    expected = {_field_name(kind, field.name) for field in fields(cls)}
+    defaults = _LEGACY_FIELD_DEFAULTS.get(kind, {})
+    if type(data) is not dict or set(data) - expected or expected - set(data) - set(defaults):
+        raise ValueError('invalid_data_class')
+    return {**defaults, **data}
+
+
+def _normalize_legacy_fields(value, depth=0):
+    """Only restore the two documented absent quest defaults, including expectations.
+
+    This structural migration never changes recorded messages or behavior results.
+    In particular an older talent message can still mismatch the new formatter.
+    """
+    # Typed dictionaries/lists add wire wrappers beyond the semantic codec depth.
+    # _decode retains its own stricter 24-level semantic limit.
+    if depth > 80:
+        raise ValueError('depth_limit')
+    if type(value) is list:
+        return [_normalize_legacy_fields(item, depth + 1) for item in value]
+    if type(value) is not dict:
+        return value
+    result = {key: _normalize_legacy_fields(item, depth + 1) for key, item in value.items()}
+    kind = result.get('type')
+    if type(kind) is str and kind in _LEGACY_FIELD_DEFAULTS and set(result) == {'type', 'fields'}:
+        result['fields'] = _data_fields(kind, result['fields'], _types()[kind])
+    return result
 
 
 def _decode(value, depth=0):
@@ -129,9 +163,9 @@ def _decode(value, depth=0):
         return tuple(result) if kind == 'tuple' else result
     cls = _types().get(kind)
     data = value.get('fields')
-    if (cls is None or set(value) != {'type', 'fields'} or type(data) is not dict
-            or set(data) != {_field_name(kind, field.name) for field in fields(cls)}):
+    if cls is None or set(value) != {'type', 'fields'}:
         raise ValueError('invalid_data_class')
+    data = _data_fields(kind, data, cls)
     return cls(**{field.name: _decode(data[_field_name(kind, field.name)], depth + 1)
                   for field in fields(cls)})
 
@@ -413,6 +447,7 @@ def replay_helper_frame(component, operation, payload):
         if payload.get('incomplete'):
             report['status'] = 'incomplete'
             raise ValueError('incomplete_frame')
+        payload = _normalize_legacy_fields(payload)
         if component == 'board' and operation == 'hit_test':
             from .board_service import hit_test
             inputs = _decode(payload['input'])

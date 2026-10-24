@@ -23,14 +23,39 @@ _TEXT = frozenset(('stage', 'outcome', 'source', 'target', 'message_id', 'job_id
     'provider_code', 'frames', 'reason', 'reader_status', 'coordinate_reason',
     'chat_state', 'menu_state', 'foreground_state', 'hit_kind', 'identity_reason', 'identity_error_type',
     'component', 'operation', 'version', 'guard_stage', 'supported_decoders',
-    'decoder_code_fingerprint', 'decoder_expected_fingerprint'))
+    'decoder_code_fingerprint', 'decoder_expected_fingerprint',
+    'quest_state', 'cooldown_state', 'progress_reason', 'cooldown_reason',
+    'quest_read_stage', 'cooldown_read_stage', 'board_profile', 'board_code_field',
+    'board_code_fingerprint', 'board_expected_fingerprint'))
 _NUMBERS = frozenset(('generation', 'characters', 'elapsed_ms', 'queue_depth', 'count',
     'winerror', 'retry_count', 'build', 'expected_build', 'read_calls', 'read_bytes',
     'client_width', 'client_height', 'origin_x', 'origin_y', 'render_width', 'render_height',
     'raw_talent_count', 'raw_stat_count', 'coordinate_rejected', 'metadata_rejected',
+    'raw_quest_count', 'raw_cooldown_count', 'progress_rejected', 'cooldown_rejected',
+    'talent_hit_count', 'stat_hit_count', 'quest_hit_count', 'cooldown_hit_count',
+    'quest_progress', 'quest_raw_state', 'quest_raw_progress', 'cooldown_seconds', 'player_slot',
+    'quest_node_checks', 'cooldown_node_checks', 'label_visible', 'label_numeric', 'label_matches',
+    'board_code_verified', 'tier_id', 'quest_index',
     'hit_count', 'candidate_count', 'click_x', 'click_y', 'event_age_ms', 'attempt_id',
     'schema', 'replay_schema', 'max_total_bytes', 'max_event_bytes',
     'decoder_mode', 'expected_decoder', 'api_active', 'talent_active', 'decoder_code_verified'))
+_ENUM_TEXT = {
+    'quest_state': frozenset(('', 'known', 'complete', 'unknown', 'untracked')),
+    'cooldown_state': frozenset(('', 'cooldown', 'ready', 'unknown', 'untracked')),
+    'progress_reason': frozenset(('invalid_observations', 'changed_during_read', 'no_quest',
+        'untracked', 'completed', 'unknown_state', 'missing_or_ambiguous_label', 'hidden_label',
+        'non_numeric_label', 'value_mismatch', 'verified')),
+    'cooldown_reason': frozenset(('cooldown_label_positive_seconds', 'cooldown_label_hidden',
+        'cooldown_label_not_positive_seconds', 'charge_ability_unsupported', 'ability_reference_unresolved',
+        'heroic_ability_unselected', 'cooldown_binding_untrusted', 'cooldown_display_unobserved',
+        'heroic_ability_unresolved')),
+    'quest_read_stage': frozenset(('value',)),
+    'cooldown_read_stage': frozenset(('cooldown_display',)),
+    'board_profile': frozenset(('98348-quest-cd-1',)),
+    'board_code_field': frozenset(('talent_quest_state', 'talent_quest_value', 'baseline_index',
+        'baseline_quest_state', 'baseline_quest_value', 'heroic_ability_link')),
+}
+_SHA256_TEXT = frozenset(('board_code_fingerprint', 'board_expected_fingerprint'))
 _BODIES = frozenset(('original', 'translated'))
 _LOG_NAMES = ('helper.log',) + tuple(f'helper.log.{i}' for i in range(1, 5))
 MAX_EVENT_BYTES = 1024 * 1024
@@ -200,6 +225,11 @@ class DiagnosticRecorder:
             return False
         data = {'event': event}
         for key, value in fields.items():
+            if key in _ENUM_TEXT and (type(value) is not str or value not in _ENUM_TEXT[key]):
+                continue
+            if key in _SHA256_TEXT and (type(value) is not str or len(value) != 64
+                    or any(character not in '0123456789abcdefABCDEF' for character in value)):
+                continue
             if key in _TEXT and isinstance(value, str):
                 # 固定结构字段不允许路径/正文无限扩展；认证值后续仍统一脱敏。
                 data[key] = self._redact(value)[:512 if key == 'frames' else 128]

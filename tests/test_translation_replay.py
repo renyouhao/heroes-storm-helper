@@ -113,7 +113,7 @@ class TranslationReplayTests(unittest.TestCase):
         self.controller.on_chat(self.chat(1))
         self.wait_idle()
         frame = next(frame for frame in self.frames() if frame['operation'] == 'on_chat')
-        with patch('hots_chat.controller.incoming_source_language', return_value=None):
+        with patch('hots_chat.controller.incoming_translation_route', return_value='unsupported'):
             self.assertEqual(replay_translation_frame(frame)['status'], 'mismatch')
         tampered = copy.deepcopy(frame)
         tampered['expected']['events'] = []

@@ -150,13 +150,13 @@ class OriginalOnlyFeedTests(ControllerFixture, unittest.TestCase):
         self.root.update_idletasks()
         return self.feed.body.get('1.0', 'end-1c')
 
-    def test_original_only_rows_render_metadata_and_body_without_status_or_blank_line(self):
+    def test_original_only_rows_render_metadata_and_body_without_status(self):
         vm = AppViewModel()
         expected = ''
         for key, text in enumerate(ORIGINAL_ONLY[:-1]):
             for event in self.receive(text, str(key)):
                 vm.apply(event)
-            expected += '队友   团队  ·  1:23\n' + text + '\n'
+            expected += '队友    团队 \t1:23\n' + text + '\n\n'
             self.assertEqual(self.render(vm), expected)
         self.assertEqual(self.feed.body.tag_ranges('status'), ())
         self.assertEqual(self.engine.calls, [])
@@ -164,7 +164,7 @@ class OriginalOnlyFeedTests(ControllerFixture, unittest.TestCase):
     def test_empty_status_does_not_create_a_status_line(self):
         self.feed.insert('', 'end', iid='a', values=('123 😀', '', ''))
         self.root.update_idletasks()
-        self.assertEqual(self.feed.body.get('1.0', 'end-1c'), '123 😀\n')
+        self.assertEqual(self.feed.body.get('1.0', 'end-1c'), '123 😀\n\n')
         self.assertEqual(self.feed.body.tag_ranges('status'), ())
 
     def test_english_queue_translating_and_error_status_remain_visible(self):
@@ -174,13 +174,13 @@ class OriginalOnlyFeedTests(ControllerFixture, unittest.TestCase):
             with self.subTest(state=state):
                 vm.apply(AppEvent('translation_state', 0,
                                   {'message_id': 'a', 'state': state, 'reason': ''}))
-                self.assertEqual(self.render(vm), '队友   团队  ·  1:23\nhelp 中文\n' + label + '\n')
+                self.assertEqual(self.render(vm), '队友    团队 \t1:23\nhelp 中文\n' + label + '\n\n')
         vm.apply(AppEvent('error', 0, {'message_id': 'a', 'error': '网络超时'}))
-        self.assertEqual(self.render(vm), '队友   团队  ·  1:23\nhelp 中文\n网络超时\n')
+        self.assertEqual(self.render(vm), '队友    团队 \t1:23\nhelp 中文\n网络超时\n\n')
 
     def test_translated_mixed_message_keeps_original_and_metadata(self):
         vm = self.apply_events(self.receive('가자 中文'))
-        self.assertEqual(self.render(vm), '队友   团队  ·  1:23\n集合支援\n原文  가자 中文\n')
+        self.assertEqual(self.render(vm), '队友    团队 \t1:23\n集合支援\n原文  가자 中文\n\n')
 
 
 class OriginalOnlyOverlayTests(ControllerFixture, unittest.TestCase):

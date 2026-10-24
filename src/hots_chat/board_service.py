@@ -5,7 +5,8 @@ import threading
 import time
 
 from .loot_native import INPUT_MARKER
-from .talent_broadcast import InputContext, TalentBroadcastConfig, TalentBroadcastSession
+from .talent_broadcast import (CooldownHitSnapshot, HitSnapshot, InputContext, QuestHitSnapshot,
+    StatHitSnapshot, TalentBroadcastConfig, TalentBroadcastSession)
 
 
 # 状态详情也可能由外部 sender 提供；仅记录程序内固定提示，不能把播报正文当原因。
@@ -38,6 +39,38 @@ def hit_test(snapshot, x, y):
     hits = [hit for hit in snapshot.hits if hit.rect[0] <= x < hit.rect[2]
             and hit.rect[1] <= y < hit.rect[3]]
     return hits[0] if len(hits) == 1 else None
+
+
+def _hit_kind(hit):
+    return {HitSnapshot: 'talent', StatHitSnapshot: 'stat', QuestHitSnapshot: 'quest',
+            CooldownHitSnapshot: 'cooldown'}.get(type(hit), 'unknown' if hit is not None else 'none')
+
+
+def _hit_values(hit):
+    """诊断只复制可信类型的状态/标量，不复制 ID、显示名称、正文或原生地址。"""
+    result = {'hit_kind': _hit_kind(hit)}
+    if type(hit) in (HitSnapshot, QuestHitSnapshot):
+        state = hit.quest_state if type(hit) is HitSnapshot else hit.state
+        value = hit.quest_progress if type(hit) is HitSnapshot else hit.progress
+        if state in ('', 'known', 'complete', 'unknown', 'untracked'):
+            result['quest_state'] = state
+        if type(value) is int and 0 <= value < 2**32:
+            result['quest_progress'] = value
+    elif type(hit) is CooldownHitSnapshot:
+        if hit.state in ('cooldown', 'ready', 'unknown', 'untracked'):
+            result['cooldown_state'] = hit.state
+        if type(hit.remaining_seconds) in (int, float):
+            result['cooldown_seconds'] = hit.remaining_seconds
+    return result
+
+
+def _hit_counts(hits):
+    result = {kind + '_hit_count': 0 for kind in ('talent', 'stat', 'quest', 'cooldown')}
+    for hit in hits:
+        key = _hit_kind(hit) + '_hit_count'
+        if key in result:
+            result[key] += 1
+    return result
 
 
 def _closed_input_busy():
@@ -75,9 +108,11 @@ class BoardHelper:
     def _new_reader(backend):
         from .acquisition.board_source import BoardReader
         from .acquisition.board_input import BoardInputReader
+        from .quest_catalog import QuestCatalog
         from .talent_catalog import TalentCatalog
         inputs = BoardInputReader()
-        return BoardReader(text_provider=TalentCatalog().resolve,
+        catalog, quests = TalentCatalog(), QuestCatalog()
+        return BoardReader(text_provider=catalog.resolve, quest_text_provider=quests.resolve,
             viewport_converter=backend.viewport_converter, input_state_provider=inputs.inspect)
 
     def _new_sender(self, backend, reader):
@@ -277,13 +312,15 @@ class BoardHelper:
                     info.update(reader_status=snapshot.status, hit_count=len(snapshot.hits),
                         chat_state=flag(snapshot.chat_active),menu_state=flag(snapshot.menu_active),
                         foreground_state=flag(context.foreground),elapsed_ms=round((self.clock()-started)*1000,3))
+                    info.update(_hit_counts(snapshot.hits))
                     self._record('helper.read', **info)
                     if stage == 'click':
                         count = sum(1 for item in snapshot.hits if item.rect[0] <= point[0] < item.rect[2]
                                     and item.rect[1] <= point[1] < item.rect[3])
                         self._record('helper.click',stage='hit_test',outcome='hit' if count==1 else
                             'ambiguous' if count>1 else 'no_hit',candidate_count=count,click_x=point[0],click_y=point[1],
-                            hit_kind=('stat' if hasattr(hit,'metric_id') else 'talent') if hit else 'none',
+                            reason='' if count == 1 else 'overlapping_targets' if count > 1 else 'no_trusted_candidate',
+                            **_hit_values(hit),
                             event_age_ms=event_age_ms)
                 return hit, context
 

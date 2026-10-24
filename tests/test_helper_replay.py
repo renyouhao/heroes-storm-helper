@@ -9,8 +9,8 @@ from hots_chat.acquisition.talent_source import TalentChoice, TalentSnapshot, Ta
 from hots_chat.loot_native import GameTarget
 from hots_chat.talent import TalentConfig, TalentSession
 from hots_chat.talent_broadcast import (
-    BroadcastSendResult, InputContext, StatHitSnapshot, TalentBroadcastConfig,
-    TalentBroadcastSession,
+    BroadcastSendResult, CooldownHitSnapshot, HitSnapshot, InputContext, QuestHitSnapshot,
+    StatHitSnapshot, TalentBroadcastConfig, TalentBroadcastSession,
 )
 from hots_chat.helper_replay import record_board_hit_test, replay_helper_frame
 
@@ -190,6 +190,91 @@ class HelperReplayTests(unittest.TestCase):
                 'available', hits=(hit,) * copies)
             record_board_hit_test(recorder, snapshot, point, context, hit_test(snapshot, *point))
             self.assert_replays(recorder)
+
+    def task_hits(self):
+        common = dict(pid=84517, hwnd=778899, match_token='match-secret', player_slot=3,
+            team_relation='ally', rect=(100, 200, 160, 260), observed_at=10., valid_until=11.,
+            panel_visible=True, mapping_trusted=True, player_name='Player', hero_name='AnyHero')
+        return (
+            HitSnapshot(**common, tier_level=13, talent_id='AnyTalent', talent_name='天赋',
+                effect_summary='已核实效果。', selected=True, quest_progress=12, quest_state='known'),
+            QuestHitSnapshot(**common, quest_id='AnyQuest', quest_name='基础任务', progress=12, state='known'),
+            CooldownHitSnapshot(**common, ability_id='AnyHeroic', ability_name='大招',
+                remaining_seconds=12.5, state='cooldown'),
+        )
+
+    def test_task_and_cooldown_replay_real_dynamic_refresh_and_frozen_send(self):
+        for hit in self.task_hits():
+            with self.subTest(kind=type(hit).__name__):
+                recorder = Recorder()
+                session = TalentBroadcastSession(double_click_ms=500, double_click_size=(4, 4),
+                    config=TalentBroadcastConfig(True), diagnostics=recorder)
+                context = InputContext(hit.pid, hit.hwnd, hit.match_token, True)
+                action = self.ready(session, hit, context)
+                if isinstance(hit, HitSnapshot):
+                    latest = replace(hit, quest_progress=13)
+                elif isinstance(hit, QuestHitSnapshot):
+                    latest = replace(hit, progress=13)
+                else:
+                    latest = replace(hit, remaining_seconds=11.5)
+                status = session.dispatch(action, lambda _action, **_kw: 'sent', latest, context, 10.3)
+                self.assertEqual(status.state, 'sent')
+                self.assert_replays(recorder)
+                changed = deepcopy(recorder.frames[-1])
+                changed['payload']['expected']['after']['items'] = []
+                result = replay_helper_frame(changed['component'], changed['operation'], changed['payload'])
+                self.assertFalse(result['matched'])
+
+    @staticmethod
+    def legacy_hit_fields(value):
+        if isinstance(value, dict):
+            if value.get('type') == 'HitSnapshot':
+                value['fields'].pop('quest_progress', None)
+                value['fields'].pop('quest_state', None)
+            for item in value.values():
+                HelperReplayTests.legacy_hit_fields(item)
+        elif isinstance(value, list):
+            for item in value:
+                HelperReplayTests.legacy_hit_fields(item)
+
+    def test_legacy_hit_snapshot_missing_only_new_defaults_still_replays_hit_test(self):
+        from hots_chat.acquisition.board_source import BoardSnapshot
+        recorder = Recorder()
+        hit = replace(self.task_hits()[0], quest_progress=None, quest_state='')
+        context = InputContext(hit.pid, hit.hwnd, hit.match_token, True)
+        snapshot = BoardSnapshot(hit.pid, hit.hwnd, hit.match_token, 'available', hits=(hit,))
+        record_board_hit_test(recorder, snapshot, (120, 220), context, hit)
+        self.legacy_hit_fields(recorder.frames)
+        self.assert_replays(recorder)
+
+    def test_legacy_defaults_do_not_allow_missing_identity_or_unknown_extra_fields(self):
+        from hots_chat.helper_replay import _decode, _encode_plain
+        hit = replace(self.task_hits()[0], quest_progress=None, quest_state='')
+        for field, value in (('talent_id', None), ('unexpected_field', 1)):
+            encoded = _encode_plain(hit)
+            self.legacy_hit_fields(encoded)
+            if value is None:
+                del encoded['fields'][field]
+            else:
+                encoded['fields'][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                _decode(encoded)
+
+    def test_legacy_message_behavior_is_not_silently_upgraded_to_match(self):
+        recorder = Recorder()
+        hit = replace(self.task_hits()[0], quest_progress=None, quest_state='')
+        session = TalentBroadcastSession(double_click_ms=500, double_click_size=(4, 4),
+            config=TalentBroadcastConfig(True), diagnostics=recorder)
+        context = InputContext(hit.pid, hit.hwnd, hit.match_token, True)
+        self.ready(session, hit, context)
+        frame = deepcopy(recorder.frames[-1])
+        self.legacy_hit_fields(frame)
+        expected = frame['payload']['expected']['result']['fields']
+        expected['message'] = expected['message'].removeprefix('注意')
+        result = replay_helper_frame(frame['component'], frame['operation'], frame['payload'])
+        self.assertFalse(result['matched'])
+        self.assertEqual(result['status'], 'mismatch')
+        self.assertIn('result', result['mismatches'])
 
     def test_full_sender_fences_survive_real_recorder_export(self):
         from pathlib import Path

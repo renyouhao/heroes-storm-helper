@@ -294,7 +294,7 @@ def _outcome(operation, events, result, error):
     reason = detail.get('reason', '')
     known = {'翻译服务未配置': 'cloud_unconfigured', '配置处理中': 'configuration_held',
              '云翻译已关闭': 'cloud_paused', '自动翻译已暂停': 'automatic_paused',
-             '不支持的语言或符号': 'unsupported_language',
+             '不支持的语言或符号': 'unsupported_language', '不支持的语言': 'unsupported_language',
              'sender_rate': 'sender_rate', 'global_characters': 'global_characters',
              'queue_full': 'queue_full', 'expired': 'expired'}
     if reason in known:
