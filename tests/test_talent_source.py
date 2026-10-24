@@ -175,6 +175,77 @@ class TalentReaderTests(unittest.TestCase):
         self.assertEqual(value.tiers[0].selected_value,1)
         self.assertEqual([c.entry_index for c in value.tiers[1].choices],[3,4,5])
 
+    def test_packaged_hero_and_talent_ids_are_accepted_by_memory_link_reader(self):
+        from hots_chat.acquisition.talent_source import _Memory, _link
+        catalog = json.loads((Path(__file__).resolve().parents[1] /
+                              'data/talents_98348_zhCN.json').read_text(encoding='utf-8'))
+        identifiers = {hero for hero in catalog['heroes']}
+        identifiers.update(talent for hero in catalog['heroes'].values()
+                           for talent in hero['talents'])
+        handle = self.memory.allocate(0x48)
+        node = self.memory.allocate(0x20 + 160)
+        self.memory.pack(handle + 0x30, 'Q', node)
+        self.memory.pack(handle + 0x40, 'H', 42)
+        for identifier in sorted(identifiers):
+            with self.subTest(identifier=identifier):
+                raw = identifier.encode('ascii')
+                self.memory.pack(node + 0x18, 'II', len(raw) << 2, 0)
+                self.memory.put(node + 0x20, raw)
+                self.assertEqual(_link(_Memory(self.memory), handle), (identifier, 42))
+
+    def test_catalog_links_still_reject_invalid_identifier_bytes(self):
+        from hots_chat.acquisition.talent_source import _Memory, _link, _Unknown
+        handle = self.memory.allocate(0x48)
+        node = self.memory.allocate(0x20 + 161)
+        self.memory.pack(handle + 0x30, 'Q', node)
+        self.memory.pack(handle + 0x40, 'H', 42)
+        for raw in (b'', b'9Talent', b'Bad Name', b'Bad\nID', b'Bad\x00ID',
+                    b'<Talent>', b'Bad\xc3\xa9', b'A' * 161):
+            with self.subTest(raw=raw):
+                self.memory.pack(node + 0x18, 'II', len(raw) << 2, 0)
+                self.memory.put(node + 0x20, raw)
+                with self.assertRaises(_Unknown):
+                    _link(_Memory(self.memory), handle)
+
+    def test_brightwing_catalog_all_tiers_select_once_and_confirm_by_readback(self):
+        from hots_chat.loot_native import GameTarget
+        from hots_chat.talent import TalentConfig, TalentSession
+        from tests.test_talent import Backend
+        catalog = json.loads((Path(__file__).resolve().parents[1] /
+                              'data/talents_98348_zhCN.json').read_text(encoding='utf-8'))
+        talents = sorted(catalog['heroes']['FaerieDragon']['talents'].items(),
+                         key=lambda item: (item[1]['tier'], item[1]['column']))
+        self.assertEqual(len(talents), 21)
+        self.assertIn('BrightwingArcaneFlareHush!', dict(talents))
+        self.memory.pack(self.memory.model + 0x50, 'Q', self.memory.link('FaerieDragon', 33))
+        for index, (identifier, record) in enumerate(talents):
+            self.memory.pack(self.memory.entries + index * 0x40, 'QI',
+                             self.memory.link(identifier, 100 + index), record['tier'])
+        levels = (1, 4, 7, 10, 13, 16, 20)
+        for tier, level in enumerate(levels, 1):
+            self.memory.pack(self.memory.rows + (tier - 1) * 12, 'III', tier, level, 0)
+        self.memory.set_selected([-1] * 32)
+        backend = Backend()
+        session = TalentSession(backend, config=TalentConfig(enabled=True))
+        target = GameTarget(456, 123)
+        for tier, level in enumerate(levels, 1):
+            with self.subTest(tier=tier, level=level):
+                self.memory.set_level(level)
+                snapshot = self.reader.poll(123)
+                self.assertEqual((snapshot.hero_id, snapshot.status, snapshot.pending_tier),
+                                 ('FaerieDragon', 'available', tier), snapshot.reason)
+                self.assertEqual(sum(len(row.choices) for row in snapshot.tiers), 21)
+                self.assertEqual(session.poll(snapshot, tier * 10., target).state, 'confirming')
+                self.assertEqual(session.poll(snapshot, tier * 10. + 1, target).state, 'confirming')
+                self.assertEqual(len(backend.calls), tier)
+                selected = list(self.memory.selected)
+                selected[tier] = snapshot.tiers[tier - 1].choices[0].entry_index
+                self.memory.set_selected(selected)
+                confirmed = self.reader.poll(123)
+                self.assertEqual(session.poll(confirmed, tier * 10. + 2, target).state, 'confirmed')
+                self.assertEqual(len(backend.calls), tier)
+        self.assertEqual((confirmed.status, confirmed.pending_tier), ('idle', None))
+
     def test_fourth_level_does_not_unlock_chromie_fifth_level_tier(self):
         values=self.memory.selected;values[2]=3;self.memory.set_selected(values);self.memory.set_level(4)
         value=self.reader.poll(123)

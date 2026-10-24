@@ -100,7 +100,8 @@ def main(argv=None):
         from .desktop import run_desktop,DesktopError
         try:return run_desktop(demo=args.demo)
         except DesktopError as failure:
-            print(str(failure))
+            from .startup import report_startup_failure
+            report_startup_failure(failure,message=str(failure))
             return 2
     mutex=SingleInstance()
     if not mutex.acquire(): print('助手已经运行。'); return 1
@@ -130,7 +131,9 @@ def main(argv=None):
         return 0
     except ConfigError as failure:
         if diagnostic_hooks is not None:diagnostic_hooks.capture('startup',failure)
-        print(str(failure)); return 2
+        from .startup import report_startup_failure
+        report_startup_failure(failure,message='助手配置无法读取，请检查本机配置或重新配置账户。')
+        return 2
     except Exception as failure:
         if diagnostic_hooks is not None:diagnostic_hooks.capture('main',failure)
         raise

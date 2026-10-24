@@ -1,6 +1,7 @@
 """Desktop build contract: fresh resources, Windows backend, all self-checks."""
 from pathlib import Path
 import json
+import re
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -9,6 +10,22 @@ from tools import build_release
 
 
 class DesktopPackagingTests(unittest.TestCase):
+    def test_release_version_matches_python_metadata_frontend_and_lockfile(self):
+        from hots_chat import __version__, DISPLAY_VERSION, RELEASE_CHANNEL
+        root = Path(__file__).resolve().parents[1]
+        metadata = (root / 'pyproject.toml').read_text(encoding='utf-8')
+        declared_version = re.search(r'(?m)^version\s*=\s*"([^"]+)"\s*$', metadata)
+        self.assertIsNotNone(declared_version)
+        self.assertEqual(declared_version.group(1), __version__)
+        frontend = json.loads((root / 'frontend/package.json').read_text(encoding='utf-8'))
+        lockfile = json.loads((root / 'frontend/package-lock.json').read_text(encoding='utf-8'))
+        self.assertEqual(frontend['version'], __version__)
+        self.assertEqual(lockfile['version'], __version__)
+        self.assertEqual(lockfile['packages']['']['version'], __version__)
+        self.assertEqual(build_release.VERSION, __version__)
+        self.assertEqual(DISPLAY_VERSION, 'v' + '.'.join(__version__.split('.')[:2]))
+        self.assertEqual(RELEASE_CHANNEL, 'stable')
+
     def test_prerelease_name_is_separate_from_numeric_version_and_stable_name(self):
         self.assertEqual(build_release.release_archive_name('1.4.0','prerelease'),
                          'HotsHelper-1.4.0-prerelease-Windows-x64.zip')

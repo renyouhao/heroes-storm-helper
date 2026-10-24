@@ -4,11 +4,13 @@
 
 A Windows companion for Heroes of the Storm: read incoming English and Korean chat in Chinese, translate your Chinese replies into English or Korean, and use optional helpers for loot chests, repeated key presses, favorite talents, and team callouts.
 
-**Source target: v2.1 · Application/package version: 2.1.0 · Configured channel: `stable`.** Downloadable versions, assets and checksums are determined by the actual Release. The application is distributed as **风暴英雄助手** and uses a Chinese interface. Existing credentials, phrasebook data and preferences remain in place; previous theme choices migrate to Soft Lavender.
+**Source target: v2.2 · Application/package version: 2.2.0 · Configured channel: `stable`.** Downloadable versions, assets and checksums are determined by the actual Release. The application is distributed as **风暴英雄助手** and uses a Chinese interface. Existing credentials, phrasebook data and preferences remain in place; previous theme choices migrate to Soft Lavender.
 
 **Supported validation target: Windows x64, Chinese game client build 98348.** This English introduction does not mean the English game client has been validated. Game updates require another compatibility check.
 
 ## Download
+
+The link below is the published **v2.1 binary package**. The v2.2 source and tag include the startup and Brightwing fixes; binary assets are published separately. An older executable does not acquire source changes automatically.
 
 **[Download v2.1 for Windows x64](https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.1/HotsHelper-2.1.0-Windows-x64.zip)** · [Release notes and SHA256](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1) · [All versions](https://github.com/renyouhao/heroes-storm-helper/releases)
 
@@ -176,6 +178,8 @@ You can also double-click `打开悬浮窗对比.cmd` in the repository root: it
 
 **Favorite talents:** first mark your preferred talents in the game and keep its quick-favorite shortcut set to `Ctrl` + grave accent (the key below Esc). Enable **天赋辅助** in the helper. It reads the current hero's actual talent tiers, including special unlock levels, and defers while another helper owns input. Both the feature and its saved preference start disabled for a new user.
 
+**Brightwing fix in v2.2:** the valid level-20 talent ID `BrightwingArcaneFlareHush!` was rejected by the old identifier validator. Because the reader loads every tier, this also blocked automatic selection at low levels. The validator now accepts the `!` and apostrophe punctuation used by the bundled catalog, also covering equivalent Raynor/Zul'jin IDs. Bounds, ASCII, identity, build and foreground guards remain. Tests use all 21 bundled Brightwing talents across seven tiers with synthetic memory and simulated input; live verification on affected computers is still pending.
+
 **Double-click callouts:** enable **双击播报**, return to the game, and open Tab. Double-click one selected talent or statistics cell, then release the mouse and other keys while keeping the game foreground. Keep the game's `Ctrl+Enter` team-chat shortcut at its default. The helper checks the target, team channel, and empty chat box, then reads the entered text back before submitting. It does not change the clipboard or replace a user draft.
 
 Use Tab's **talent page** for talents, baseline quests and heroics. Talent messages begin with “注意” and retain the hero's actual unlock level, name and short effect. A verified quest in that same selected cell adds its current count, including a real zero, or reports completion. Both allied and enemy quests are supported when their native bindings and displayed state are trustworthy. Standalone baseline quest names resolve by exact hero/quest ID: the offline directory contains 16 entries with explicit Face and localization evidence. A missing name becomes “基础任务1/2” only after the native identity and value checks still pass. Hidden, untracked or unknown counters are not treated as zero, and stale hidden labels are not used.
@@ -200,9 +204,21 @@ User data lives in `%LOCALAPPDATA%\HotsChatHelper`. Existing preferences, phrase
 - Normal startup does not read the project's `.env`. On the personal-account page, **导入本机旧 .env** (“Import a local legacy .env”) reads only a file you explicitly select, up to 16 KiB. It fills the two key fields for this interaction and does not connect automatically; closing clears the Secret.
 - Old `usage.sqlite3` and `usage.sqlite3.initialized` files are left untouched and no longer read or created. A missing or corrupt old ledger does not block setup or translation.
 - Translation text is sent to Aliyun; the sender's nickname is not included in that translation text. The visible chat history keeps the latest 500 messages for the current session and clears when the helper exits.
-- **Diagnostics are off by default:** no writer thread or log file is created until enabled. The single switch records chat originals, translations and replay inputs/states for translation, automatic talents and double-click broadcasts. There is no separate detailed mode or ten-minute expiry. Logs default to a total cap of 100 MiB, rotating the oldest files and retaining up to seven days. Configured full keys/secrets are recursively redacted; review chat privacy before sharing an export.
+- **Diagnostics are off by default:** no diagnostic writer thread or recording file is created until enabled. The single switch records chat originals, translations and replay inputs/states for translation, automatic talents and double-click broadcasts. There is no separate detailed mode or ten-minute expiry. Logs default to a total cap of 100 MiB, rotating the oldest files and retaining up to seven days. Configured full keys/secrets are recursively redacted; review chat privacy before sharing an export. Startup failures have a separate bounded `startup.log`, described below.
 
 In **偏好设置 → 诊断** (Preferences → Diagnostics), **导出诊断日志** runs in the background and displays the completed ZIP path for copying. Inspect the file and share it yourself; the helper does not upload it automatically.
+
+### Startup troubleshooting
+
+Windows can propagate a downloaded ZIP's origin marker to DLLs under `_internal`, preventing Python.NET or WebView2 assemblies from loading. Before importing the application, v2.2 frozen Windows builds remove this marker only from the three bundled managed DLLs used by Python.NET/WebView2; their binary contents remain intact. Source runs do not perform this preparation. Failed preparation or startup produces a native error message.
+
+For a verified official archive, open the ZIP's Properties, select **Unblock**, and extract the complete archive again. For an already extracted application, unblock the complete application directory; unblocking just the EXE is insufficient. In PowerShell, replace the sample path with your own extracted application directory:
+
+```powershell
+Get-ChildItem -LiteralPath 'D:\your-extracted-folder\风暴英雄助手' -Recurse -File | Unblock-File
+```
+
+Startup failures write `%LOCALAPPDATA%\HotsChatHelper\startup.log`, keeping only the latest exception chain with a 128-KiB limit. Successful startup does not create it. Native error reporting is still attempted if writing the log fails. This log is separate from optional diagnostic recording and does not actively read credentials, environment snapshots or frame-local variables; inspect exception text and paths before sharing it. A genuinely missing WebView2 Runtime must still be installed from the [official Microsoft page](https://developer.microsoft.com/microsoft-edge/webview2/).
 
 <details>
 <summary>Troubleshooting recordings, replay fields, and decoder validation</summary>
@@ -268,12 +284,12 @@ To build a Windows package:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
-.\.venv\Scripts\python.exe -m tools.build_release --output "releases/v2.1"
+.\.venv\Scripts\python.exe -m tools.build_release --output "releases/v2.2"
 ```
 
 The build first runs `npm ci` and `npm run build`, checks the frontend output, then freezes Python with PyInstaller. It includes `frontend/dist`, the Windows WebView2 bridge, and pythonnet dynamic libraries; it does not bundle Node.js, a development server, or Qt/CEF browser backends. The target computer needs WebView2 Runtime.
 
-The command above writes `releases/v2.1/HotsHelper-2.1.0-Windows-x64.zip`. The ZIP’s directory and `风暴英雄助手.exe` retain their Chinese names. The internal version is `2.1.0`, the channel is `stable`, and the GitHub release tag is `v2.1`. Running the local build command alone does not create a Git tag or public Release. The build explicitly stages public seed data and bundled UI files and rejects local credentials, databases, preferences, logs and sampling files from the release bundle.
+The command above writes `releases/v2.2/HotsHelper-2.2.0-Windows-x64.zip`. The ZIP’s directory and `风暴英雄助手.exe` retain their Chinese names. The internal version is `2.2.0`, the channel is `stable`, and the corresponding source tag is `v2.2`. Running the local build command alone does not create a Git tag or public Release. The build explicitly stages public seed data and bundled UI files and rejects local credentials, databases, preferences, logs and sampling files from the release bundle.
 
 Packaging runs `--check-installation` for native operations and seed data, `--check-desktop-installation` for desktop resources and dependencies, and `--check-desktop-rendering` to load the local WebView2 page and verify the React demo state and JavaScript bridge. All three must pass before creating the ZIP; the manifest records each result. The bundled “查看界面效果.cmd” starts an offline preview directly. These checks confirm loading and bridging; visual similarity, DPI behavior and in-game behavior still require separate validation.
 
@@ -282,6 +298,8 @@ Old packages are cleaned up only after the new package passes its installation c
 </details>
 
 ## Validation scope
+
+The v2.2 changes passed **375 Python tests across 24 isolated test modules and 33 frontend tests**, plus Python syntax and dependency checks. Coverage includes startup protection, desktop hosting, packaging contracts, version consistency, talent reads/selection, related broadcasts and replay. No new binary package was built, and the affected computers/live game still need verification.
 
 <details>
 <summary>v2.1 regression results and scenarios still requiring manual validation</summary>
@@ -305,6 +323,8 @@ For fuller behavior notes, troubleshooting steps, and historical validation deta
 
 <details>
 <summary>v2.1 changes, earlier releases, and supported model decoders</summary>
+
+**New in v2.2 source:** startup preparation for the bundled Python.NET/WebView2 DLL download markers, native startup-error messages and bounded exception-chain logs; corrected talent identifiers for Brightwing and equivalent Raynor/Zul'jin entries. Binary downloads and live acceptance are separate from source and tag publication.
 
 **New in v2.1:** one React management dialog for preferences, accounts, updates and phrase editing; applied content font size and always-on-top; accurate status/update dots and structured Markdown release notes; local phrase candidates in native `Ctrl+T`; valid-result copying and draft recovery after failure; and merging the same heroic talent/CD overlay into one hit target.
 

@@ -360,7 +360,9 @@ def _link(memory, handle):
         raise _Unknown('英雄或天赋内部标识不正确')
     data = memory.u64(view + 8) if memory.u32(view + 4) & 2 else view + 8
     raw = memory.read(data, length)
-    if not re.fullmatch(rb'[A-Za-z_][A-Za-z0-9_.:/-]{0,159}', raw):
+    # Game catalog IDs include punctuation, e.g. BrightwingArcaneFlareHush!
+    # and Zul'jinAmaniRageAmaniHide. Validate the bounded ID, not a code name.
+    if not re.fullmatch(rb"[A-Za-z_][A-Za-z0-9_.'!:/-]{0,159}", raw):
         raise _Unknown('内部标识不是目录标识符')
     index = memory.u16(handle + 0x40)
     if index == 0xffff:

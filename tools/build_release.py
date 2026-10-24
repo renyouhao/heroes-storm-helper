@@ -181,9 +181,13 @@ def main(argv=None):
     subprocess.run(command,cwd=ROOT,check=True)
     bundle=work/'dist'/NAME
     note=(f'{NAME} {DISPLAY_VERSION}（程序 {VERSION}） · Windows x64 免安装版\n\n'
-          'v2.1 更新：统一React管理弹层，应用主窗口字号与置顶，改进状态与更新提示点、Markdown发布说明、原生Ctrl+T短句候选、有效译文复制和失败恢复，并归并同一R天赋与CD覆盖层。\n'
+          'v2.2 更新：修复下载标记导致内置托管运行库无法加载时无界面的启动问题，新增独立启动错误提示与有界日志；修复合法天赋ID中的 ! 与撇号被拒绝、影响精灵龙及雷诺和祖尔金的问题。精灵龙21项天赋与七层选择已通过合成验证，真实游戏仍待复测。\n'
+          '此前v2.1：统一React管理弹层，应用主窗口字号与置顶，改进状态与更新提示点、Markdown发布说明、原生Ctrl+T短句候选、有效译文复制和失败恢复，并归并同一R天赋与CD覆盖层。\n'
           '沿用v2.0引入的React/WebView2桌面主界面、柔雾紫主题、紫色图标、完整模型解码分支和诊断回放。\n'
           f'解压整个文件夹，双击“{NAME}.exe”，无需安装Python或Node.js；需Microsoft Edge WebView2 Runtime。\n'
+          '启动时仅为当前发行包内 Python.Runtime.dll 和 WebView2 Core/WinForms 托管运行库解除 Windows 下载标记，不扫描其它目录、不更改 DLL 内容。\n'
+          '若启动失败，独立于 WebView2 的系统弹窗会给出错误类别与启动日志位置；%LOCALAPPDATA%/HotsChatHelper/startup.log 仅保留最近一次失败，最大128KiB，包含异常链，不主动读取凭据或采集局部变量，分享前请检查异常内容。正常启动不创建此日志；它与默认关闭的功能诊断日志分开。\n'
+          '若文件权限阻止解除下载锁定：核验官方 ZIP 后，右键原 ZIP→属性→解除锁定，再重新解压完整文件夹（含 _internal）；已经解压时需对整个应用目录解除锁定，只解锁 EXE 不够。\n'
           '主界面使用React + TypeScript + CSS，由pywebview/WebView2加载本地资源，不依赖开发服务器。\n'
           '主界面、偏好设置、账户、更新和短句编辑统一使用React，管理操作共用一个页内弹层，重复点击复用当前界面；打开设置不会带出快捷输入。\n'
           '采集、翻译、持久化和游戏输入继续由Python处理；游戏内字幕与Ctrl+T快捷输入保留原生Tk，-Legacy兼容入口保留原Tk界面。\n'

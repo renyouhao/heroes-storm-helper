@@ -169,8 +169,9 @@ def run_desktop(*,demo=False):
                       icon=str(assistant_icon_path()))
         return 0
     except Exception as failure:
-        raise DesktopError('新版界面启动失败。请确认已安装 Microsoft Edge WebView2 Runtime。'+
-                           '如需临时使用旧界面，可运行 启动助手.ps1 -Legacy。') from failure
+        raise DesktopError('新版界面启动失败，请查看启动日志中的具体原因。'+
+                           '请确认完整解压应用目录，并核对 WebView2 与 .NET 运行环境。'+
+                           '如需临时使用兼容界面，可从命令行使用 --legacy-ui 参数。') from failure
     finally:
         if client is not None:client.close()
         mutex.close()
