@@ -1,6 +1,8 @@
 """合成只读内存验证；不访问游戏进程或用户数据。"""
 import unittest
 import struct
+import json
+from pathlib import Path
 from dataclasses import dataclass, replace
 
 from hots_chat.acquisition.memory import GameProcess
@@ -51,6 +53,9 @@ class TalentMemory:
         self.put(self.base+0x35c8cd9,b'\x01')
         self.put(self.base+0x34ef8ad,b'\x01')
         self.pack(self.base+0x3366118,'I',10)
+        core = json.loads((Path(__file__).parent / 'fixtures/model_codecs_98348.json')
+                          .read_text(encoding='utf-8'))['native_core_fingerprints']['10']
+        self.put(self.base + core['rva'], bytes.fromhex(core['core_hex']))
         self.blocks[self.base+0x32c1c90] = bytearray(0x4000)
         self.pack(self.base+0x32c1ed0,'I',0)
         self.pack(self.base+0x32c4cf4,'I',0)
@@ -189,11 +194,141 @@ class TalentReaderTests(unittest.TestCase):
             self.assertEqual(self.reader.poll(123).status,'unknown')
 
     def test_unknown_decoder_and_short_read_fail_closed(self):
-        self.memory.pack(self.memory.base+0x3366118,'I',9)
+        self.memory.pack(self.memory.base+0x3366118,'I',16)
         self.assertEqual(self.reader.poll(123).status,'unknown')
         self.memory.pack(self.memory.base+0x3366118,'I',10)
         self.memory.short_at=self.memory.selection
         self.assertEqual(self.reader.poll(123).status,'unknown')
+
+    def test_verified_new_decoders_read_the_same_hero_and_pending_tier(self):
+        from tests.test_model_codecs import set_memory_codec
+        for decoder in range(16):
+            with self.subTest(decoder=decoder):
+                set_memory_codec(self.memory, decoder)
+                result = self.reader.poll(123)
+                self.assertEqual(result.status, 'available', result.reason)
+                self.assertEqual((result.hero_id, result.level, result.pending_tier),
+                                 ('Chromie', 2, 2))
+                self.assertEqual(self.reader.last_diagnostic['decoder_mode'], decoder)
+                self.assertEqual(self.reader.last_diagnostic['supported_decoders'],
+                                 ','.join(map(str, range(16))))
+                self.assertEqual(self.reader.last_diagnostic['decoder_code_verified'], 1)
+
+    def test_new_codec_code_fingerprint_mismatch_does_not_decode(self):
+        from tests.test_model_codecs import set_memory_codec
+        from hots_chat.acquisition.model_codecs import DECODER_CODE_FINGERPRINTS
+        for decoder in range(16):
+            with self.subTest(decoder=decoder):
+                set_memory_codec(self.memory, decoder)
+                rva, _, _ = DECODER_CODE_FINGERPRINTS[decoder]
+                first = self.memory.read(self.memory.base + rva, 1)
+                self.memory.put(self.memory.base + rva, bytes([first[0] ^ 1]))
+                result = self.reader.poll(123)
+                self.assertEqual(result.status, 'unknown')
+                self.assertEqual(result.reason, '当前解码分支的游戏代码尚未验证')
+                self.assertEqual(self.reader.last_diagnostic['stage'], 'decoder_code')
+
+    def test_decoder_or_used_key_change_during_decode_is_unknown_then_recovers(self):
+        from tests.test_model_codecs import set_memory_codec
+        for kind in ('decoder', 'key'):
+            with self.subTest(kind=kind):
+                details = set_memory_codec(self.memory, 6)
+                key_address = self.memory.base + 0x32c1c90 + details['key_reads'][0]['index'] * 4
+                changed = False
+
+                def mutate(address, size):
+                    nonlocal changed
+                    if address == key_address and not changed:
+                        changed = True
+                        if kind == 'decoder':
+                            self.memory.pack(self.memory.base + 0x3366118, 'I', 9)
+                        else:
+                            value = details['key_reads'][0]['value']
+                            self.memory.pack(key_address, 'I', value ^ 1)
+
+                self.memory.after_read = mutate
+                result = self.reader.poll(123)
+                self.assertEqual((result.status, result.reason),
+                                 ('unknown', '玩家模型正在变化'))
+                self.memory.after_read = None
+                set_memory_codec(self.memory, 6)
+                self.assertEqual(self.reader.poll(123).status, 'available')
+
+    def test_changed_root_encoding_is_unknown_even_when_root_pointer_is_equal(self):
+        from tests.test_model_codecs import set_memory_codec
+        set_memory_codec(self.memory, 9)
+        changed = False
+
+        def mutate(address, size):
+            nonlocal changed
+            if address == self.memory.model and size == 1 and not changed:
+                changed = True
+                for rva in (0x35c8cb0, 0x32c1ed0):
+                    current = struct.unpack('<I', self.memory.read(self.memory.base + rva, 4))[0]
+                    self.memory.pack(self.memory.base + rva, 'I', (current + 1) & 0xffffffff)
+
+        self.memory.after_read = mutate
+        result = self.reader.poll(123)
+        self.assertEqual((result.status, result.reason), ('unknown', '玩家模型表正在变化'))
+        self.memory.after_read = None
+
+    def test_salt_pointer_or_value_change_is_unknown_and_recovers(self):
+        from tests.test_model_codecs import set_memory_codec
+        from hots_chat.acquisition.model_codecs import DECODER_SALT_POINTER_RVAS
+        for decoder, rva in DECODER_SALT_POINTER_RVAS.items():
+            for change in ('pointer', 'value'):
+                with self.subTest(decoder=decoder, change=change):
+                    set_memory_codec(self.memory, decoder)
+                    root = self.memory.base + rva
+                    pointer = struct.unpack('<Q', self.memory.read(root, 8))[0]
+                    value = struct.unpack('<I', self.memory.read(pointer, 4))[0]
+                    alternate = self.memory.allocate(4)
+                    self.memory.pack(alternate, 'I', value)
+                    changed = False
+
+                    def mutate(address, size):
+                        nonlocal changed
+                        if address == pointer and size == 4 and not changed:
+                            changed = True
+                            if change == 'pointer':
+                                self.memory.pack(root, 'Q', alternate)
+                            else:
+                                self.memory.pack(pointer, 'I', value ^ 1)
+
+                    self.memory.after_read = mutate
+                    result = self.reader.poll(123)
+                    self.assertEqual((result.status, result.reason),
+                                     ('unknown', '玩家模型解码参数正在变化'))
+                    self.memory.after_read = None
+                    set_memory_codec(self.memory, decoder)
+                    self.assertEqual(self.reader.poll(123).status, 'available')
+
+    def test_missing_or_short_salt_never_falls_back_to_zero(self):
+        from tests.test_model_codecs import set_memory_codec
+        from hots_chat.acquisition.model_codecs import DECODER_SALT_POINTER_RVAS
+        for decoder, rva in DECODER_SALT_POINTER_RVAS.items():
+            for failure in ('pointer', 'short'):
+                with self.subTest(decoder=decoder, failure=failure):
+                    set_memory_codec(self.memory, decoder)
+                    root = self.memory.base + rva
+                    pointer = struct.unpack('<Q', self.memory.read(root, 8))[0]
+                    if failure == 'pointer':
+                        self.memory.pack(root, 'Q', 0)
+                    else:
+                        self.memory.short_at = pointer
+                    result = self.reader.poll(123)
+                    self.assertEqual(result.status, 'unknown')
+                    self.assertIn(result.reason, ('天赋数据指针不正确', '天赋数据读取不完整'))
+                    self.memory.short_at = None
+
+    def test_native_guards_reject_bool_and_out_of_range_selectors(self):
+        from hots_chat.acquisition.talent_source import _validate_guards, _validate_model_decoder
+        for selector in (True, False, -1, 16, 17, 0x100000000):
+            with self.subTest(selector=selector):
+                with self.assertRaises(ValueError):
+                    _validate_guards(1, 1, selector)
+                with self.assertRaises(ValueError):
+                    _validate_model_decoder(selector)
 
     def test_native_api_guard_or_talent_gate_false_is_unknown(self):
         for rva in (0x35c8cd9,0x34ef8ad):

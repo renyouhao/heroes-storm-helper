@@ -72,7 +72,9 @@ class DiagnosticFlowTests(unittest.TestCase):
         result = next(r for r in rows if r['event'] == 'translation.result')
         self.assertEqual(result['request_id'], 'request-123')
         self.assertEqual(result['elapsed_ms'], 2.5)
-        self.assertNotIn('hello', json.dumps(rows))
+        self.assertIn('hello', json.dumps(rows))
+        self.assertEqual(submitted['original'], 'hello')
+        self.assertEqual(result['translated'], 'result-fixture')
         self.assertNotIn('private-name', json.dumps(rows))
 
     def test_cloud_failure_keeps_safe_error_type_and_code(self):
@@ -165,7 +167,6 @@ class DiagnosticFlowTests(unittest.TestCase):
         with patch('hots_chat.credentials.CredentialStore', return_value=store):
             controller = build_controller(paths, diagnostics=self.recorder)
         try:
-            self.recorder.enable_details(True)
             self.recorder.record('message.received', original='fixture-key-id fixture-old-secret')
             setup = controller.account_setup
             setup.identity = SimpleNamespace(resolve=lambda credentials:'fixture-account')

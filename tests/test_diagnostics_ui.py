@@ -72,13 +72,17 @@ class DiagnosticUITests(unittest.TestCase):
         self.assertIn(str(target), self.panel.status.get())
         self.assertFalse(self.panel.export_button.instate(['disabled']))
 
-    def test_details_switch_expires_without_persisting_setting(self):
-        self.panel.details_button.invoke()
-        self.assertTrue(self.recorder.snapshot()['details_enabled'])
+    def test_single_switch_records_body_without_expiring(self):
+        self.assertFalse(hasattr(self.panel, 'details_button'))
+        self.recorder.record('message.received', original='hello', translated='你好')
         self.clock.tick = 600
         self.panel.refresh_status()
-        self.assertFalse(self.panel.details.get())
-        self.assertFalse(self.recorder.snapshot()['details_enabled'])
+        self.assertTrue(self.panel.enabled_var.get())
+        target = self.recorder.export_report(Path(self.tmp.name) / 'bodies.zip')
+        with zipfile.ZipFile(target) as archive:
+            self.assertIn('hello', archive.read('helper.log').decode())
+            self.assertIn('你好', archive.read('helper.log').decode())
+        self.assertIn('100 MiB', self.panel.health.get())
 
     def test_export_failure_is_visible_and_can_be_retried(self):
         target = Path(self.tmp.name) / 'missing-folder' / 'report.zip'
@@ -113,10 +117,9 @@ class DiagnosticUITests(unittest.TestCase):
         self.recorder=DiagnosticRecorder(Path(self.tmp.name)/'off')
         self.panel=DiagnosticsPanel(self.root,self.recorder,root=self.root)
         self.assertFalse(self.panel.enabled_var.get())
-        self.assertTrue(self.panel.details_button.instate(['disabled']))
+        self.assertFalse(hasattr(self.panel, 'details_button'))
         self.assertIsNone(self.recorder.thread)
         self.panel.enabled_button.invoke()
         self.assertTrue(self.recorder.snapshot()['enabled'])
-        self.assertFalse(self.panel.details_button.instate(['disabled']))
         self.panel.enabled_button.invoke()
         self.assertFalse(self.recorder.snapshot()['enabled'])

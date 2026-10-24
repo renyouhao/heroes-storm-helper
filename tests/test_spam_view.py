@@ -20,4 +20,5 @@ class SpamViewTests(unittest.TestCase):
         vm.apply(AppEvent('generation',2,'new'))
         vm.apply(AppEvent('chat',2,ChatEvent('a',2,'团队','t','1:00','hello')))
         vm.apply(AppEvent('suppressed',1,{'message_id':'a','reason':'sender_rate'}))
-        self.assertEqual(vm.messages['a'].status,'原文')
+        self.assertEqual(vm.messages['a'].translation_state,'untranslated')
+        self.assertEqual(vm.messages['a'].suppressed_reason,'')

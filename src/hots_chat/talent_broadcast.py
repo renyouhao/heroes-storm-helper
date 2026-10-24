@@ -8,6 +8,7 @@ from dataclasses import dataclass, replace
 import math
 import re
 import unicodedata
+from .helper_replay import recorded_operation
 
 
 _UNKNOWN = frozenset(('', '?', 'unknown', '未知', '待识别', '未识别'))
@@ -235,7 +236,8 @@ class TalentBroadcastSession:
     tick 只交出一次动作；dispatch 一旦调用 sender，即使部分发送失败也不自动重试。
     统计值在 tick 交出动作前刷新；动作交出后冻结原文，后续同格数值变化不重建动作。
     """
-    def __init__(self, *, double_click_ms, double_click_size, config=None):
+    def __init__(self, *, double_click_ms, double_click_size, config=None, diagnostics=None):
+        self.diagnostics = diagnostics
         if type(double_click_ms) is not int or double_click_ms <= 0:
             raise ValueError('必须提供Windows双击间隔。')
         if (not isinstance(double_click_size, tuple) or len(double_click_size) != 2
@@ -257,6 +259,7 @@ class TalentBroadcastSession:
         self.status = TalentBroadcastStatus(state, detail)
         return self.status
 
+    @recorded_operation('board')
     def configure(self, config):
         if not isinstance(config, TalentBroadcastConfig):
             raise ValueError('天赋播报配置无效。')
@@ -265,11 +268,13 @@ class TalentBroadcastSession:
         self.cancel()
         return self._status('idle' if config.enabled else 'disabled')
 
+    @recorded_operation('board')
     def stop(self):
         return self.configure(TalentBroadcastConfig(
             enabled=False, include_advice=self.config.include_advice,
             max_chars=self.config.max_chars))
 
+    @recorded_operation('board')
     def cancel(self, detail='本次播报已取消。'):
         self._revision += 1
         self._first_click = self._pending = None
@@ -311,21 +316,23 @@ class TalentBroadcastSession:
         return ((self._last_attempt is not None and now - self._last_attempt < 2.)
                 or _dedupe_key(hit) in self._attempts)
 
+    @recorded_operation('board')
     def mouse(self, x, y, down, hit, context, now, *, button='left', injected=False, event_at=None):
         """event_at 为原始钩子单调时间；now 负责新鲜度与动作过期判断。"""
         if injected:
-            return False
-        event_time = now if event_at is None else event_at
-        if (not _finite(now) or not _finite(event_time)
-                or (event_at is not None and (event_time < 0 or not 0 <= now - event_time <= .25))):
-            self.cancel('鼠标事件时间未知或已过期，请重新双击。')
-            if not down:self._left_held = False
             return False
         if button != 'left':
             self.cancel('其他鼠标操作已取消本次播报。')
             return False
         if not down:
+            # 松开不创建或延长动作；即使事件在队列中迟到，也必须解除持键。
+            # tick/dispatch 仍独立检查待发期限、当前命中和输入环境。
             self._left_held = False
+            return False
+        event_time = now if event_at is None else event_at
+        if (not _finite(now) or not _finite(event_time)
+                or (event_at is not None and (event_time < 0 or not 0 <= now - event_time <= .25))):
+            self.cancel('鼠标事件时间未知或已过期，请重新双击。')
             return False
         if self._left_held:
             return False
@@ -376,6 +383,7 @@ class TalentBroadcastSession:
             return None
         return pending
 
+    @recorded_operation('board')
     def tick(self, hit, context, now):
         if self._first_click is not None and not self._valid(hit, context, now):
             self.cancel('目标或输入环境已变化，请重新双击。')
@@ -394,6 +402,7 @@ class TalentBroadcastSession:
         self._status('ready', '播报动作已交给发送边界。')
         return pending.action
 
+    @recorded_operation('board')
     def dispatch(self, action, sender, hit, context, now, *, allowed=lambda: True):
         """sender返回'sent'或BroadcastSendResult；失败结果保留可操作的原因。
 

@@ -76,6 +76,26 @@ class VersionTests(unittest.TestCase):
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_ascii_release_asset_is_selected_with_its_official_url_and_digest(self):
+        payload = release_payload()
+        asset = payload['assets'][0]
+        asset['name'] = 'HotsHelper-1.2.0-Windows-x64.zip'
+        asset['browser_download_url'] = 'https://github.com/renyouhao/heroes-storm-helper/releases/download/v1.2.0/' + asset['name']
+        selected = check_fixture(payload).release.asset
+        self.assertIsNotNone(selected, 'GitHub removes Chinese characters from uploaded asset names')
+        self.assertEqual(selected.name, asset['name'])
+        self.assertEqual(selected.url, asset['browser_download_url'])
+        self.assertEqual(selected.sha256, asset['digest'].split(':')[1])
+
+    def test_ascii_and_legacy_names_cannot_select_two_equivalent_packages(self):
+        payload = release_payload()
+        asset = dict(payload['assets'][0])
+        asset['name'] = 'HotsHelper-1.2.0-Windows-x64.zip'
+        asset['browser_download_url'] = 'https://github.com/renyouhao/heroes-storm-helper/releases/download/v1.2.0/' + asset['name']
+        payload['assets'].append(asset)
+        with self.assertRaises(UpdateError):
+            check_fixture(payload)
+
     def test_official_stable_release_supplies_notes_asset_and_availability(self):
         result = check_fixture(release_payload())
         self.assertIsInstance(result, CheckResult)
@@ -130,6 +150,20 @@ class ReleaseTests(unittest.TestCase):
 
 
 class DownloadTests(unittest.TestCase):
+    def test_ascii_release_asset_downloads_and_validates_the_chinese_bundle(self):
+        data = archive_fixture()
+        payload = release_payload(data)
+        asset = payload['assets'][0]
+        asset['name'] = 'HotsHelper-1.2.0-Windows-x64.zip'
+        asset['browser_download_url'] = 'https://github.com/renyouhao/heroes-storm-helper/releases/download/v1.2.0/' + asset['name']
+        release = check_fixture(payload).release
+        self.assertIsNotNone(release.asset)
+        with tempfile.TemporaryDirectory() as tmp:
+            staged = download_update(release, staging_root=Path(tmp),
+                opener=lambda request, **kw: Response(data, request.full_url))
+            self.assertEqual(staged.archive_path.read_bytes(), data)
+            self.assertEqual((staged.bundle_dir / (APP_NAME + '.exe')).read_bytes(), exe_fixture())
+
     def download(self, tmp, data, *, payload=None, **kwargs):
         release = check_fixture(payload or release_payload(data)).release
         return download_update(release, staging_root=Path(tmp),

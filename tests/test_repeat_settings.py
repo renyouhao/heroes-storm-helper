@@ -29,7 +29,7 @@ class RepeatSettingsTests(unittest.TestCase):
                                                 'color_theme': 'mint'}), encoding='utf-8')
                     settings = WindowSettings.load(path)
                     self.assertEqual(getattr(settings, 'repeat_hotkey', None), 'F8')
-                    self.assertEqual((settings.font_size, settings.color_theme), (17, 'mint'))
+                    self.assertEqual((settings.font_size, settings.color_theme), (17, 'lavender'))
 
     def test_lowercase_binding_is_normalized_when_loading(self):
         with tempfile.TemporaryDirectory() as folder:

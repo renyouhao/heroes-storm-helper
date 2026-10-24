@@ -20,6 +20,7 @@ class TalentHelper:
         self._session = self._backend = None
         self.thread = None
         self._last = None
+        self._last_read_diagnostic = None
         self._emit('disabled', '自动选择已关闭。')
 
     @staticmethod
@@ -37,6 +38,11 @@ class TalentHelper:
         from .talent import TalentSession
         return TalentSession(backend)
 
+    @property
+    def running(self):
+        """只读运行意图与停止栅栏；不会等待工作线程或查询游戏。"""
+        return self._enabled and not self._closed and not self._stop.is_set()
+
     def _emit(self, state, detail='', tier_id=None, *, source_generation=None):
         with self._control:
             if source_generation is not None and source_generation != self._generation:return
@@ -52,8 +58,31 @@ class TalentHelper:
         except queue.Empty:pass
         self._events.put_nowait(status)
         if self.diagnostics is not None:
-            self.diagnostics.record('hotkey.state', stage='talent', outcome=state,
-                                    generation=self._generation)
+            try:
+                self.diagnostics.record('hotkey.state', stage='talent', outcome=state,
+                                        generation=self._generation)
+            except Exception:
+                pass  # Diagnostic failures must not change the helper lifecycle.
+
+    def _record_read(self, reader, snapshot, target=None):
+        if self.diagnostics is None or snapshot is None:return
+        try:
+            recorder_state = getattr(self.diagnostics, 'snapshot', None)
+            if callable(recorder_state) and not recorder_state().get('enabled', True):
+                self._last_read_diagnostic = None
+                return
+            fields = dict(getattr(reader, 'last_diagnostic', {}) or {})
+            # Snapshot.reason may come from an arbitrary backend exception;
+            # only the bounded reader's fixed diagnostic messages are logged.
+            fields.update(source='talent', outcome=getattr(snapshot, 'status', 'unknown'),
+                          generation=self._generation,
+                          foreground_state='true' if target is not None else 'false')
+            signature = tuple(sorted(fields.items()))
+            if signature == self._last_read_diagnostic:return
+            if self.diagnostics.record('helper.read', **fields) is not False:
+                self._last_read_diagnostic = signature
+        except Exception:
+            pass
 
     def set_suspended(self, suspended):
         # 不能等待正在做前台查询的发送锁，allowed须立即看见暂停请求。
@@ -99,6 +128,7 @@ class TalentHelper:
             if not allowed() or reader is None or snapshot is None:return False
             # 最后发送栅栏重新读取；同PID返回大厅、人工抢选也不能沿用旧快照。
             fresh = reader.poll(snapshot.pid)
+            self._record_read(reader, fresh, target)
             return (allowed() and fresh.status in ('available', 'idle')
                     and fresh.pid == snapshot.pid and fresh.hero_id == snapshot.hero_id
                     and fresh.generation == snapshot.generation
@@ -109,13 +139,16 @@ class TalentHelper:
                 if stopped.is_set():return
                 if self._backend is None:self._backend = self.backend_factory()
                 if self._session is None:self._session = self.session_factory(self._backend)
+                self._session.diagnostics = self.diagnostics
                 self._session.configure(TalentConfig(enabled=True))
             reader = self.reader_factory()
+            if hasattr(reader, 'diagnostics'):reader.diagnostics = self.diagnostics
             while not stopped.is_set():
                 target = self._backend.foreground_target()
                 if target is not None:last_pid = target.pid
                 # 切出后低频只读，观察大厅失效；不激活窗口、不发送输入。
                 snapshot = reader.poll(last_pid) if last_pid is not None else None
+                self._record_read(reader, snapshot, target)
                 with self._dispatch:
                     if stopped.is_set() or generation != self._generation:return
                     if snapshot is None:
@@ -129,6 +162,15 @@ class TalentHelper:
                     delay = max(.5, delay)
                 stopped.wait(delay)
         except Exception as failure:
+            if self.diagnostics is not None:
+                try:
+                    fields = dict(source='talent', stage='worker', outcome='error',
+                                  reason='天赋辅助工作线程失败', error_type=type(failure).__name__)
+                    if type(getattr(failure, 'winerror', None)) is int:
+                        fields['winerror'] = failure.winerror
+                    self.diagnostics.record('helper.read', **fields)
+                except Exception:
+                    pass
             with self._control:
                 if generation == self._generation and not stopped.is_set():
                     self._enabled = False

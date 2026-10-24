@@ -57,8 +57,8 @@ class TalentTests(unittest.TestCase):
         self.assertEqual(self.backend.calls, [])
 
     def test_pending_sends_once_then_waits_for_selected_change(self):
-        self.assertEqual(self.poll().state, 'waiting')
-        self.assertEqual(self.poll(now=2.99).state, 'waiting')
+        self.assertEqual(self.poll().state, 'confirming')
+        self.assertEqual(self.poll(now=2.99).state, 'confirming')
         self.assertEqual(self.backend.calls, [self.target])
         result = self.poll(snapshot(selected=(4, -1), pending=2), 3.)
         self.assertEqual(result.state, 'confirmed')
@@ -108,9 +108,9 @@ class TalentTests(unittest.TestCase):
         first = snapshot()
         self.poll(first)
         second = snapshot(generation=('process-1', 'match-2'))
-        self.assertEqual(self.poll(second, 1.).state, 'waiting')
+        self.assertEqual(self.poll(second, 1.).state, 'confirming')
         self.assertEqual(self.poll(first, 2.).state, 'unknown')
-        self.assertEqual(self.poll(second, 3.).state, 'waiting')
+        self.assertEqual(self.poll(second, 3.).state, 'confirming')
         self.assertEqual(self.backend.calls, [self.target, self.target])
 
     def test_unknown_and_idle_do_not_accidentally_retry_already_attempted_layer(self):
@@ -124,7 +124,7 @@ class TalentTests(unittest.TestCase):
         self.assertEqual(self.poll(target=None).state, 'deferred')
         self.assertEqual(self.poll(allowed=lambda: False).state, 'deferred')
         self.assertEqual(self.backend.calls, [])
-        self.assertEqual(self.poll(now=1.).state, 'waiting')
+        self.assertEqual(self.poll(now=1.).state, 'confirming')
         self.assertEqual(self.backend.calls, [self.target])
 
     def test_snapshot_pid_must_match_foreground_target(self):
@@ -143,7 +143,7 @@ class TalentTests(unittest.TestCase):
         self.backend.result = 'deferred'
         self.assertEqual(self.poll().state, 'deferred')
         self.backend.result = 'sent'
-        self.assertEqual(self.poll(now=1.).state, 'waiting')
+        self.assertEqual(self.poll(now=1.).state, 'confirming')
         self.assertEqual(len(self.backend.calls), 2)
 
     def test_stop_during_send_gate_prevents_input(self):
@@ -165,12 +165,12 @@ class TalentTests(unittest.TestCase):
 
     def test_multiple_pending_tiers_advance_only_after_previous_confirmation(self):
         self.poll()
-        self.assertEqual(self.poll(snapshot(pending=2), 1.).state, 'waiting')
+        self.assertEqual(self.poll(snapshot(pending=2), 1.).state, 'confirming')
         self.assertEqual(self.backend.calls, [self.target])
         self.assertEqual(self.poll(snapshot(selected=(8, -1), pending=2), 2.).state,
                          'confirmed')
         self.assertEqual(self.poll(snapshot(selected=(8, -1), pending=2), 2.1).state,
-                         'waiting')
+                         'confirming')
         self.assertEqual(self.backend.calls, [self.target, self.target])
 
     def test_partial_input_failure_never_retries_this_tier(self):

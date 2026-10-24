@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import math
 
 from .loot_native import GameTarget
+from .helper_replay import recorded_operation, invoke_talent_backend
 
 
 @dataclass(frozen=True)
@@ -42,8 +43,9 @@ class TalentSession:
     原生favorite动作没有目标ID，因此回读只能确认该层已选择。
     """
 
-    def __init__(self, backend, *, config=None):
+    def __init__(self, backend, *, config=None, diagnostics=None):
         self.backend = backend
+        self.diagnostics = diagnostics
         self.config = config if config is not None else TalentConfig()
         if not isinstance(self.config, TalentConfig):
             raise ValueError('自动天赋配置无效。')
@@ -53,6 +55,7 @@ class TalentSession:
         self._attempts = {}
         self._revision = 0
 
+    @recorded_operation('talent')
     def configure(self, config):
         if not isinstance(config, TalentConfig):
             raise ValueError('自动天赋配置无效。')
@@ -60,6 +63,7 @@ class TalentSession:
         self.config = config
         return self._status('idle' if config.enabled else 'disabled')
 
+    @recorded_operation('talent')
     def stop(self):
         return self.configure(TalentConfig(False, self.config.confirm_timeout))
 
@@ -84,9 +88,10 @@ class TalentSession:
             if now - attempt.sent_at >= self.config.confirm_timeout:
                 return self._status('blocked', '3秒内未确认选择，请检查该层爱心标记和快捷键；本层不再重试。',
                                     attempt.tier_id)
-            return self._status('waiting', '组合键已发送，等待回读该层已选记录。', attempt.tier_id)
+            return self._status('confirming', '组合键已发送，等待回读该层已选记录。', attempt.tier_id)
         return None
 
+    @recorded_operation('talent')
     def poll(self, snapshot, now, target, *, allowed=lambda: True, validate=None):
         """消费可信reader快照；now为monotonic秒，allowed为发送前栅栏。"""
         if not self.config.enabled:
@@ -144,7 +149,7 @@ class TalentSession:
         try:
             options = dict(allowed=can_send)
             if validate is not None:options['validate'] = validate_snapshot
-            outcome = self.backend.select_favorite(target, **options)
+            outcome = invoke_talent_backend(self, target, options)
         except OSError:
             outcome = 'failed'
         if outcome == 'deferred':
@@ -156,4 +161,4 @@ class TalentSession:
             return self._status('error', '组合键未完整发送，本局该层不再重试。', pending)
         if not self.config.enabled:
             return self._status('disabled')
-        return self._status('waiting', '组合键已发送，等待回读该层已选记录。', pending)
+        return self._status('confirming', '组合键已发送，等待回读该层已选记录。', pending)

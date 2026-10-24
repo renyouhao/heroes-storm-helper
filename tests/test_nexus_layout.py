@@ -70,9 +70,9 @@ class NexusPlacementTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             path = Path(folder) / 'preferences.json'
             settings.save(path)
-            self.assertEqual(WindowSettings.load(path).color_theme, 'moonlight')
+            self.assertEqual(WindowSettings.load(path).color_theme, 'lavender')
             path.write_text('{"color_theme":"unknown"}', encoding='utf-8')
-            self.assertEqual(WindowSettings.load(path).color_theme, 'graphite')
+            self.assertEqual(WindowSettings.load(path).color_theme, 'lavender')
 
 
 class RoundedWindowRegionTests(unittest.TestCase):

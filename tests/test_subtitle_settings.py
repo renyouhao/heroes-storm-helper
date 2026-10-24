@@ -44,7 +44,7 @@ class SubtitlePreferenceTests(unittest.TestCase):
                           settings.overlay_width, settings.overlay_placement),
                          (11, 6, 420, 'bottom'))
         self.assertEqual((settings.overlay_x, settings.overlay_y), (70, 580))
-        self.assertEqual((settings.color_theme, settings.font_size), ('mint', 19))
+        self.assertEqual((settings.color_theme, settings.font_size), ('lavender', 19))
         self.assertEqual(settings.hotkeys, {'focus': 'Ctrl+Alt+T'})
 
     def test_legacy_custom_position_and_nondefault_dimensions_survive(self):
@@ -97,10 +97,10 @@ class SubtitlePreferenceTests(unittest.TestCase):
                 self.assertEqual((settings.overlay_x, settings.overlay_y), (-600, 500))
                 self.assertEqual((settings.color_theme, settings.overlay_width,
                                   settings.overlay_font_size, settings.overlay_timeout),
-                                 ('mint', 650, 20, 21))
+                                 ('lavender', 650, 20, 21))
         settings = self.load({'overlay_style': 'panel', 'overlay_placement': 'invalid',
                               'color_theme': 'moonlight'})
-        self.assertEqual((settings.overlay_placement, settings.color_theme), ('bottom', 'moonlight'))
+        self.assertEqual((settings.overlay_placement, settings.color_theme), ('bottom', 'lavender'))
 
 
 class SubtitleLayoutTests(unittest.TestCase):

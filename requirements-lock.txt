@@ -15,9 +15,11 @@ alibabacloud-tea-util==0.3.15
 alibabacloud_tea_xml==0.0.3
 APScheduler==3.11.3
 attrs==26.1.0
+bottle==0.13.4
 certifi==2026.10.18
 cffi==2.1.1
 charset-normalizer==3.5.2
+clr_loader==0.3.1
 cryptography==50.0.2
 darabonba-core==1.0.9
 frozenlist==1.8.0
@@ -25,7 +27,10 @@ idna==3.20
 multidict==7.1.0
 pip==24.2
 propcache==0.5.4
+proxy_tools==0.1.0
 pycparser==3.11
+pythonnet==3.2.1
+pywebview==6.2.1
 requests==2.34.2
 typing_extensions==4.16.0
 tzdata==2026.5

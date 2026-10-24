@@ -175,7 +175,7 @@ class RepeatPanelTests(unittest.TestCase):
                 self.assertEqual(panel.shortcut_hint.winfo_manager(), 'grid')
                 self.assertIn(detail, panel.status_detail.get())
 
-    def test_three_themes_and_metrics_keep_status_and_bottom_anchor(self):
+    def test_legacy_themes_and_metrics_keep_status_bottom_anchor_and_lavender(self):
         panel = self.panel()
         panel.update_status('running')
         window = panel.overlay_window
@@ -196,7 +196,7 @@ class RepeatPanelTests(unittest.TestCase):
                 accents.add(panel._overlay.canvas.itemcget('title', 'fill'))
                 self.assertAlmostEqual(int(y) + height, 11170, delta=1)
                 self.assertAlmostEqual(int(x) + width / 2, 11280, delta=1)
-        self.assertEqual(len(accents), 3)
+        self.assertEqual(accents, {overlay_colors('lavender')['accent']})
 
     def test_large_font_narrow_view_scrolls_with_primary_action_inside(self):
         self.root.tk.call('tk', 'scaling', 8 / 3)

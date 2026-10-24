@@ -23,11 +23,7 @@ class DiagnosticsPanel(ttk.Frame):
         self.enabled_button=ttk.Checkbutton(self,text='开启诊断日志（仅本次运行有效）',
                                           variable=self.enabled_var,command=self._set_enabled)
         self.enabled_button.pack(anchor='w',pady=(0,8))
-        self.details = tk.BooleanVar(self, value=recorder.snapshot()['details_enabled'])
-        self.details_button = ttk.Checkbutton(self, text='详细诊断：包含聊天原文和译文（10 分钟后关闭）',
-                                             variable=self.details, command=self._set_details)
-        self.details_button.pack(anchor='w', pady=(0, 8))
-        ttk.Label(self, text='正文和译文各最多 256 字；已配置密钥会脱敏。分享前请检查正文中是否有其他私人信息。',
+        ttk.Label(self, text='开启后包含聊天原文、译文及复现数据。已配置密钥会脱敏，分享前请检查私人信息。',
                   style='Muted.TLabel', wraplength=480, justify='left').pack(fill='x', pady=(0, 12))
         self.export_button = ttk.Button(self, text='一键导出诊断日志', command=self.start_export,
                                         style='Accent.TButton')
@@ -41,11 +37,6 @@ class DiagnosticsPanel(ttk.Frame):
         self.refresh_status()
         self._timer = self.after(200, self._poll)
 
-    def _set_details(self):
-        self.recorder.enable_details(self.details.get())
-        self.status.set('详细诊断已开启，日志会包含限长聊天正文。' if self.details.get() else '已恢复基础诊断。')
-        self.refresh_status()
-
     def _set_enabled(self):
         self.recorder.set_enabled(self.enabled_var.get())
         self.status.set('诊断已开启，请复现问题后导出。' if self.enabled_var.get()
@@ -57,11 +48,12 @@ class DiagnosticsPanel(ttk.Frame):
             return
         snapshot = self.recorder.snapshot()
         self.enabled_var.set(snapshot['enabled'])
-        self.details.set(snapshot['details_enabled'])
-        self.details_button.state(['!disabled'] if snapshot['enabled'] else ['disabled'])
         state = ('日志写入不可用，请检查用户数据目录后重启助手。' if snapshot['write_error']
-                 else '后台关键诊断已开启。' if snapshot['enabled'] else '诊断已关闭，不记录新事件。')
-        self.health.set(state + f" 过载丢弃：{snapshot['dropped']} 条。日志最多约 10 MiB，保留 7 天。")
+                 else '诊断已开启，正在记录正文和复现数据。' if snapshot['enabled'] else '诊断已关闭，不记录新事件。')
+        capacity = snapshot['max_total_bytes'] / (1024 * 1024)
+        self.health.set(state + f" 过载丢弃：{snapshot['dropped']} 条。日志总计最多 {capacity:g} MiB，"
+                        f"滚动覆盖最旧日志，保留 7 天。覆盖：{snapshot['overwritten']} 段；"
+                        f"截断：{snapshot['truncated']} 条；超限：{snapshot['oversized']} 条。")
 
     def start_export(self, destination=None):
         if self._closed or self.busy:
@@ -107,3 +99,17 @@ class DiagnosticsPanel(ttk.Frame):
         if self._timer is not None:
             self.after_cancel(self._timer)
             self._timer = None
+
+    def destroy(self):
+        if getattr(self, '_widget_destroyed', False):return
+        self._widget_destroyed = True
+        descendants = []
+        pending = list(self.children.values())
+        while pending:
+            child = pending.pop()
+            descendants.append(child)
+            pending.extend(child.children.values())
+        super().destroy()
+        # Tk已销毁，解除按钮缓存的父级回边，避免变量拖到后台GC析构。
+        for child in descendants:child.master = None
+        self.master = None

@@ -39,16 +39,17 @@ class NexusThemeIntegrationTests(unittest.TestCase):
         with patch('hots_chat.ui.main_window.screen_bounds', return_value=[metrics.work_area]), \
              patch('hots_chat.ui.overlay_window.Win32Window', return_value=OfflineOverlayNative()):
             self.window = create_app(self.root, controller,
-                                     WindowSettings(x=10000, y=10000, hotkeys={}))
+                                     WindowSettings(x=10000, y=10000, hotkeys={},color_theme='graphite'))
         self.window._read_display_metrics = lambda: metrics
         self.addCleanup(self.window.close)
 
-    def test_native_text_and_ttk_table_share_legible_dark_surface(self):
+    def test_legacy_dark_preference_uses_legible_lavender_surface(self):
         style = ttk.Style(self.root)
         for widget in (self.window.input, self.window.preview, self.window.detail,
                        self.window.phrase_panel.listbox):
             bg, fg = widget.cget('background'), widget.cget('foreground')
-            self.assertLess(int(bg[1:3], 16), 80, '不能在暗色主题中残留白色文本面板')
+            role = 'surface' if widget is self.window.input else 'field'
+            self.assertEqual(bg.upper(), theme_colors('lavender')[role])
             self.assertGreaterEqual(contrast(fg, bg), 4.5)
         self.assertGreaterEqual(contrast(style.lookup('Treeview', 'foreground'),
                                          style.lookup('Treeview', 'background')), 4.5)
@@ -65,7 +66,7 @@ class NexusThemeIntegrationTests(unittest.TestCase):
         with patch.object(self.window.overlay, 'input_position', return_value=(10120, 10750)):
             self.assertEqual(provider(), (10120, 10750))
 
-    def test_switching_to_blue_updates_existing_views_without_dropping_drafts(self):
+    def test_switching_to_light_theme_updates_views_without_dropping_drafts(self):
         w = self.window
         w.input.insert('1.0', '主窗草稿')
         w.vm.apply(AppEvent('chat', 0, ChatEvent('a', 0, '团队', '队友', '0:01', 'help')))
@@ -78,9 +79,11 @@ class NexusThemeIntegrationTests(unittest.TestCase):
         deadline = w.overlay.history.next_expiry
         w.settings.color_theme = 'ice'
         w.apply_settings(layout_only=True)
-        self.assertEqual(w.input.cget('background'), theme_colors('moonlight')['field'])
+        self.assertEqual(w.input.cget('background'), theme_colors('lavender')['surface'])
         self.assertEqual(quick_window.cget('background'), overlay_colors('moonlight')['background'])
-        self.assertEqual(ttk.Style(self.root).lookup('Accent.TButton', 'background'), theme_colors('moonlight')['accent'])
+        style = ttk.Style(self.root)
+        self.assertGreaterEqual(contrast(style.lookup('Accent.TButton', 'foreground'),
+                                         style.lookup('Accent.TButton', 'background')), 4.5)
         self.assertEqual(w.input.get('1.0', 'end-1c'), '主窗草稿')
         self.assertEqual(w.quick_input.text.get(), '快捷输入草稿')
         self.assertIs(w.quick_input.window, quick_window)

@@ -7,6 +7,8 @@ __pycache__/
 *.pyc
 .superpowers/
 *.egg-info/
+frontend/node_modules/
+frontend/dist/
 
 # Per-user state and diagnostics must never be published.
 *.dpapi

@@ -139,7 +139,7 @@ class LootPanelTests(unittest.TestCase):
                 accents.add(panel._overlay.canvas.itemcget('title', 'fill'))
                 self.assertAlmostEqual(int(y) + height, 11170, delta=1)
                 self.assertAlmostEqual(int(x) + width / 2, 11280, delta=1)
-        self.assertEqual(len(accents), 3)
+        self.assertEqual(accents, {overlay_colors('lavender')['accent']})
 
     def test_large_font_narrow_view_scrolls_while_primary_action_stays_inside(self):
         self.root.tk.call('tk', 'scaling', 8 / 3)

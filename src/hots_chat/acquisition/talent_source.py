@@ -7,12 +7,15 @@ hero candidate or a manually remembered slot never authorizes this reader.
 from dataclasses import dataclass
 import ctypes
 from ctypes import wintypes
+import hashlib
 import re
 import struct
 from typing import Any
 
 from .memory import ReadOnlyGame, find_game_processes
 from .lobby_source import main_module_base
+from .model_codecs import (DECODER_CODE_FINGERPRINTS, DECODER_SALT_POINTER_RVAS,
+                           SUPPORTED_DECODERS, decode_pointer)
 
 
 @dataclass(frozen=True)
@@ -50,13 +53,16 @@ class TalentSnapshot:
 class TalentReader:
     def __init__(self, binding_provider=None, process_finder=find_game_processes,
                  game_factory=ReadOnlyGame, module_base_finder=main_module_base,
-                 creation_token_finder=None):
+                 creation_token_finder=None, diagnostics=None):
+        self.diagnostics = diagnostics
+        self._diagnostic_binding_provider = None
         if binding_provider is None:
             try:
                 from .talent_identity import resolve_local_identity
             except ImportError:
                 resolve_local_identity = None
             binding_provider = resolve_local_identity
+            self._diagnostic_binding_provider = resolve_local_identity
         self.binding_provider = binding_provider
         self.process_finder = process_finder
         self.game_factory = game_factory
@@ -64,34 +70,47 @@ class TalentReader:
         self.creation_token_finder = creation_token_finder or _creation_token
         self._game = self._session = self._metadata = None
         self.last_read_bytes = self.last_read_calls = 0
+        self.last_diagnostic = {}
 
     def poll(self, target_pid):
         self.last_read_bytes = self.last_read_calls = 0
+        self.last_diagnostic = dict(expected_build=98348, stage='connect',
+                                    read_calls=0, read_bytes=0)
         memory = None
         try:
             if self.binding_provider is None:
                 raise _Unknown('本地玩家身份尚未确认')
             session = self._connect(target_pid)
             pid, _, build, base, created = session
-            memory = _Memory(self._game)
+            memory = _Memory(self._game, diagnostic_info=self.last_diagnostic,
+                             diagnostics=self.diagnostics, diagnostic_source='talent')
             if memory.read(base, 2) != b'MZ':
                 raise _Unknown('游戏模块验证失败')
             process_token = (pid, created, base, build)
             binding = self._resolve(memory, base, process_token)
+            self.last_diagnostic['stage'] = 'talent'
             first = self._frame(memory, base, process_token, binding)
             second = self._frame(memory, base, process_token, binding)
             if first != second or self._resolve(memory, base, process_token) != binding:
                 raise _Unknown('本局身份或天赋状态正在变化')
             if self.creation_token_finder(self._game) != created:
                 raise _Unknown('游戏进程代次已变化')
+            self.last_diagnostic.update(stage='talent', outcome=second.status, reason='')
             return second
         except (OSError, ValueError, RuntimeError, TypeError, struct.error) as exc:
+            reason = str(exc) if isinstance(exc, _Unknown) else '游戏读取失败'
+            self.last_diagnostic.update(outcome='unknown', reason=reason,
+                                        error_type=type(exc).__name__)
+            if type(getattr(exc, 'winerror', None)) is int:
+                self.last_diagnostic['winerror'] = exc.winerror
             self.close()
-            return TalentSnapshot(target_pid, reason=str(exc) or '天赋数据暂不可用')
+            return TalentSnapshot(target_pid, reason=reason)
         finally:
             if memory is not None:
                 self.last_read_bytes = memory.bytes
                 self.last_read_calls = memory.calls
+            self.last_diagnostic.update(read_bytes=self.last_read_bytes,
+                                        read_calls=self.last_read_calls)
 
     def close(self):
         game, self._game = self._game, None
@@ -100,7 +119,12 @@ class TalentReader:
             game.close()
 
     def _connect(self, target_pid):
+        # Board readers also call this entry point directly; never reuse a stale
+        # build or failure from a previous process/session.
+        self.last_diagnostic = dict(expected_build=98348, stage='connect',
+                                    read_calls=0, read_bytes=0)
         if self._session is not None and self._session[0] == target_pid:
+            self.last_diagnostic['build'] = self._session[2]
             if self.creation_token_finder(self._game) != self._session[4]:
                 raise _Unknown('游戏进程代次已变化')
             return self._session
@@ -108,6 +132,7 @@ class TalentReader:
         process = next((p for p in self.process_finder() if p.pid == target_pid), None)
         if process is None:
             raise _Unknown('等待游戏进程')
+        self.last_diagnostic['build'] = process.build
         if process.build != 98348:
             raise _Unknown('当前游戏版本尚未验证')
         self._game = self.game_factory(process.pid)
@@ -121,7 +146,14 @@ class TalentReader:
         return self._session
 
     def _resolve(self, memory, base, process_token):
-        binding = self.binding_provider(memory, base, process_token)
+        self.last_diagnostic['stage'] = 'identity'
+        if (self._diagnostic_binding_provider is not None
+                and self.binding_provider is self._diagnostic_binding_provider):
+            identity_diagnostic = {}
+            binding = self.binding_provider(memory, base, process_token, diagnostic=identity_diagnostic)
+            self.last_diagnostic.update(identity_diagnostic)
+        else:
+            binding = self.binding_provider(memory, base, process_token)
         if binding is None or getattr(binding, 'trusted', False) is not True:
             raise _Unknown('本地玩家身份尚未确认')
         if getattr(binding, 'pid', None) != process_token[0]:
@@ -196,8 +228,11 @@ class _Unknown(ValueError):
 
 class _Memory:
     """A per-poll budget; all addresses must already come from a validated chain."""
-    def __init__(self, game):
+    def __init__(self, game, *, diagnostic_info=None, diagnostics=None, diagnostic_source=''):
         self.game, self.bytes, self.calls = game, 0, 0
+        self.diagnostic_info = diagnostic_info
+        self.diagnostics = diagnostics
+        self.diagnostic_source = diagnostic_source
 
     def __getattr__(self, name):
         return getattr(self.game, name)
@@ -232,30 +267,87 @@ def _creation_token(game):
 def _guards(memory, base):
     api, talent = memory.read(base + 0x35c8cd9, 1)[0], memory.read(base + 0x34ef8ad, 1)[0]
     decoder = memory.u32(base + 0x3366118)
+    try:
+        return _validate_guards(api, talent, decoder)
+    finally:
+        from ..reader_replay import record_guard
+        record_guard(memory, 'guards', api=api, talent=talent, decoder=decoder)
+
+
+def _validate_guards(api, talent, decoder):
     if not api or not talent:
         raise _Unknown('当前场景没有可用天赋状态')
-    if decoder != 10:
+    if type(decoder) is not int or decoder not in SUPPORTED_DECODERS:
         raise _Unknown('当前天赋解码方式尚未验证')
     return api, talent, decoder
 
 
 def _model(memory, base, slot):
-    if memory.u32(base + 0x3366118) != 10:
+    decoder = memory.u32(base + 0x3366118)
+    try:
+        _validate_model_decoder(decoder)
+    finally:
+        from ..reader_replay import record_guard
+        record_guard(memory, 'model_decoder', decoder=decoder)
+    _verify_model_codec(memory, base, decoder)
+    root_rvas = (0x35c8cb0, 0x32c1ed0, 0x35c8cb4, 0x32c4cf4)
+    parts = tuple(memory.u32(base + rva) for rva in root_rvas)
+    low = (parts[0] - parts[1]) & 0xffffffff
+    high = (parts[2] - parts[3]) & 0xffffffff
+    pointer = _decode_model(memory, base, slot, low, high, decoder)
+    if tuple(memory.u32(base + rva) for rva in root_rvas) != parts:
+        raise _Unknown('玩家模型表正在变化')
+    return pointer
+
+
+def _validate_model_decoder(decoder):
+    if type(decoder) is not int or decoder not in SUPPORTED_DECODERS:
         raise _Unknown('天赋解码方式已变化')
-    low = (memory.u32(base + 0x35c8cb0) - memory.u32(base + 0x32c1ed0)) & 0xffffffff
-    high = (memory.u32(base + 0x35c8cb4) - memory.u32(base + 0x32c4cf4)) & 0xffffffff
-    table = memory.u64((high << 32) | low)
+
+
+def _verify_model_codec(memory, base, decoder):
+    profile = DECODER_CODE_FINGERPRINTS.get(decoder)
+    if profile is None:
+        raise _Unknown('当前解码分支的游戏代码尚未验证')
+    rva, size, expected = profile
+    actual = hashlib.sha256(memory.read(base + rva, size)).hexdigest()
+    info = getattr(memory, 'diagnostic_info', None)
+    if info is not None:
+        info.update(decoder_code_fingerprint=actual, decoder_expected_fingerprint=expected,
+                    decoder_code_verified=int(actual == expected))
+    if actual != expected:
+        if info is not None:
+            info['stage'] = 'decoder_code'
+        raise _Unknown('当前解码分支的游戏代码尚未验证')
+
+
+def _decode_model(memory, base, slot, low, high, decoder):
+    root = (high << 32) | low
+    table = memory.u64(root)
     address = table + slot * 8
     raw = memory.read(address, 8)
     x, y = struct.unpack('<II', raw)
-    index = ((x >> 12) ^ ((x - 0x73010d88) & 0xffffffff)) & 0xfff
-    t = memory.u32(base + 0x32c1c90 + index * 4) ^ y
-    index = ((t >> 12) + t) & 0xfff
-    c = memory.u32(base + 0x32c1c90 + index * 4) ^ x
-    mixed = (t ^ c) & 0x55555555
-    if memory.read(address, 8) != raw:
+    keys = []
+    salt_rva = DECODER_SALT_POINTER_RVAS.get(decoder)
+    salt_pointer = memory.u64(base + salt_rva) if salt_rva is not None else None
+    salt = memory.u32(salt_pointer) if salt_pointer is not None else None
+
+    def read_key(index):
+        value = memory.u32(base + 0x32c1c90 + index * 4)
+        keys.append((index, value))
+        return value
+
+    pointer = decode_pointer(decoder, x, y, read_key, salt=salt)
+    from ..reader_replay import record_model_decode
+    record_model_decode(memory, decoder, x, y, keys, pointer, salt=salt)
+    if (memory.u32(base + 0x3366118) != decoder
+            or memory.u64(root) != table or memory.read(address, 8) != raw
+            or any(memory.u32(base + 0x32c1c90 + index * 4) != value
+                   for index, value in keys)):
         raise _Unknown('玩家模型正在变化')
-    pointer = ((mixed ^ t) << 32) | (mixed ^ c)
+    if salt_rva is not None and (memory.u64(base + salt_rva) != salt_pointer
+                                 or memory.u32(salt_pointer) != salt):
+        raise _Unknown('玩家模型解码参数正在变化')
     memory.read(pointer, 1)
     return pointer
 

@@ -144,24 +144,17 @@ class SettingsDialog:
         self._value_pages[name] = page._settings_page
 
     def _appearance(self, parent):
-        section = self._section(parent, '界面配色', '选择色卡查看配色；保存后同步主界面、设置和浮窗。')
+        section = self._section(parent, '界面配色', '统一使用柔雾紫，主界面、设置和浮窗保持一致。')
         value = tk.StringVar(master=self.dialog, value=normalize_theme(self.window.settings.color_theme))
         self.values['color_theme'] = value
-        descriptions = {'moonlight': '明亮清爽 · 轻盈蓝调', 'graphite': '低调暗色 · 柔和紫调',
-                        'mint': '安静浅色 · 柔和青绿'}
         for name, label in PALETTE_NAMES.items():
             c = theme_colors(name)
-            card = tk.Frame(section, background=c['surface'], highlightthickness=self._px(2),
-                            highlightbackground=c['border'], padx=self._px(12), pady=self._px(10))
+            card = tk.Frame(section, background=c['surface'], highlightthickness=1,
+                            highlightbackground=c['accent'], padx=self._px(12), pady=self._px(10))
             card.pack(fill='x', pady=(0, self._px(8)))
-            title = tk.Radiobutton(card, text=label, variable=value, value=name,
-                                   command=self._refresh_theme_cards, background=c['surface'],
-                                   foreground=c['text'], activebackground=c['surface'],
-                                   activeforeground=c['text'], selectcolor=c['field'],
-                                   highlightbackground=c['surface'], highlightcolor=c['accent'],
-                                   highlightthickness=self._px(1), anchor='w')
-            title.pack(anchor='w')
-            tk.Label(card, text=descriptions.get(name, ''), background=c['surface'],
+            tk.Label(card, text=label, background=c['surface'], foreground=c['text'],
+                     anchor='w').pack(anchor='w')
+            tk.Label(card, text='柔紫侧栏，白色卡片与清晰的紫色操作', background=c['surface'],
                      foreground=c['muted'], anchor='w').pack(anchor='w', pady=(self._px(2), self._px(8)))
             samples = tk.Frame(card, background=c['surface'])
             samples.pack(anchor='w')
@@ -169,13 +162,6 @@ class SettingsDialog:
                 tk.Frame(samples, background=c[role], width=self._px(52), height=self._px(10)).pack(
                     side='left', padx=(0, self._px(5)))
             self.theme_cards[name] = card
-            pending = [card]
-            while pending:
-                target = pending.pop()
-                pending.extend(target.winfo_children())
-                if target is not title:
-                    target.bind('<Button-1>', lambda event, choice=name: self.select_theme(choice))
-        self._refresh_theme_cards()
 
         section = self._section(parent, '主窗口')
         self._number(section, parent, 'font_size', '内容字号', '10–32')
@@ -184,17 +170,6 @@ class SettingsDialog:
         self._check(section, 'locked', '锁定主窗口位置')
         self.compact = tk.BooleanVar(master=self.dialog, value=self.window.settings.mode == 'compact')
         ttk.Checkbutton(section, text='精简模式', variable=self.compact).pack(anchor='w', pady=self._px(4))
-
-    def select_theme(self, name):
-        if name in PALETTE_NAMES:
-            self.values['color_theme'].set(name)
-            self._refresh_theme_cards()
-
-    def _refresh_theme_cards(self):
-        selected = self.values['color_theme'].get()
-        for name, card in self.theme_cards.items():
-            colors = theme_colors(name)
-            card.configure(highlightbackground=colors['accent'] if name == selected else colors['border'])
 
     def _overlay(self, parent):
         section = self._section(parent, '游戏内显示', '字幕默认显示在屏幕底部；小输入条独立居中，打开时字幕暂时隐藏。')
@@ -360,11 +335,7 @@ class SettingsDialog:
                 values['overlay_style'] = selected
             if 'color_theme' in values:
                 invalid_key = 'color_theme'
-                selected = next((key for key, label in PALETTE_NAMES.items()
-                                 if values['color_theme'] in (key, label)), None)
-                if selected is None:
-                    raise ValueError('请选择月白蓝、石墨紫或雾青。')
-                values['color_theme'] = selected
+                values['color_theme'] = normalize_theme(values['color_theme'])
             limits = {
                 'overlay_font_size': (10, 32, int, '译文字号'),
                 'overlay_alpha': (.35, 1, float, '面板不透明度'),

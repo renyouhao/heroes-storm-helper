@@ -25,29 +25,60 @@ class TalentBinding:
     source: str = 'native-actor-local-player-98348'
 
 
-def resolve_local_identity(game, image_base, process_creation_token):
+_IDENTITY_FAILURES = frozenset((
+    'identity read outside bounds', 'incomplete identity read',
+    'gameplay talent context is inactive', 'unaligned local-player state',
+    'unverified gameplay mode or local-player slot',
+    'unaligned player-table context', 'invalid player table'))
+_PARENT_MEMORY_FAILURES = {
+    '天赋数据读取不完整': 'incomplete identity read',
+    '天赋数据指针不正确': 'identity read outside bounds',
+    '天赋读取超过安全预算': 'identity read outside bounds',
+}
+
+
+def resolve_local_identity(game, image_base, process_creation_token, *, diagnostic=None):
     """Return a consistent native binding, or None for any unsupported state.
 
     process_creation_token is (pid, creation_filetime, image_base, build), supplied
     by the process-owning reader. No game function or input operation is used.
     """
+    if diagnostic is not None:
+        diagnostic.clear()
     token = process_creation_token
     if (not isinstance(token, tuple) or len(token) != 4
             or any(type(value) is not int for value in token)
             or token[0] <= 0 or token[1] <= 0
             or token[2] != image_base or token[3] != 98348):
+        if diagnostic is not None:
+            diagnostic['identity_reason'] = 'invalid process identity token'
         return None
     try:
         memory = _IdentityMemory(game)
         if memory.read(image_base, 2) != b'MZ':
+            if diagnostic is not None:
+                diagnostic['identity_reason'] = 'invalid game module signature'
             return None
         first = _capture(memory, image_base)
         if _capture(memory, image_base) != first:
+            if diagnostic is not None:
+                diagnostic['identity_reason'] = 'local-player identity changed during read'
             return None
         root, slot, owner, table, _ = first
+        if diagnostic is not None:
+            diagnostic['identity_reason'] = ''
         return TalentBinding(token[0], slot,
                              token + ('actor-local-player', root, owner, table))
-    except (OSError, ValueError, TypeError, RuntimeError, struct.error):
+    except (OSError, ValueError, TypeError, RuntimeError, struct.error) as failure:
+        if diagnostic is not None:
+            # Only fixed messages from our guards are diagnostic data. Native
+            # errors may contain paths or memory addresses and are never copied.
+            reason = str(failure) if isinstance(failure, ValueError) else ''
+            diagnostic['identity_reason'] = _PARENT_MEMORY_FAILURES.get(reason, next(
+                (known for known in _IDENTITY_FAILURES if reason == known), 'identity read failed'))
+            diagnostic['identity_error_type'] = type(failure).__name__
+            if type(getattr(failure, 'winerror', None)) is int:
+                diagnostic['winerror'] = failure.winerror
         return None
 
 

@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 import webbrowser
 from tkinter import ttk,messagebox,simpledialog,font as tkfont
-from .. import APP_NAME
+from .. import APP_NAME,DISPLAY_VERSION
 from .viewmodel import AppViewModel
 from ..models import AppEvent
 from ..channels import CHANNEL_PRESETS
@@ -12,7 +12,7 @@ from ..hotkeys import HotkeyManager
 from ..appearance import normalize_theme
 from ..layout import display_metrics,main_layout
 from .compact_window import apply_mode,position_geometry
-from .theme import apply_theme, PALETTE_NAMES, theme_colors
+from .theme import apply_theme, refresh_theme_scale, PALETTE_NAMES, theme_colors
 from .chat_feed import ChatFeed
 from .rounded_panel import RoundedPanel
 from ..loot import LootHelper, LootStatus
@@ -24,6 +24,8 @@ from .talent_panel import TalentPanel
 from ..update_service import UpdateService
 from ..board_service import BoardHelper
 from .board_panel import BoardPanel
+from .workspace_icons import WorkspaceIcons
+from .brand_icon import apply_assistant_icon
 
 
 class MainWindow:
@@ -39,6 +41,8 @@ class MainWindow:
         self._repeat_listener_started=False
         self._talent_runtime_enabled=bool(enable_talent_helper)
         self._update_installing=False
+        self._feedback_backend=None
+        self._notice_target=None
         preferences=getattr(controller,'preferences_path',None)
         self.update_service=UpdateService(staging_root=Path(preferences).parent/'updates' if preferences else None)
         self.updates_can_install=bool(getattr(sys,'frozen',False))
@@ -47,7 +51,8 @@ class MainWindow:
         if display is not None:self.settings.migrate_display(initial_metrics)
         self.vm=AppViewModel(); self.closed=False;self._rendered_rows={}
         self.credential_dialog=None
-        root.title(APP_NAME); root.geometry('1080x720'); root.minsize(540,420)
+        root.title(APP_NAME+' · '+DISPLAY_VERSION); root.geometry('1080x720'); root.minsize(540,420)
+        self.icon_loaded=apply_assistant_icon(root,default=True)
         root.columnconfigure(0,weight=1);root.rowconfigure(0,weight=1)
         style=apply_theme(root,self.settings)
         self._applied_theme=self.settings.color_theme
@@ -57,78 +62,90 @@ class MainWindow:
         style.configure('TButton',padding=(10,6))
         self.shell=ttk.Frame(root);self.shell.grid(row=0,column=0,sticky='nsew')
         self.shell.columnconfigure(1,weight=1);self.shell.rowconfigure(0,weight=1)
-        self.sidebar=ttk.Frame(self.shell,padding=(16,22,12,16),style='Surface.TFrame')
-        self.sidebar.grid(row=0,column=0,sticky='ns',padx=(0,4))
-        ttk.Label(self.sidebar,text='风暴英雄助手',style='Brand.TLabel').pack(anchor='w',pady=(0,6))
-        ttk.Label(self.sidebar,text='跨语言，聊得来',style='Surface.Muted.TLabel').pack(anchor='w',pady=(0,26))
+        self.icons=WorkspaceIcons(root,self.settings,initial_metrics.scale)
+        self.sidebar=ttk.Frame(self.shell,padding=(12,24,12,18),style='Sidebar.TFrame',width=212)
+        self.sidebar.pack_propagate(False)
+        self.sidebar.grid(row=0,column=0,sticky='ns')
+        self.brand=ttk.Label(self.sidebar,text=' 风暴英雄助手',image=self.icons.get('brand'),
+                             compound='left',style='Sidebar.Brand.TLabel')
+        self.brand.pack(anchor='w',padx=8,pady=(0,30))
         self.navigation={}
         for key,label in (('chat','实时消息'),('phrases','常用短句'),('loot','开箱助手'),('repeat','动作连按'),('talent','天赋辅助'),('broadcast','双击播报')):
-            button=ttk.Button(self.sidebar,text=label,style='Sidebar.TButton',
+            button=ttk.Button(self.sidebar,text='  '+label,image=self.icons.get(key),compound='left',style='Sidebar.TButton',
                               command=lambda page=key:self.select_section(page),width=0)
-            button.pack(fill='x',pady=(0,8));self.navigation[key]=button
-        ttk.Separator(self.sidebar).pack(fill='x',pady=(8,12))
-        ttk.Button(self.sidebar,text='偏好设置',command=self.window_options,style='Sidebar.TButton',width=0).pack(fill='x')
+            button.pack(fill='x',pady=(0,10));self.navigation[key]=button
+        self.sidebar_update=ttk.Button(self.sidebar,text='  检查更新',image=self.icons.get('update'),compound='left',
+                                      command=self.open_updates,style='Sidebar.TButton',width=0)
+        self.sidebar_update.pack(side='bottom',fill='x',pady=(8,0))
+        self.sidebar_settings=ttk.Button(self.sidebar,text='  偏好设置',image=self.icons.get('settings'),compound='left',
+                                        command=self.window_options,style='Sidebar.TButton',width=0)
+        self.sidebar_settings.pack(side='bottom',fill='x')
         self.sidebar_theme=ttk.Label(self.sidebar,text=PALETTE_NAMES[self.settings.color_theme],
-                                     style='Surface.Muted.TLabel')
-        self.sidebar_theme.pack(side='bottom',anchor='w',pady=(10,0))
+                                     style='Sidebar.Muted.TLabel')
         self.sidebar_hotkey=ttk.Label(self.sidebar,text='游戏中按 Ctrl+T\n随时打开快捷输入',
-                  style='Surface.Muted.TLabel',justify='left',wraplength=160)
-        self.sidebar_hotkey.pack(side='bottom',anchor='w')
+                  style='Sidebar.Muted.TLabel',justify='left',wraplength=160)
         self.workspace=workspace=ttk.Frame(self.shell)
         workspace.grid(row=0,column=1,sticky='nsew');workspace.columnconfigure(0,weight=1)
         workspace.rowconfigure(3,weight=1)
         self.section_title=tk.StringVar(value='实时消息')
-        toolbar=ttk.Frame(workspace,padding=(18,16,18,8)); toolbar.grid(row=0,column=0,sticky='ew')
+        toolbar=ttk.Frame(workspace,padding=(24,24,24,18)); toolbar.grid(row=0,column=0,sticky='ew')
         self.toolbar=toolbar
-        ttk.Label(toolbar,textvariable=self.section_title,style='PageTitle.TLabel').pack(side='left')
-        self.settings_button=ttk.Button(toolbar,text='设置',command=self.window_options,style='Nav.TButton')
+        toolbar.columnconfigure(1,weight=1)
+        self.page_title=ttk.Label(toolbar,textvariable=self.section_title,style='PageTitle.TLabel')
+        self.page_title.grid(row=0,column=0,sticky='w')
+        self.header_actions=ttk.Frame(toolbar)
+        self.header_actions.grid(row=0,column=1,sticky='e')
+        self.settings_button=ttk.Button(self.header_actions,text='设置',command=self.window_options,style='Nav.TButton')
         self.settings_button.pack(side='right')
-        self.update_button=ttk.Button(toolbar,text='检查更新',command=self.open_updates,style='Nav.TButton')
+        self.update_button=ttk.Button(self.header_actions,text='检查更新',command=self.open_updates,style='Nav.TButton')
         self.update_button.pack(side='right',padx=(6,0))
-        self.quick_button=ttk.Button(toolbar,text='快捷输入',command=self.open_quick_input,style='Accent.TButton')
-        self.quick_button.pack(side='right',padx=(8,8))
         self.automatic=tk.BooleanVar(value=self.settings.auto_translate)
-        service_row=ttk.Frame(workspace,padding=(18,0,18,5));service_row.grid(row=1,column=0,sticky='ew')
+        self.header_controls=ttk.Frame(toolbar)
+        self.header_controls.grid(row=0,column=1,sticky='e',padx=(16,0))
+        service_row=ttk.Frame(self.header_controls);service_row.grid(row=0,column=0,sticky='ew')
         self.service_row=service_row
         service_row.columnconfigure(0,weight=1)
         self.service_label=ttk.Label(service_row,text='翻译服务：未配置 · 接收原文',style='Muted.TLabel',width=1)
-        self.service_label.grid(row=0,column=0,sticky='ew')
         self.account_button=None
         if hasattr(controller,'account_setup'):
             self.account_button=ttk.Button(service_row,text='个人密钥' if controller.cloud_configured else '配置云翻译',command=self.configure_account,style='Nav.TButton')
-            self.account_button.grid(row=0,column=1,padx=(8,0))
         self.quota_button=ttk.Button(service_row,text='查询剩余额度',command=self.open_cloud_quota,style='Nav.TButton')
-        self.quota_button.grid(row=0,column=2,padx=(8,0))
+        self.cloud_badge=ttk.Button(service_row,text='翻译服务未配置',command=self.configure_account,style='Nav.TButton')
+        self.cloud_badge.grid(row=0,column=1)
+        self.capture_state=tk.StringVar(value='采集：自动连接中')
+        self.capture_badge=ttk.Label(service_row,textvariable=self.capture_state,style='Muted.TLabel',width=16)
+        self.capture_badge.grid(row=0,column=0,padx=(0,12))
         self.cloud=tk.BooleanVar(value=False)
         controller.pause_translation(True)
         controller.pause_automatic(not self.automatic.get())
-        channel_row=ttk.Frame(workspace,padding=(18,3,18,10));channel_row.grid(row=2,column=0,sticky='ew')
+        channel_row=ttk.Frame(self.header_controls);channel_row.grid(row=0,column=1,sticky='e',padx=(14,0))
         self.channel_row=channel_row
-        channel_row.columnconfigure(2,weight=1)
-        ttk.Label(channel_row,text='频道',style='Muted.TLabel').grid(row=0,column=0)
         self.channel=tk.StringVar(value='全部聊天')
-        self.channel_combo=ttk.Combobox(channel_row,textvariable=self.channel,values=list(CHANNEL_PRESETS),state='readonly',width=15)
-        self.channel_combo.grid(row=0,column=1,padx=(8,12))
+        self.channel_combo=ttk.Combobox(channel_row,textvariable=self.channel,values=list(CHANNEL_PRESETS),state='readonly',width=10)
+        self.channel_combo.grid(row=0,column=0,padx=(0,14))
         self.channel_combo.bind('<<ComboboxSelected>>',lambda e:controller.set_channels(CHANNEL_PRESETS[self.channel.get()]))
-        self.capture_state=tk.StringVar(value='采集：自动连接中')
-        ttk.Label(channel_row,textvariable=self.capture_state,style='Muted.TLabel',width=1).grid(row=0,column=2,sticky='ew')
-        ttk.Checkbutton(channel_row,text='自动翻译',variable=self.automatic,command=self.toggle_automatic).grid(row=0,column=3,padx=(8,0))
+        ttk.Checkbutton(channel_row,text='自动翻译',variable=self.automatic,command=self.toggle_automatic,
+                        style='Switch.TCheckbutton').grid(row=0,column=1)
         self.process_choice=None
-        self.notebook=ttk.Notebook(workspace,style='Main.TNotebook'); self.notebook.grid(row=3,column=0,sticky='nsew',padx=16,pady=(0,10))
+        self.notebook=ttk.Notebook(workspace,style='Main.TNotebook'); self.notebook.grid(row=3,column=0,sticky='nsew',padx=(10,20),pady=(0,10))
         self.notebook.enable_traversal()
         self.notebook.bind('<<NotebookTabChanged>>',lambda event:self._sync_navigation())
         self.chat_page=ttk.Frame(self.notebook); self.notebook.add(self.chat_page,text='实时消息')
-        self.message_panel=RoundedPanel(self.chat_page,settings=self.settings,padding=6)
+        self.message_panel=RoundedPanel(self.chat_page,settings=self.settings,padding=8,radius=16)
         self.message_panel.pack(fill='both',expand=True)
+        self.message_toolbar=ttk.Frame(self.message_panel.body,style='Surface.TFrame')
+        self.message_toolbar.pack(fill='x',padx=8,pady=(0,6))
+        self.quick_button=ttk.Button(self.message_toolbar,text=' 快捷输入',image=self.icons.get('quick'),compound='left',
+                                    command=self.open_quick_input,style='Surface.Soft.TButton')
+        self.quick_button.pack(side='right')
         self.tree=ChatFeed(self.message_panel.body,font=self._content_font,settings=self.settings)
         self.tree.pack(fill='both',expand=True)
         self.tree.bind('<<TreeviewSelect>>',lambda e:self.show_selected())
         self.tree.bind('<<MessageDetails>>',lambda e:self.toggle_details())
-        message_actions=ttk.Frame(self.chat_page,padding=(0,4,0,0));message_actions.pack(fill='x')
-        ttk.Label(message_actions,text='译文优先 · 可选择消息重试',style='Muted.TLabel',width=1).pack(side='left',fill='x',expand=True)
-        self.retry_button=ttk.Button(message_actions,text='重试所选',command=self.retry,style='Nav.TButton',state='disabled')
+        message_actions=ttk.Frame(self.message_toolbar,style='Surface.TFrame');message_actions.pack(side='left')
+        self.retry_button=ttk.Button(message_actions,text='重试所选',command=self.retry,style='Surface.Nav.TButton',state='disabled')
         self.retry_button.pack(side='right')
-        self.details_button=ttk.Button(message_actions,text='消息详情',command=self.toggle_details,style='Nav.TButton')
+        self.details_button=ttk.Button(message_actions,text='消息详情',command=self.toggle_details,style='Surface.Nav.TButton')
         self.details_button.pack(side='right',padx=(0,6))
         self.detail=tk.Text(self.chat_page,height=3,wrap='word',font=self._content_font,state='disabled')
         self._details_open=False
@@ -152,40 +169,68 @@ class MainWindow:
         self.notebook.add(self.repeat_panel,text='动作连按')
         self.talent_helper=TalentHelper(diagnostics=getattr(controller,'diagnostics',None))
         self.talent_panel=TalentPanel(self.notebook,settings=self.settings,metrics=initial_metrics,
-                                      on_toggle=self.apply_talent_config)
+                                      on_toggle=self.apply_talent_config,on_retry=self.retry_talent)
         self.notebook.add(self.talent_panel,text='天赋辅助')
         self.board_helper=BoardHelper(busy_provider=self._other_input_busy,
             input_locks=(self.talent_helper._dispatch,self.repeat_helper._dispatch),
             diagnostics=getattr(controller,'diagnostics',None))
         self.board_panel=BoardPanel(self.notebook,settings=self.settings,metrics=initial_metrics,
-                                    on_toggle=self.apply_board_config)
+                                    on_toggle=self.apply_board_config,on_retry=self.retry_board)
         self.notebook.add(self.board_panel,text='双击播报')
-        self.reply_panel=RoundedPanel(workspace,settings=self.settings,padding=12,fit_height=True)
-        self.reply_panel.grid(row=4,column=0,sticky='ew',padx=16,pady=(0,3))
+        self.reply_panel=RoundedPanel(workspace,settings=self.settings,padding=12,fit_height=True,radius=16)
+        self.reply_panel.grid(row=4,column=0,sticky='ew',padx=(10,20),pady=(0,5))
         send=self.reply_panel.body
         self.send_frame=send
         send.columnconfigure((0,1),weight=1,uniform='draft')
         self.composer_heading=ttk.Label(send,text='用中文回复',style='ComposerTitle.TLabel')
-        self.composer_heading.grid(row=0,column=0,columnspan=2,sticky='w',pady=(0,6))
-        self.input=tk.Text(send,height=2,wrap='word',font=self._content_font,padx=8,pady=5)
-        self.input.grid(row=1,column=0,columnspan=2,sticky='ew')
-        self.input.bind('<<Modified>>',self.invalidate_draft)
-        row=ttk.Frame(send,style='Surface.TFrame'); row.grid(row=2,column=0,columnspan=2,sticky='ew',pady=5)
-        self.action_row=row
+        self.composer_heading.grid(row=0,column=0,sticky='w',pady=(0,8))
+        self.preview_heading=ttk.Frame(send,style='Surface.TFrame')
+        self.preview_heading.grid(row=0,column=1,sticky='ew',padx=(16,0),pady=(0,8))
+        self.preview_title=ttk.Label(self.preview_heading,
+                                     text='译文预览（'+('英语' if self.settings.target_language=='en' else '韩语')+'）',
+                                     style='Surface.PreviewTitle.TLabel')
+        self.preview_title.pack(side='left')
         self.target=tk.StringVar(value=self.settings.target_language)
-        ttk.Radiobutton(row,text='韩语',variable=self.target,value='ko',command=self.target_changed,style='Surface.TRadiobutton').pack(side='left')
-        ttk.Radiobutton(row,text='英语',variable=self.target,value='en',command=self.target_changed,style='Surface.TRadiobutton').pack(side='left',padx=(6,0))
-        ttk.Button(row,text='复制译文',command=self.copy).pack(side='right')
-        ttk.Button(row,text='翻译中文',command=self.translate,style='Accent.TButton').pack(side='right',padx=(8,8))
-        self.preview=tk.Text(send,height=2,wrap='word',font=self._content_font,state='disabled',padx=8,pady=5)
-        self.preview.grid(row=3,column=0,columnspan=2,sticky='ew')
+        self.language_choices=ttk.Frame(self.preview_heading,style='Surface.TFrame')
+        self.language_choices.pack(side='right')
+        for label,language in (('英语','en'),('韩语','ko')):
+            ttk.Radiobutton(self.language_choices,text=label,variable=self.target,value=language,
+                            command=self.target_changed,style='Surface.Segment.TRadiobutton',width=5).pack(side='left',padx=(2,0))
+        self.input_frame=RoundedPanel(send,settings=self.settings,padding=4,fit_height=True,
+                                      radius=10,surface='field',background='surface')
+        self.input_frame.grid(row=1,column=0,rowspan=2,sticky='nsew',padx=(0,16))
+        self.input=tk.Text(self.input_frame.body,height=4,width=1,wrap='word',font=self._content_font,
+                           padx=8,pady=3,borderwidth=0,highlightthickness=0)
+        self.input.pack(fill='both',expand=True)
+        self.input.bind('<<Modified>>',self.invalidate_draft)
+        row=ttk.Frame(send,style='Surface.TFrame'); row.grid(row=2,column=1,sticky='ew',padx=(16,0),pady=(8,0))
+        self.action_row=row
+        self.copy_button=ttk.Button(row,text=' 复制译文',image=self.icons.get('copy'),compound='left',
+                                   command=self.copy,style='Surface.Soft.TButton')
+        self.copy_button.pack(side='left')
+        self.translate_button=ttk.Button(row,text=' 翻译中文',image=self.icons.get('translate','primary'),compound='left',
+                                        command=self.translate,style='Surface.Accent.TButton')
+        self.translate_button.pack(side='left',padx=(8,0),fill='x',expand=True)
+        self.preview_frame=RoundedPanel(send,settings=self.settings,padding=4,fit_height=True,
+                                        radius=10,surface='field',background='surface')
+        self.preview_frame.grid(row=1,column=1,sticky='ew',padx=(16,0))
+        self.preview=tk.Text(self.preview_frame.body,height=2,width=1,wrap='word',font=self._content_font,
+                             state='disabled',padx=8,pady=3,borderwidth=0,highlightthickness=0)
+        self.preview.pack(fill='both',expand=True)
+        for text,frame in ((self.input,self.input_frame),(self.preview,self.preview_frame)):
+            text.bind('<FocusIn>',lambda event,frame=frame:frame.set_focused(True),add='+')
+            text.bind('<FocusOut>',lambda event,frame=frame:frame.set_focused(False),add='+')
         self.manual_source=tk.StringVar(value='')
         self.manual_source_label=ttk.Label(send,textvariable=self.manual_source,style='Surface.Muted.TLabel')
-        self.manual_source_label.grid(row=4,column=0,columnspan=2,sticky='w',pady=(3,0))
+        self.manual_source_label.grid(row=3,column=1,sticky='w',padx=(16,0),pady=(8,0))
+        self.reply_hint=ttk.Label(send,text='Ctrl+T 快捷输入',style='Surface.Muted.TLabel')
+        self.reply_hint.grid(row=3,column=0,sticky='w',pady=(8,0))
         self._density_state=None
         self._sidebar_visible=None
         self._tabs_hidden=None
-        self.status_var=tk.StringVar(value=self.vm.status); ttk.Label(workspace,textvariable=self.status_var,padding=(18,6),style='Muted.TLabel',width=1).grid(row=5,column=0,sticky='ew')
+        self.status_var=tk.StringVar(value=self.vm.status)
+        ttk.Label(workspace,textvariable=self.status_var,padding=(18,2),style='Muted.TLabel',
+                  font=('Microsoft YaHei UI',9),width=1).grid(row=5,column=0,sticky='ew')
         self.refresh_service_status()
         self.hotkeys=HotkeyManager(diagnostics=getattr(controller,'diagnostics',None))
         self.screen_ticks=0;self.monitor_bounds=[]
@@ -193,6 +238,8 @@ class MainWindow:
         from .quick_input import QuickInput
         self.settings.recover_overlay([initial_metrics.work_area],scale=initial_metrics.scale)
         self.overlay=OverlayWindow(root,self.settings,metrics=initial_metrics)
+        from .helper_notice import HelperNotice
+        self.helper_notice=HelperNotice(root,self.settings,metrics=initial_metrics)
         self.quick_input=QuickInput(root,controller,self.settings,self.quick_target_changed,
                                    metrics=initial_metrics,position_provider=lambda:self.overlay.input_position(),
                                    on_visibility_changed=self.quick_visibility_changed)
@@ -224,13 +271,21 @@ class MainWindow:
                  else 'repeat' if hasattr(self,'repeat_panel') and selected==str(self.repeat_panel)
                  else 'loot' if hasattr(self,'loot_panel') and selected==str(self.loot_panel)
                  else 'phrases' if hasattr(self,'phrase_panel') and selected==str(self.phrase_panel) else 'chat')
+        self._current_section=current
         self.section_title.set({'chat':'实时消息','phrases':'常用短句','loot':'开箱助手','repeat':'动作连按','talent':'天赋辅助','broadcast':'双击播报'}[current])
         if hasattr(self,'reply_panel'):
             if current in ('loot','repeat','talent','broadcast'):self.reply_panel.grid_remove()
             else:self.reply_panel.grid()
+        for name in ('service_row','channel_row'):
+            row=getattr(self,name,None)
+            if row is not None:
+                if current in ('loot','repeat','talent','broadcast') or (name=='service_row' and getattr(self,'_density_minimal',False)):
+                    row.grid_remove()
+                else:row.grid()
         for key,button in self.navigation.items():
             active=key==current
-            button.configure(style='Sidebar.Selected.TButton' if active else 'Sidebar.TButton')
+            button.configure(style='Sidebar.Selected.TButton' if active else 'Sidebar.TButton',
+                             image=self.icons.get(key,'selected' if active else 'normal'))
 
     def prepare_loot(self):
         self._prepare_action('loot')
@@ -267,6 +322,7 @@ class MainWindow:
         return True
 
     def apply_talent_config(self,enabled):
+        if not enabled and hasattr(self,'helper_notice'):self.helper_notice.clear()
         if enabled and getattr(self,'_update_installing',False):raise ValueError('正在准备升级，请等待助手重启。')
         previous=self.settings.talent_enabled
         self.settings.talent_enabled=bool(enabled)
@@ -304,6 +360,7 @@ class MainWindow:
                         if quick_active is None else quick_active))
 
     def apply_board_config(self,enabled):
+        if not enabled and hasattr(self,'helper_notice'):self.helper_notice.clear()
         if enabled and getattr(self,'_update_installing',False):raise ValueError('正在准备升级，请等待助手重启。')
         previous=self.settings.board_broadcast_enabled
         self.settings.board_broadcast_enabled=bool(enabled)
@@ -320,6 +377,63 @@ class MainWindow:
         self.board_panel.apply_settings(self.settings,self._layout_metrics)
         if enabled and not self._talent_runtime_enabled:
             self.board_panel.update_status('disabled','演示模式不会监听双击、读取游戏或发送聊天。')
+
+    def retry_talent(self):
+        self._retry_helper('talent')
+
+    def retry_board(self):
+        self._retry_helper('board')
+
+    def _retry_helper(self,source):
+        helper=getattr(self,source+'_helper')
+        panel=getattr(self,source+'_panel')
+        preference=getattr(self.settings,'talent_enabled' if source=='talent' else 'board_broadcast_enabled')
+        if not preference:return
+        if not self._talent_runtime_enabled:
+            panel.update_status('disabled','演示模式不读取游戏或发送按键。')
+            return
+        if getattr(self,'_update_installing',False):
+            panel.update_status('deferred','正在准备升级，请等待助手重启。')
+            return
+        self._sync_talent_gate()
+        if not helper.set_enabled(True):
+            panel.update_status('error','上次后台任务正在退出，请稍后重新连接。')
+        if hasattr(panel,'set_running'):panel.set_running(bool(getattr(helper,'running',False)))
+
+    def _feedback_allowed(self):
+        """仅关键异常到来时核验游戏前台，不新增后台扫描或钩子。"""
+        if not getattr(self,'_talent_runtime_enabled',False) or self._other_input_busy():return False
+        try:
+            if self._feedback_backend is None:
+                from ..loot_native import Win32LootBackend
+                self._feedback_backend=Win32LootBackend()
+            target=self._feedback_backend.foreground_target()
+            self._notice_target=target
+            return target is not None
+        except OSError:return False
+
+    def update_helper_status(self,source,status):
+        panel=getattr(self,source+'_panel')
+        helper=getattr(self,source+'_helper')
+        if source=='talent':panel.update_status(status.state,status.detail,getattr(status,'tier_id',None))
+        else:panel.update_status(status.state,status.detail)
+        if hasattr(panel,'set_running'):panel.set_running(bool(getattr(helper,'running',False)))
+        critical=(status.state in ('blocked','unconfirmed','error') if source=='talent'
+                  else status.state=='error')
+        notice=getattr(self,'helper_notice',None)
+        if critical and notice is not None and self._feedback_allowed():
+            notice.show(source,status.state,status.detail,generation=self.controller.generation,
+                        dedupe_key=getattr(status,'tier_id',None))
+
+    def _guard_helper_notice(self):
+        notice=getattr(self,'helper_notice',None)
+        if notice is None or not notice.visible:return
+        target=getattr(self,'_notice_target',None)
+        backend=getattr(self,'_feedback_backend',None)
+        try:
+            foreground=bool(target and backend and backend.user.GetForegroundWindow()==target.hwnd)
+        except OSError:foreground=False
+        if not foreground or self._other_input_busy():notice.clear()
 
     def prepare_repeat(self):
         self._prepare_action('repeat')
@@ -490,19 +604,38 @@ class MainWindow:
         self._sync_talent_gate(quick_active=active)
         self.overlay.set_input_active(active or self._loot_active or getattr(self,'_repeat_active',False))
 
-    def _apply_shell(self,width):
-        visible=width>=self._layout_metrics.px(900)
+    def _apply_shell(self,width,height=None):
+        height=self.root.winfo_height() if height is None else height
+        visible=(width>=self._layout_metrics.px(900) and height>=self._layout_metrics.px(560))
         if visible!=self._sidebar_visible:
             self._sidebar_visible=visible
             if visible:
-                self.sidebar.grid();self.settings_button.pack_forget()
+                self.sidebar.grid();self.settings_button.pack_forget();self.update_button.pack_forget()
             else:
-                self.sidebar.grid_remove();self.settings_button.pack(side='right',before=self.quick_button)
+                self.sidebar.grid_remove();self.settings_button.pack(side='right');self.update_button.pack(side='right')
+        self._layout_header()
         if self._tabs_hidden!=visible:
             style=ttk.Style(self.root)
             style.layout('Main.TNotebook.Tab',[] if visible else style.layout('TNotebook.Tab'))
+            style.configure('Main.TNotebook.Tab',padding=(self._layout_metrics.px(6),self._layout_metrics.px(3)))
             self._tabs_hidden=visible
             self._sync_navigation()
+
+    def _layout_header(self):
+        """小窗口把状态控件压为一行；只重排，不改真实连接状态。"""
+        visible=bool(self._sidebar_visible)
+        minimal=getattr(self,'_density_minimal',False)
+        if minimal:
+            self.page_title.grid_remove()
+            self.header_actions.grid_configure(row=0,column=0,sticky='w')
+            self.header_controls.grid_configure(row=0,column=1,columnspan=1,padx=0,pady=0)
+        else:
+            self.page_title.grid()
+            self.header_actions.grid_configure(row=0,column=1,sticky='e')
+            self.header_controls.grid_configure(row=0 if visible else 1,column=1 if visible else 0,
+                                                columnspan=1 if visible else 2,
+                                                padx=(self._layout_metrics.px(12),0) if visible else 0,
+                                                pady=0 if visible else (self._layout_metrics.px(8),0))
 
     def clear_draft(self):
         self.vm.copy_text=''; self.vm.expected_job=None;self.vm.manual_provenance=''
@@ -511,6 +644,7 @@ class MainWindow:
     def render_manual_preview(self):
         self.set_text(self.preview,self.vm.copy_text)
         self.manual_source.set('来源：'+self.vm.manual_provenance if self.vm.copy_text and self.vm.manual_provenance else '')
+        self.preview_title.configure(text='译文预览（'+('英语' if self.target.get()=='en' else '韩语')+'）')
 
     def invalidate_draft(self,event=None):
         if self.input.edit_modified(): self.clear_draft(); self.input.edit_modified(False)
@@ -535,16 +669,17 @@ class MainWindow:
     def stop(self): self.controller.stop_receiving()
 
     def enable_configured_cloud(self):
-        self.refresh_service_status()
         enabled=(getattr(self.controller,'cloud_configured',False)
                  and not getattr(self.controller,'configuration_held',False))
         self.cloud.set(enabled)
         self.controller.pause_translation(not enabled)
+        self.refresh_service_status()
 
     def toggle_automatic(self):
         self.settings.auto_translate=self.automatic.get()
         self.controller.pause_automatic(not self.automatic.get())
         self.save_settings()
+        self.refresh_service_status()
 
     def open_quick_input(self):
         if getattr(self,'_update_installing',False):return
@@ -573,8 +708,8 @@ class MainWindow:
 
     def moved(self,event):
         if event.widget is not self.root:return
-        self._apply_shell(event.width)
-        self._apply_density(event.height)
+        self._apply_shell(event.width,event.height)
+        self._apply_density(event.height,event.width)
         if self._applying_layout:return
         if self.display is not None:
             metrics=self._read_display_metrics()
@@ -606,36 +741,56 @@ class MainWindow:
         self._layout_guard_timer=None
         self._applying_layout=False
 
-    def _apply_density(self,height):
+    def _apply_density(self,height,width=None):
         """真正缩到小窗口时减少占位，输入与译文并排，保留阅读和操作空间。"""
-        tight=self._layout_tight or height<self._layout_metrics.px(600)
+        width=self.root.winfo_width() if width is None else width
+        tight=(self._layout_tight or height<self._layout_metrics.px(600)
+               or width<self._layout_metrics.px(900))
         minimal=height<self._layout_metrics.px(480)
         state=(tight,minimal,self._layout_metrics.scale)
         if self._density_state==state:return
         self._density_state=state
         self._density_tight=tight
+        self._density_minimal=minimal
         px=self._layout_metrics.px
-        self.toolbar.configure(padding=(px(18),px(6 if minimal else 16),px(18),px(4 if minimal else 8)))
-        self.channel_row.configure(padding=(px(18),px(3),px(18),px(4 if minimal else 10)))
+        self.toolbar.configure(padding=(px(24),px(6 if minimal else 20),px(20),px(8 if minimal else 18)))
         self.notebook.grid_configure(pady=(0,px(4 if minimal else 10)))
         self.reply_panel.set_padding(6 if minimal else 12)
-        for widget in (self.input,self.preview):widget.configure(height=1 if tight else 2)
+        self.message_panel.set_padding(4 if minimal else 8)
+        self.input.configure(height=1 if tight else 3)
+        self.preview.configure(height=1 if tight else 2)
         if tight:self.detail.pack_forget()
         elif self._details_open:self.detail.pack(fill='x',pady=(4,0))
         if minimal:
             self.service_row.grid_remove()
             self.composer_heading.grid_remove()
+            self.preview_heading.grid_remove()
             self.manual_source_label.grid_remove()
+            self.reply_hint.grid_remove()
         else:
             self.service_row.grid()
             self.composer_heading.grid()
+            self.preview_heading.grid()
             self.manual_source_label.grid()
+            self.reply_hint.grid()
+        if getattr(self,'_current_section','chat') in ('loot','repeat','talent','broadcast'):
+            self.service_row.grid_remove()
+            self.channel_row.grid_remove()
+        gap=px(4 if tight else 16)
+        self.input_frame.grid_configure(row=1,column=0,columnspan=1,padx=(0,gap),rowspan=1 if tight else 2)
+        self.preview_frame.grid_configure(row=1,column=1,columnspan=1,padx=(gap,0))
+        self.preview_heading.grid_configure(padx=(gap,0))
+        self.action_row.grid_configure(row=2,column=0 if tight else 1,columnspan=2 if tight else 1,
+                                       padx=0 if tight else (gap,0))
+        self.preview_title.pack_forget()
+        if not tight:self.preview_title.pack(side='left',before=self.language_choices)
         if tight:
-            self.input.grid_configure(row=1,column=0,columnspan=1,padx=(0,px(4)))
-            self.preview.grid_configure(row=1,column=1,columnspan=1,padx=(px(4),0))
-        else:
-            self.input.grid_configure(row=1,column=0,columnspan=2,padx=0)
-            self.preview.grid_configure(row=3,column=0,columnspan=2,padx=0)
+            # 小窗口依旧可切语言；把按钮和语言选择排成一行，给大字号编辑器留空间。
+            self.language_choices.pack_forget()
+            self.language_choices.grid_forget()
+            self.preview_heading.grid(row=0,column=1,sticky='e',padx=(gap,0))
+            self.language_choices.pack(side='right')
+        self._layout_header()
 
     def apply_settings(self,layout_only=False,metrics=None):
         self._applying_layout=True
@@ -644,6 +799,9 @@ class MainWindow:
             self._applied_theme=self.settings.color_theme
             self._tabs_hidden=None
         self._layout_metrics=metrics=metrics if metrics is not None else self._read_display_metrics()
+        refresh_theme_scale(self.root,self.settings)
+        self.sidebar.configure(width=metrics.px(212))
+        self.icons.refresh(self.settings,metrics.scale)
         self.monitor_bounds=[metrics.work_area]
         layout=main_layout(metrics,mode=self.settings.mode,x=self.settings.x,y=self.settings.y,
                            font_size=self.settings.font_size,anchor=self.settings.main_anchor)
@@ -659,15 +817,21 @@ class MainWindow:
         self._layout_tight=tight
         if tight or not self._details_open:self.detail.pack_forget()
         else:self.detail.pack(fill='x',pady=(4,0))
-        self._apply_density(layout.height)
-        self._apply_shell(layout.width)
+        self._apply_density(layout.height,layout.width)
+        self._apply_shell(layout.width,layout.height)
         if self._content_font.cget('size')!=self.settings.font_size:
             self._content_font.configure(size=self.settings.font_size)
         ttk.Style(self.root).configure('Treeview',font=self._content_font,rowheight=layout.row_height)
         ttk.Style(self.root).configure('TButton',padding=(metrics.px(10),metrics.px(6)))
         self.tree.apply_settings(self.settings)
+        self._sync_navigation()
         self.message_panel.apply_settings(self.settings,metrics)
         self.reply_panel.apply_settings(self.settings,metrics)
+        self.input_frame.apply_settings(self.settings,metrics)
+        self.preview_frame.apply_settings(self.settings,metrics)
+        self.input_frame.set_surface('surface' if normalize_theme(self.settings.color_theme)=='lavender' else 'field')
+        colors=theme_colors(self.settings)
+        self.input.configure(background=colors['surface'] if normalize_theme(self.settings.color_theme)=='lavender' else colors['field'])
         self.sidebar_theme.configure(text=PALETTE_NAMES[normalize_theme(self.settings.color_theme)])
         if hasattr(self,'phrase_panel'):self.phrase_panel.apply_metrics(metrics)
         try:self.loot_panel.apply_settings(self.settings,metrics)
@@ -685,6 +849,7 @@ class MainWindow:
         except (OSError,tk.TclError) as failure:self.repeat_ui_failed(failure)
         if hasattr(self,'talent_panel'):self.talent_panel.apply_settings(self.settings,metrics)
         if hasattr(self,'board_panel'):self.board_panel.apply_settings(self.settings,metrics)
+        if hasattr(self,'helper_notice'):self.helper_notice.apply_settings(self.settings,metrics)
         self.overlay.apply_settings(metrics)
         self.quick_input.refresh_layout(metrics,force=True)
         self.quick_button.configure(text='快捷输入')
@@ -716,13 +881,15 @@ class MainWindow:
     def _account_events(self):
         service=getattr(self.controller,'account_setup',None)
         if service is None:return
-        for event in service.poll():
+        events=service.poll()
+        for event in events:
             if event['kind'] in ('ready','removed'):
                 self.clear_draft();self.quick_input.cancel()
                 self.enable_configured_cloud()
                 self.account_button.configure(text='个人密钥' if self.controller.cloud_configured else '配置云翻译')
             if self.credential_dialog is not None:self.credential_dialog.handle(event)
             if event['kind']=='error':self.status_var.set(event['message'])
+        if events:self.refresh_service_status()
 
     def save_settings(self):
         path=getattr(self.controller,'preferences_path',None)
@@ -743,7 +910,18 @@ class MainWindow:
 
     def refresh_service_status(self):
         configured=getattr(self.controller,'cloud_configured',False)
-        self.service_label.configure(text='翻译服务：已配置' if configured else '翻译服务：未配置 · 接收原文')
+        if getattr(self.controller,'configuration_held',False):
+            text='翻译服务：配置处理中 · 云请求暂停'
+        elif not configured:text='翻译服务：未配置 · 接收原文'
+        elif getattr(self.controller,'paused',False):text='翻译服务：已暂停 · 接收原文'
+        else:text='翻译服务：已启用 · '+('自动翻译开启' if self.automatic.get() else '自动翻译暂停')
+        if text!=getattr(self,'_service_text',None):
+            self.service_label.configure(text=text)
+            self._service_text=text
+            if hasattr(self,'cloud_badge'):
+                self.cloud_badge.configure(text=('● 翻译服务已启用' if configured and not getattr(self.controller,'paused',False)
+                                                 and not getattr(self.controller,'configuration_held',False)
+                                                 else '翻译服务未配置' if not configured else '翻译服务已暂停'))
 
     def open_cloud_quota(self):
         url='https://mt.console.aliyun.com/service'
@@ -827,10 +1005,11 @@ class MainWindow:
         helper=getattr(self,'talent_helper',None)
         if helper is not None:
             for status in helper.drain_status():
-                if helper.accepts_status(status):self.talent_panel.update_status(status.state,status.detail)
+                if helper.accepts_status(status):self.update_helper_status('talent',status)
         helper=getattr(self,'board_helper',None)
         if helper is not None:
-            for status in helper.drain_status():self.board_panel.update_status(status.state,status.detail)
+            for status in helper.drain_status():self.update_helper_status('board',status)
+        self._guard_helper_notice()
         self._sync_talent_gate()
         self._account_events()
         self.screen_ticks+=1
@@ -852,7 +1031,9 @@ class MainWindow:
             if hasattr(self,'quick_input'):self.quick_input.handle_event(event)
             if event.kind=='capture_state' and event.generation==self.vm.generation:
                 self.capture_state.set('采集：'+str(event.payload))
-            if event.kind in ('chat','result','error','generation','suppressed'): changed=True
+            if event.kind in ('chat','result','error','generation','suppressed','translation_state') and applied=='applied': changed=True
+            if event.kind=='generation' and applied=='applied' and hasattr(self,'helper_notice'):
+                self.helper_notice.clear()
             if event.kind in ('manual_result','generation'):self.render_manual_preview()
             if event.kind in ('status','gap','error','generation'): self.status_var.set(self.vm.status)
             if event.kind=='conflict':self.status_var.set('热键注册失败或已被占用：'+str(event.payload['action']))
@@ -911,6 +1092,7 @@ class MainWindow:
                   lambda:getattr(self,'talent_panel',None) and self.talent_panel.close(),
                   lambda:getattr(self,'board_helper',None) and self.board_helper.close(),
                   lambda:getattr(self,'board_panel',None) and self.board_panel.close(),
+                  lambda:getattr(self,'helper_notice',None) and self.helper_notice.close(),
                   self.hotkeys.stop,self.quick_input.close,self.overlay.close,self.save_settings,
                   self.controller.close,self.root.destroy)
         # 一个原生句柄/偏好写入失败，也必须继续释放其他线程与窗口。

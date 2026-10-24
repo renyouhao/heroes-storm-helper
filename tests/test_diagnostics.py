@@ -29,20 +29,20 @@ class DiagnosticTests(unittest.TestCase):
                     for line in archive.read(name).decode('utf-8').splitlines() if line]
         return summary, rows
 
-    def test_default_details_timeout_and_truncation(self):
+    def test_single_switch_includes_bodies_without_expiring(self):
         self.recorder.record('message.received', message_id='a', original='private-first')
         self.recorder.enable_details(True)
-        self.recorder.record('message.received', message_id='b', original='好' * 300)
+        self.recorder.record('message.received', message_id='b', original='好' * 17000)
         self.now = 600
         self.recorder.record('message.received', message_id='c', original='private-last')
         summary, rows = self.export_rows()
         values = {r['message_id']: r for r in rows if r['event'] == 'message.received'}
-        self.assertNotIn('original', values['a'])
-        self.assertEqual(values['b']['original'], '好' * 256)
+        self.assertEqual(values['a']['original'], 'private-first')
+        self.assertEqual(values['b']['original'], '好' * 16384)
         self.assertTrue(values['b']['original_truncated'])
-        self.assertNotIn('original', values['c'])
+        self.assertEqual(values['c']['original'], 'private-last')
         self.assertTrue(summary['contains_body'])
-        self.assertFalse(self.recorder.snapshot()['details_enabled'])
+        self.assertGreater(summary['truncated'], 0)
 
     def test_registered_secrets_never_reach_export_and_unrelated_files_stay_out(self):
         for secret in ('old-secret-fixture', 'new-secret-fixture'):

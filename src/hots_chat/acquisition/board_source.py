@@ -48,6 +48,14 @@ class BoardSnapshot:
     coordinate_space: str = 'screen'
 
 
+def _capture_identity(capture):
+    root, path, render_size, talents, inputs, stats = capture
+    # 战斗数值可以正常变化；行、指标、名称、矩形和原生格/标签仍必须逐一相同。
+    stat_targets = tuple((slot, relation, names, metric, rect, cell, label)
+        for slot, relation, names, metric, _value, rect, cell, label in stats)
+    return root, path, render_size, talents, inputs, stat_targets
+
+
 class _BoardMemory(_Memory):
     """首次有界 frame 树定位允许较多小读取；热轮询只复核缓存成员链。"""
     def read(self, address, size):
@@ -146,13 +154,15 @@ class BoardReader:
     input_state_provider(memory,base,root) -> (bool|None,bool|None)，可缺省。
     """
     def __init__(self, *, text_provider=None, viewport_converter=None,
-                 input_state_provider=None, **talent_reader_options):
+                 input_state_provider=None, diagnostics=None, **talent_reader_options):
+        self.diagnostics = diagnostics
         self.text_provider = text_provider
         self.viewport_converter = viewport_converter
         self.input_state_provider = input_state_provider
         self._reader = TalentReader(**talent_reader_options)
         self._path = None
         self.last_read_bytes = self.last_read_calls = 0
+        self.last_diagnostic = {}
 
     def close(self):
         self._path = None
@@ -189,7 +199,8 @@ class BoardReader:
             if type(hwnd) is not int or hwnd <= 0:
                 raise _Unknown('目标窗口不正确')
             pid, _, build, base, created = self._reader._connect(target_pid)
-            memory = _BoardMemory(self._reader._game)
+            memory = _BoardMemory(self._reader._game, diagnostics=self.diagnostics,
+                                  diagnostic_source='broadcast.input')
             process_token = (pid, created, base, build)
             if memory.read(base, 2) != b'MZ':
                 raise _Unknown('游戏模块验证失败')
@@ -355,6 +366,7 @@ class BoardReader:
             raise _Unknown('游戏视口坐标尚未确认')
         width, height = root_rect[2] - root_rect[0], root_rect[3] - root_rect[1]
         render_size = width * scales[0], height * scales[1]
+        self.last_diagnostic.update(render_width=render_size[0], render_height=render_size[1])
         path = self._locate(memory, base, root)
         input_state = self._input_fields(memory, base, root)
         records, stat_records = [], []
@@ -447,41 +459,58 @@ class BoardReader:
     def poll(self, target_pid, hwnd, now):
         memory = None
         self.last_read_bytes = self.last_read_calls = 0
+        self.last_diagnostic = dict(stage='connect', expected_build=98348)
+        self._reader.last_diagnostic = {}
+        connected = False
         try:
             if type(hwnd) is not int or hwnd <= 0 or not isinstance(now, (int, float)) or isinstance(now, bool) or not math.isfinite(now):
                 raise _Unknown('目标窗口或采样时间不正确')
             session = self._reader._connect(target_pid)
+            connected = True
             pid, _, build, base, created = session
-            memory = _BoardMemory(self._reader._game)
+            self.last_diagnostic.update(build=build, stage='identity')
+            memory = _BoardMemory(self._reader._game, diagnostic_info=self.last_diagnostic,
+                                  diagnostics=self.diagnostics, diagnostic_source='broadcast')
             if memory.read(base, 2) != b'MZ':
                 raise _Unknown('游戏模块验证失败')
             process_token = (pid, created, base, build)
             binding = self._reader._resolve(memory, base, process_token)
+            self.last_diagnostic['stage'] = 'board'
             first = self._capture(memory, base, binding)
             second = self._capture(memory, base, binding)
-            if first != second or self._reader._resolve(memory, base, process_token) != binding:
+            if _capture_identity(first) != _capture_identity(second):
                 raise _Unknown('战绩面板或玩家身份正在变化')
+            self.last_diagnostic['stage'] = 'identity'
+            if self._reader._resolve(memory, base, process_token) != binding:
+                raise _Unknown('战绩面板或玩家身份正在变化')
+            self.last_diagnostic['stage'] = 'board'
             if self._reader.creation_token_finder(self._reader._game) != created:
                 raise _Unknown('游戏进程代次已变化')
             token = self._token(process_token, binding)
+            self.last_diagnostic.update(stage='coordinates', raw_talent_count=len(second[3]),
+                raw_stat_count=len(second[5]), coordinate_rejected=0, metadata_rejected=0)
             hits = []
             if self.text_provider is not None and self.viewport_converter is not None:
                 for slot, relation, hero_id, names, tier_id, level, talent_id, rect, _, _ in second[3]:
                     text = self.text_provider(hero_id, talent_id)
                     if text is None:
+                        self.last_diagnostic['metadata_rejected'] += 1
                         continue
                     get = text.get if isinstance(text, dict) else lambda key: getattr(text, key, None)
                     name, effect = get('talent_name'), get('effect_summary')
                     catalog_level, catalog_tier = get('level'), get('tier')
                     if ((catalog_level is not None and catalog_level != level)
                             or (catalog_tier is not None and catalog_tier != tier_id)):
+                        self.last_diagnostic['metadata_rejected'] += 1
                         continue
                     if not isinstance(name, str) or not name.strip() or not isinstance(effect, str) or not effect.strip():
+                        self.last_diagnostic['metadata_rejected'] += 1
                         continue
                     screen = self.viewport_converter(hwnd, rect, second[2])
                     if (not isinstance(screen, tuple) or len(screen) != 4
                             or any(type(v) is not int for v in screen)
                             or not screen[0] < screen[2] or not screen[1] < screen[3]):
+                        self.last_diagnostic['coordinate_rejected'] += 1
                         continue
                     hits.append(HitSnapshot(pid, hwnd, token, slot, relation, level, talent_id,
                                             name, effect, screen, float(now), float(now) + .75,
@@ -492,16 +521,41 @@ class BoardReader:
                     if (not isinstance(screen, tuple) or len(screen) != 4
                             or any(type(v) is not int for v in screen)
                             or not screen[0] < screen[2] or not screen[1] < screen[3]):
+                        self.last_diagnostic['coordinate_rejected'] += 1
                         continue
                     hits.append(StatHitSnapshot(pid, hwnd, token, slot, relation, metric, value,
                                                screen, float(now), float(now) + .75,
                                                True, True, names[0], names[1]))
             state = 'available' if hits else 'idle'
             reason = '' if hits else '当前没有可验证且可转换坐标的天赋或统计格'
+            if not hits:
+                if self.viewport_converter is None:
+                    reason = '未配置坐标转换器'
+                elif self.last_diagnostic['coordinate_rejected']:
+                    reason = '所有候选格的坐标转换均失败'
+                elif self.last_diagnostic['metadata_rejected'] or (second[3] and self.text_provider is None):
+                    reason = '天赋中文资料缺失或与当前层级不一致'
+                elif second[1] is None:
+                    reason = '未找到可见的 Tab 面板'
+                else:
+                    reason = 'Tab 面板中没有可验证的已选天赋或统计格'
+            self.last_diagnostic.update(outcome=state, reason=reason, hit_count=len(hits))
             return BoardSnapshot(pid, hwnd, token, state, reason, tuple(hits), *second[4][:2])
         except (OSError, ValueError, RuntimeError, TypeError, UnicodeError, struct.error) as exc:
+            if not connected:
+                self.last_diagnostic.update(getattr(self._reader, 'last_diagnostic', {}))
+            self.last_diagnostic.update(outcome='unknown', error_type=type(exc).__name__,
+                reason=str(exc) if isinstance(exc, _Unknown) else '面板读取失败')
+            if type(getattr(exc, 'winerror', None)) is int:
+                self.last_diagnostic['winerror'] = exc.winerror
             self.close()
             return BoardSnapshot(target_pid, hwnd, reason=str(exc) or '面板状态暂不可用')
         finally:
+            # 身份解析器也用于自动天赋；保留相同细节以跨功能比较，
+            # 不用内层阶段/计数覆盖本次面板采样的数据。
+            inner = getattr(self._reader, 'last_diagnostic', {})
+            for field in ('identity_reason', 'identity_error_type', 'winerror'):
+                if field in inner:self.last_diagnostic[field] = inner[field]
             if memory is not None:
                 self.last_read_bytes, self.last_read_calls = memory.bytes, memory.calls
+            self.last_diagnostic.update(read_calls=self.last_read_calls, read_bytes=self.last_read_bytes)

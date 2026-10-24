@@ -71,6 +71,9 @@ def main(argv=None):
     parser=argparse.ArgumentParser(description=APP_NAME)
     mode=parser.add_mutually_exclusive_group()
     mode.add_argument('--demo',action='store_true',help='离线演示，不读取游戏或凭据')
+    parser.add_argument('--legacy-ui',action='store_true',help='使用保留的 Tk 原生主界面')
+    mode.add_argument('--check-desktop-installation',type=Path,metavar='REPORT',help='隔离检查新版界面资源和原生服务')
+    mode.add_argument('--check-desktop-rendering',type=Path,metavar='REPORT',help='隔离检查实际WebView2页面与网页桥接')
     mode.add_argument('--check-installation',type=Path,metavar='REPORT',help='隔离安装自检并写入报告，不连接游戏或云')
     mode.add_argument('--apply-update',type=Path,metavar='PLAN',help='运行独立升级事务，不打开助手或连接游戏')
     mode.add_argument('--check-cloud-configuration',type=Path,nargs=2,metavar=('CREDENTIALS','REPORT'),
@@ -87,6 +90,18 @@ def main(argv=None):
     if args.check_installation:
         from .installation import check_installation
         return check_installation(args.check_installation,display_mode=display_mode)
+    if args.check_desktop_installation:
+        from .desktop import check_desktop_installation
+        return check_desktop_installation(args.check_desktop_installation)
+    if args.check_desktop_rendering:
+        from .desktop import check_desktop_rendering
+        return check_desktop_rendering(args.check_desktop_rendering)
+    if not args.legacy_ui:
+        from .desktop import run_desktop,DesktopError
+        try:return run_desktop(demo=args.demo)
+        except DesktopError as failure:
+            print(str(failure))
+            return 2
     mutex=SingleInstance()
     if not mutex.acquire(): print('助手已经运行。'); return 1
     controller=None;diagnostics=None;diagnostic_hooks=None
@@ -131,4 +146,7 @@ def main(argv=None):
             diagnostics.close()
 
 
-if __name__=='__main__':raise SystemExit(main())
+if __name__=='__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
+    raise SystemExit(main())

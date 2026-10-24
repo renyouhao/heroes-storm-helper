@@ -8,6 +8,24 @@ from .loot_native import INPUT_MARKER
 from .talent_broadcast import InputContext, TalentBroadcastConfig, TalentBroadcastSession
 
 
+# 状态详情也可能由外部 sender 提供；仅记录程序内固定提示，不能把播报正文当原因。
+_DIAGNOSTIC_REASONS = frozenset((
+    '双击播报已关闭。', '正在连接双击播报。', 'Tab内双击一项天赋或数据，播报到己方团队。',
+    '双击监听已停止，请点击“重新连接”恢复。', '双击播报已停止，请点击“重新连接”恢复。',
+    '双击监听未能完整退出，请点击“重新连接”恢复。', '本次播报已取消。',
+    '当前没有可信的可播报项目。', '等待同一项目的第二次点击。', '已识别双击，等待安全发送。',
+    '其他鼠标操作已取消本次播报。', '点击处理超时，请重新双击。', '已离开游戏，本次播报取消。',
+    '游戏聊天框仍打开，请先按 Esc 关闭，再重新双击。', '点击后的输入操作已取消本次播报。',
+    '其他输入操作正在进行，请稍后重新双击。', '鼠标事件时间未知或已过期，请重新双击。',
+    '新的鼠标点击已取消尚未发送的播报。', '播报限频中：任意两次需间隔2秒，同一项需间隔3秒。',
+    '面板、目标或输入环境已变化，本次播报取消。', '天赋播报内容已变化，本次播报取消。',
+    '目标或输入环境已变化，请重新双击。', '等待鼠标松开后播报。',
+    '等待开箱、连按或快捷输入结束。', '播报动作已交给发送边界。',
+    '播报动作已经失效或已被处理。', '等待其他输入操作结束。', '发送前栅栏已取消本次播报。',
+    '聊天发送未完整确认；已记录本次尝试，不自动重试。', '已发送到己方团队。',
+))
+
+
 @dataclass(frozen=True)
 class BoardStatus:
     state: str
@@ -35,6 +53,7 @@ class BoardHelper:
         self.busy_provider, self.input_locks, self.clock = busy_provider, tuple(input_locks), clock
         self.diagnostics = diagnostics
         self._diagnostic_state = None
+        self._attempt_id = 0
         self._control = threading.RLock()
         self._inputs = queue.Queue(maxsize=64)
         self._statuses = queue.Queue(maxsize=1)
@@ -70,6 +89,11 @@ class BoardHelper:
     @property
     def busy(self):return self._busy.is_set()
 
+    @property
+    def running(self):
+        """只读运行意图与停止栅栏；不暴露线程、hook或进程对象。"""
+        return self._enabled and not self._closed and not self._stop.is_set()
+
     def _emit(self, state, detail='', generation=None):
         with self._control:
             if generation is not None and generation != self._generation:return
@@ -77,11 +101,25 @@ class BoardHelper:
             try:self._statuses.get_nowait()
             except queue.Empty:pass
             self._statuses.put_nowait(status)
-            signature = (self._generation,state)
-            if self.diagnostics is not None and signature != self._diagnostic_state:
+            reason = detail if detail in _DIAGNOSTIC_REASONS else ''
+            signature = (self._generation,state,reason)
+            if signature != self._diagnostic_state and self._record('hotkey.state',
+                    stage='broadcast', outcome=state, reason=reason):
                 self._diagnostic_state = signature
-                try:self.diagnostics.record('hotkey.state',stage='broadcast',outcome=state,generation=self._generation)
-                except Exception:pass
+
+    def _diagnostics_enabled(self):
+        try:
+            if self.diagnostics is None:return False
+            snapshot = getattr(self.diagnostics, 'snapshot', None)
+            return snapshot is None or bool(snapshot().get('enabled'))
+        except Exception:return False
+
+    def _record(self, event, **fields):
+        try:
+            if not self._diagnostics_enabled():return False
+            return self.diagnostics.record(event, source='broadcast', generation=self._generation,
+                attempt_id=self._attempt_id, **fields) is not False
+        except Exception:return False
 
     def drain_status(self):
         result = []
@@ -126,6 +164,7 @@ class BoardHelper:
             if value:
                 self._stop = threading.Event()
                 self._inputs = queue.Queue(maxsize=64)
+                self._emit('waiting', '正在连接双击播报。')
                 self.thread = threading.Thread(target=self._run, args=(self._generation,self._stop),
                                                name='board-worker', daemon=True)
                 self.thread.start()
@@ -146,16 +185,19 @@ class BoardHelper:
             backend = self.backend_factory()
             self._backend = backend
             reader = self.reader_factory(backend)
+            if hasattr(reader, 'diagnostics'):reader.diagnostics = self.diagnostics
             sender = self.sender_factory(backend, reader)
             milliseconds, size = backend.double_click_settings()
             configured = TalentBroadcastSession(double_click_ms=milliseconds, double_click_size=size,
-                                                 config=TalentBroadcastConfig(enabled=True))
+                                                 config=TalentBroadcastConfig(enabled=True),
+                                                 diagnostics=self.diagnostics)
             if self._session is None:self._session = configured
             else:
                 # Validate fresh Windows settings above, then keep the existing
                 # session's attempt history across disable/enable cycles.
                 self._session.double_click_seconds = configured.double_click_seconds
                 self._session.double_click_size = configured.double_click_size
+                self._session.diagnostics = self.diagnostics
                 self._session.configure(configured.config)
             session = self._session
             def key(vk, down, marker):
@@ -169,10 +211,20 @@ class BoardHelper:
                     self._enqueue('mouse', (x,y,down,button),invalidate=bool(down))
                 return False
             def hooks():
+                unexpected = False
                 try:backend.run(key, mouse, lambda:not stopped.is_set(),
                                 lambda:self._emit('idle', 'Tab内双击一项天赋或数据，播报到己方团队。', generation), stopped)
-                except Exception as error:failure.append(error)
-                finally:stopped.set()
+                except Exception as error:
+                    unexpected = not stopped.is_set()
+                    stopped.set()
+                    failure.append(error)
+                    self._record('helper.read',stage='hook',outcome='error',
+                        error_type=type(error).__name__,winerror=getattr(error,'winerror',None))
+                finally:
+                    unexpected = unexpected or not stopped.is_set()
+                    stopped.set()
+                    if unexpected:
+                        self._emit('error', '双击监听已停止，请点击“重新连接”恢复。', generation)
             hook_thread = threading.Thread(target=hooks, name='board-hooks', daemon=True)
             hook_thread.start()
             snapshot = target = point = None
@@ -188,16 +240,52 @@ class BoardHelper:
             def has_gesture():
                 return session._pending is not None or session._first_click is not None
 
-            def fresh():
+            def fresh(stage='revalidate', event_age_ms=0):
                 nonlocal snapshot, target
                 target = backend.foreground_target()
-                if target is None:return None, InputContext()
+                if target is None:
+                    self._record('helper.click' if stage=='click' else 'helper.read',stage=stage,
+                        outcome='foreground_missing',reason='未确认游戏前台窗口',foreground_state='false',
+                        event_age_ms=event_age_ms)
+                    return None, InputContext()
+                # 诊断打开时才增加一次窗口几何查询；日志异常不得改变读取/发送。
+                geometry = {}
+                if self._diagnostics_enabled():
+                    try:
+                        # 清除上一点击的转换信息，避免早期读取失败沿用旧渲染尺寸。
+                        if hasattr(backend, 'last_viewport'):backend.last_viewport = {}
+                        inspect = getattr(backend, 'inspect_viewport', None)
+                        if inspect is not None:geometry = inspect(target.hwnd)
+                    except Exception as error:
+                        geometry = dict(coordinate_reason='window_query_failed',
+                            error_type=type(error).__name__,winerror=getattr(error,'winerror',None))
+                started = self.clock()
                 snapshot = reader.poll(target.pid, target.hwnd, self.clock())
                 current = backend.foreground_target()
                 context = InputContext(pid=target.pid,hwnd=target.hwnd,match_token=snapshot.match_token,
                     foreground=current==target,chat_active=snapshot.chat_active,menu_active=snapshot.menu_active,
                     quick_input_busy=self._suspended or bool(self.busy_provider()))
-                return (hit_test(snapshot,*point) if point else None), context
+                hit = hit_test(snapshot,*point) if point else None
+                if point and self._diagnostics_enabled():
+                    from .helper_replay import record_board_hit_test
+                    record_board_hit_test(self.diagnostics, snapshot, point, context, hit, session=session)
+                if self._diagnostics_enabled():
+                    info = dict(getattr(reader, 'last_diagnostic', {}))
+                    info.update(geometry)
+                    info.update(getattr(backend, 'last_viewport', {}))
+                    flag = lambda value:'true' if value is True else 'false' if value is False else 'unknown'
+                    info.update(reader_status=snapshot.status, hit_count=len(snapshot.hits),
+                        chat_state=flag(snapshot.chat_active),menu_state=flag(snapshot.menu_active),
+                        foreground_state=flag(context.foreground),elapsed_ms=round((self.clock()-started)*1000,3))
+                    self._record('helper.read', **info)
+                    if stage == 'click':
+                        count = sum(1 for item in snapshot.hits if item.rect[0] <= point[0] < item.rect[2]
+                                    and item.rect[1] <= point[1] < item.rect[3])
+                        self._record('helper.click',stage='hit_test',outcome='hit' if count==1 else
+                            'ambiguous' if count>1 else 'no_hit',candidate_count=count,click_x=point[0],click_y=point[1],
+                            hit_kind=('stat' if hasattr(hit,'metric_id') else 'talent') if hit else 'none',
+                            event_age_ms=event_age_ms)
+                return hit, context
 
             while not stopped.is_set():
                 try:kind,args,event_at,event_revision = self._inputs.get(timeout=.05)
@@ -209,20 +297,23 @@ class BoardHelper:
                         publish_status()
                 elif kind == 'mouse':
                     x,y,down,button = args
+                    if down and button == 'left':self._attempt_id += 1
                     if button != 'left':
                         if has_gesture():
                             session.cancel('其他鼠标操作已取消本次播报。')
                             pending_revision = None
                             publish_status()
                         continue
-                    if not 0 <= self.clock()-event_at <= .25:
+                    if down and not 0 <= self.clock()-event_at <= .25:
+                        self._record('helper.click',stage='queue',outcome='expired',
+                            reason='点击处理超时，请重新双击。',event_age_ms=(self.clock()-event_at)*1000)
                         session.cancel('点击处理超时，请重新双击。')
                         pending_revision = None
                         publish_status()
                         continue
                     if down:
                         point = (x,y)
-                        hit, context = fresh()
+                        hit, context = fresh('click', (self.clock()-event_at)*1000)
                         if not context.foreground:
                             if has_gesture():
                                 session.cancel('已离开游戏，本次播报取消。')
@@ -252,6 +343,12 @@ class BoardHelper:
                     session.cancel('其他输入操作正在进行，请稍后重新双击。')
                     publish_status()
                     continue
+                if session._left_held:
+                    # 未处理第二次松开时只检查已有动作是否过期，先让事件队列前进。
+                    # 此时 tick 不会交出动作；松开后仍须 fresh 复核才能发送。
+                    session.tick(hit,context,self.clock())
+                    publish_status()
+                    continue
                 if not backend.input_idle():continue
                 locks = []
                 try:
@@ -274,8 +371,14 @@ class BoardHelper:
                 finally:
                     self._busy.clear()
                     for lock in reversed(locks):lock.release()
-        except Exception:
-            self._emit('error', '双击播报已停止，请关闭后重试。', generation)
+        except Exception as error:
+            # Close the running fence before publishing either diagnostic or UI
+            # error. Callback consumers must never observe an active failed worker.
+            stopped.set()
+            self._record('helper.read',stage='worker',outcome='error',
+                error_type=type(error).__name__,winerror=getattr(error,'winerror',None))
+            # 发布停止错误前先关闭运行栅栏，主窗读取同一条状态即可显示重连入口。
+            self._emit('error', '双击播报已停止，请点击“重新连接”恢复。', generation)
         finally:
             stopped.set()
             cleanup_failed = False
@@ -294,7 +397,7 @@ class BoardHelper:
                 with self._control:
                     if generation==self._generation:self._enabled=False
             if failure or cleanup_failed:
-                self._emit('error', '双击监听未能完整退出，请关闭后重试。', generation)
+                self._emit('error', '双击监听未能完整退出，请点击“重新连接”恢复。', generation)
 
     def close(self):
         try:self.set_enabled(False)

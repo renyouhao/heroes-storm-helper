@@ -1,4 +1,4 @@
-"""三主题契约与旧偏好迁移；只使用临时配置，不访问真实用户数据。"""
+"""单一柔雾紫契约与旧偏好迁移；只使用临时配置，不访问真实用户数据。"""
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -19,7 +19,7 @@ def contrast(first, second):
     return (light + .05) / (dark + .05)
 
 
-class ThreeThemeCatalogTests(unittest.TestCase):
+class LavenderThemeCatalogTests(unittest.TestCase):
     def test_selected_toggle_mark_is_visible_against_its_fill(self):
         root = tk.Tk()
         root.withdraw()
@@ -53,12 +53,12 @@ class ThreeThemeCatalogTests(unittest.TestCase):
                 self.assertEqual(style.lookup(prefix + 'TCombobox', 'background', ('readonly', 'active')),
                                  colors['surface'])
 
-    def test_exactly_three_user_facing_choices(self):
-        self.assertEqual(theme.PALETTE_NAMES,
-                         {'moonlight': '月白蓝', 'graphite': '石墨紫', 'mint': '雾青'})
+    def test_only_lavender_is_exposed_and_registered(self):
+        self.assertEqual(theme.PALETTE_NAMES, {'lavender': '柔雾紫'})
+        self.assertEqual(set(theme.PALETTES), {'lavender'})
 
     def test_main_text_and_actions_are_legible_in_every_theme(self):
-        self.assertEqual(set(theme.PALETTES), {'moonlight', 'graphite', 'mint'})
+        self.assertEqual(set(theme.PALETTES), {'lavender'})
         for name, colors in theme.PALETTES.items():
             with self.subTest(name=name):
                 for surface in ('background', 'surface', 'field', 'selection'):
@@ -67,29 +67,29 @@ class ThreeThemeCatalogTests(unittest.TestCase):
                     self.assertGreaterEqual(contrast(colors['muted'], colors[surface]), 4.5)
                 self.assertGreaterEqual(contrast(colors['on_accent'], colors['accent']), 4.5)
 
-    def test_in_game_surfaces_stay_dark_for_light_main_themes(self):
+    def test_legacy_main_and_in_game_preferences_use_lavender_without_shared_mutation(self):
         overlay_colors = getattr(theme, 'overlay_colors', None)
-        self.assertTrue(callable(overlay_colors), '浮窗需要独立于主窗口的深色表面')
-        accents = set()
-        for name in ('moonlight', 'graphite', 'mint'):
+        self.assertTrue(callable(overlay_colors))
+        for name in ('lavender', 'moonlight', 'graphite', 'mint', 'amethyst', 'ice', 'unknown'):
             colors = overlay_colors(name)
-            self.assertLess(max(int(colors['background'][i:i + 2], 16) for i in (1, 3, 5)), 70)
+            self.assertEqual(colors, theme.PALETTES['lavender'])
+            self.assertIsNot(colors, theme.PALETTES['lavender'])
             for role in ('text', 'muted'):
                 self.assertGreaterEqual(contrast(colors[role], colors['background']), 4.5)
             self.assertGreaterEqual(contrast(colors['on_accent'], colors['accent']), 4.5)
-            accents.add(colors['accent'])
-        self.assertEqual(len(accents), 3)
+            colors['accent'] = '#000000'
+            self.assertEqual(theme.theme_colors(name)['accent'], '#7547F5')
 
-    def test_three_choices_roundtrip_without_resetting_other_preferences(self):
+    def test_all_old_choices_save_as_lavender_without_resetting_other_preferences(self):
         with TemporaryDirectory() as folder:
             path = Path(folder) / 'settings.json'
-            for name in ('moonlight', 'graphite', 'mint'):
+            for name in ('lavender', 'moonlight', 'graphite', 'mint', 'amethyst', 'ice', 'unknown'):
                 with self.subTest(name=name):
                     original = WindowSettings(color_theme=name, overlay_x=315, overlay_y=412,
                                               hotkeys={'focus': 'Ctrl+Shift+T'}, overlay_original=True)
                     original.save(path)
                     restored = WindowSettings.load(path)
-                    self.assertEqual(restored.color_theme, name)
+                    self.assertEqual(restored.color_theme, 'lavender')
                     self.assertEqual((restored.overlay_x, restored.overlay_y), (315, 412))
                     self.assertEqual(restored.hotkeys, original.hotkeys)
                     self.assertTrue(restored.overlay_original)
@@ -97,22 +97,26 @@ class ThreeThemeCatalogTests(unittest.TestCase):
     def test_legacy_theme_migration_preserves_coordinates_and_shortcuts(self):
         with TemporaryDirectory() as folder:
             path = Path(folder) / 'settings.json'
-            for previous, expected in (('amethyst', 'graphite'), ('ice', 'moonlight')):
+            for previous in ('moonlight', 'graphite', 'mint', 'amethyst', 'ice', 'unknown', None, ['mint']):
                 path.write_text(json.dumps({'color_theme': previous, 'x': 377, 'y': 205,
                                             'overlay_x': 640, 'overlay_y': 725,
+                                            'font_size': 19, 'overlay_width': 650, 'overlay_font_size': 20,
                                             'hotkeys': {'focus': 'Ctrl+Shift+T'}}), encoding='utf-8')
                 restored = WindowSettings.load(path)
-                self.assertEqual(restored.color_theme, expected)
+                self.assertEqual(restored.color_theme, 'lavender')
+                self.assertEqual((restored.font_size, restored.overlay_width, restored.overlay_font_size), (19, 650, 20))
                 self.assertEqual((restored.x, restored.y), (377, 205))
                 self.assertEqual((restored.overlay_x, restored.overlay_y), (640, 725))
                 self.assertEqual(restored.hotkeys, {'focus': 'Ctrl+Shift+T'})
+                restored.save(path)
+                self.assertEqual(json.loads(path.read_text(encoding='utf-8'))['color_theme'], 'lavender')
 
     def test_unknown_theme_falls_back_without_discarding_valid_preferences(self):
         with TemporaryDirectory() as folder:
             path = Path(folder) / 'settings.json'
             path.write_text('{"color_theme":"future-theme","x":331,"font_size":16}', encoding='utf-8')
             restored = WindowSettings.load(path)
-            self.assertEqual(restored.color_theme, 'graphite')
+            self.assertEqual(restored.color_theme, 'lavender')
             self.assertEqual(restored.x, 331)
             self.assertEqual(restored.font_size, 16)
 

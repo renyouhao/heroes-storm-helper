@@ -20,6 +20,7 @@ class Win32BoardBackend(Win32TalentBackend):
 
     def __init__(self, *, user=None, kernel=None):
         super().__init__(user=user, kernel=kernel, timer_interval_ms=50)
+        self.last_viewport = {}
         signatures = {
             'GetDoubleClickTime': ([], UINT),
             'GetSystemMetrics': ([ctypes.c_int], ctypes.c_int),
@@ -116,12 +117,30 @@ class Win32BoardBackend(Win32TalentBackend):
             if held and not self._release_keys(held):success = False
         return success
 
+    def inspect_viewport(self, hwnd):
+        """只读窗口几何，不保存标题、进程路径或窗口句柄。"""
+        info = dict(coordinate_reason='invalid_window')
+        if type(hwnd) is not int or hwnd <= 0:
+            return info
+        if self.user.IsIconic(hwnd):
+            return dict(coordinate_reason='minimized')
+        client, origin = RECT(), POINT()
+        if not self.user.GetClientRect(hwnd, ctypes.byref(client)):
+            return dict(coordinate_reason='client_rect_failed')
+        info.update(client_width=client.right-client.left, client_height=client.bottom-client.top)
+        if not self.user.ClientToScreen(hwnd, ctypes.byref(origin)):
+            info['coordinate_reason'] = 'client_origin_failed'
+            return info
+        info.update(origin_x=origin.x, origin_y=origin.y, coordinate_reason='ok')
+        return info
+
     def viewport_converter(self, hwnd, rect, render_size):
         """把引擎render像素矩形转桌面物理坐标；不拿截图缩放比作依据。
 
         仅接受等比例完整客户区；黑边或变更中的窗口保守返回unknown。
         运行入口已启用PerMonitorV2，客户区与低级鼠标hook使用同一物理坐标系。
         """
+        self.last_viewport = dict(coordinate_reason='invalid_geometry')
         if (type(hwnd) is not int or hwnd <= 0 or not isinstance(rect, (tuple, list))
                 or not isinstance(render_size, (tuple, list)) or len(rect) != 4 or len(render_size) != 2
                 or any(type(value) not in (int, float) or not math.isfinite(value)
@@ -129,17 +148,23 @@ class Win32BoardBackend(Win32TalentBackend):
             return None
         left, top, right, bottom = rect
         rw, rh = render_size
+        self.last_viewport.update(render_width=rw, render_height=rh)
         if not (0 < rw <= 32768 and 0 < rh <= 32768
                 and 0 <= left < right <= rw and 0 <= top < bottom <= rh):
             return None
-        client, origin = RECT(), POINT()
-        if (self.user.IsIconic(hwnd) or not self.user.GetClientRect(hwnd, ctypes.byref(client))
-                or not self.user.ClientToScreen(hwnd, ctypes.byref(origin))):
+        self.last_viewport.update(self.inspect_viewport(hwnd))
+        if self.last_viewport['coordinate_reason'] != 'ok':
             return None
-        width, height = client.right - client.left, client.bottom - client.top
+        width, height = self.last_viewport['client_width'], self.last_viewport['client_height']
         if not (0 < width <= 32768 and 0 < height <= 32768
                 and abs(width / height / (rw / rh) - 1) <= .01):
+            self.last_viewport['coordinate_reason'] = 'aspect_mismatch_or_client_size'
+            if 0 < width <= 32768 and 0 < height <= 32768:
+                self.last_viewport['coordinate_reason'] = 'aspect_mismatch'
             return None
-        result = (round(origin.x + left * width / rw), round(origin.y + top * height / rh),
-                  round(origin.x + right * width / rw), round(origin.y + bottom * height / rh))
+        x, y = self.last_viewport['origin_x'], self.last_viewport['origin_y']
+        result = (round(x + left * width / rw), round(y + top * height / rh),
+                  round(x + right * width / rw), round(y + bottom * height / rh))
+        if result[0] >= result[2] or result[1] >= result[3]:
+            self.last_viewport['coordinate_reason'] = 'rounded_empty_rect'
         return result if result[0] < result[2] and result[1] < result[3] else None

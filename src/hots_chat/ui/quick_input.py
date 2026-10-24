@@ -4,9 +4,15 @@ import tkinter as tk
 from tkinter import ttk,font as tkfont
 
 from .input_native import WindowsInputNative
+from .brand_icon import apply_assistant_icon
 from .theme import overlay_colors,style_native_window
 from ..appearance import DEFAULT_THEME
 from ..layout import display_metrics,quick_input_layout
+from .widget_lifecycle import widget_descendants,detach_destroyed_tree,clear_variable_traces
+
+
+IDLE_HINT = '输入中文，译文会复制；请在游戏中粘贴发送。'
+KEYBOARD_HINT = 'Enter 翻译并复制  ·  Esc 收起  ·  Ctrl+Tab 切换语言'
 
 
 @dataclass(frozen=True)
@@ -45,12 +51,14 @@ class QuickInput:
         self._status_font=None
         self._status_width=0
         self._status_suffix='… 按 Enter 重试'
+        self.icon_loaded=False
 
     def _create_window(self):
         self.window = tk.Toplevel(self.root)
         self.window._hots_theme_scope='overlay'
         self.window.withdraw()
         self.window.title('快捷中文输入')
+        self.icon_loaded=apply_assistant_icon(self.window)
         self.window.attributes('-topmost', True)
         self.window.attributes('-alpha', .94)
         self.window.configure(background=overlay_colors(self.settings)['background'])
@@ -84,7 +92,7 @@ class QuickInput:
         self._status_font=tkfont.nametofont('TkDefaultFont',root=self.window)
         self.status_label=ttk.Label(body,width=1,font=self._status_font,style='Overlay.Muted.TLabel',anchor='w')
         self.status_label.pack(fill='x',pady=(6,0))
-        ttk.Label(body,text='Enter 翻译并复制  ·  Esc 收起  ·  Ctrl+Tab 切换语言',
+        ttk.Label(body,text=KEYBOARD_HINT,
                   style='Overlay.Muted.TLabel').pack(anchor='w',pady=(3,0))
         self.status.trace_add('write',self._status_changed)
         self.text.trace_add('write', self._on_edit)
@@ -185,7 +193,7 @@ class QuickInput:
             self._native.clear_return_guard()
             self._generation = max(self._generation, self.controller.generation)
             self.target.set(self.settings.target_language)
-            self.status.set('输入中文，译文会复制；请在游戏中粘贴发送。')
+            self.status.set(IDLE_HINT)
             self.window.deiconify()
             self.window.lift()
             self.entry.focus_force()
@@ -433,8 +441,14 @@ class QuickInput:
                     # 销毁控件时 WM_NCDESTROY 仍会拆除回调，保持回调对象活到销毁结束。
                     pass
                 finally:
-                    if self.window is not None:self.window.destroy()
+                    for variable in (self.text,self.target,self.status):clear_variable_traces(variable)
+                    if self.window is not None:
+                        real_window=isinstance(self.window,tk.Misc)
+                        descendants=widget_descendants(self.window) if real_window else ()
+                        self.window.destroy()
+                        if real_window:detach_destroyed_tree(self.window,descendants)
             finally:
                 # The final visibility notification must run before releasing
                 # callbacks bound to the main Tk window.
                 self.on_target_changed = self.on_visibility_changed = self._position_provider = None
+                self._clipboard=None

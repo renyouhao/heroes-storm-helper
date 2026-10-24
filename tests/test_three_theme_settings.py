@@ -21,6 +21,14 @@ from hots_chat.window_settings import WindowSettings
 from tests.test_scaled_popup_layout import OfflineOverlayNative
 
 
+def ignore_error_dialog(*args, **kwargs):
+    """无需核对弹窗调用时，不让 Mock 调用记录持有 parent 窗口。"""
+
+
+def disk_unavailable(*args, **kwargs):
+    raise OSError('disk unavailable')
+
+
 class SettingValue:
     def __init__(self, value):
         self.value = value
@@ -55,10 +63,10 @@ class SettingsTransactionTests(unittest.TestCase):
                                         save_settings=lambda: settings.save(path))
         return dialog, settings, path, destroyed, applied
 
-    def test_every_theme_can_be_saved_by_canonical_choice_or_visible_label(self):
-        for choice, expected in (('moonlight', 'moonlight'), ('graphite', 'graphite'),
-                                 ('mint', 'mint'), ('月白蓝', 'moonlight'),
-                                 ('石墨紫', 'graphite'), ('雾青', 'mint')):
+    def test_current_and_stale_theme_values_save_as_lavender(self):
+        for choice in ('lavender', '柔雾紫', 'moonlight', 'graphite', 'mint',
+                       '月白蓝', '石墨紫', '雾青', 'amethyst', 'ice', 'unknown'):
+            expected = 'lavender'
             with self.subTest(choice=choice):
                 dialog, settings, path, destroyed, applied = self.fixture(choice)
                 with patch('hots_chat.ui.settings_dialog.messagebox.showerror') as errors:
@@ -80,16 +88,16 @@ class SettingsTransactionTests(unittest.TestCase):
                     dialog.bindings['copy'] = SettingValue('CTRL+t')
                 else:
                     dialog.bindings['copy'] = SettingValue('T')
-                with patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
+                with patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
                     self.assertFalse(dialog.save())
                     self.assertEqual(path.read_bytes(), original)
-                    self.assertEqual(settings.color_theme, 'graphite')
+                    self.assertEqual(settings.color_theme, 'lavender')
                     self.assertEqual(applied, [])
                     self.assertEqual(destroyed, [])
                     dialog.values['overlay_alpha'].set('.75')
                     dialog.bindings.pop('copy', None)
                     self.assertTrue(dialog.save())
-                self.assertEqual(settings.color_theme, 'moonlight')
+                self.assertEqual(settings.color_theme, 'lavender')
 
     def test_disk_failure_restores_mutable_and_position_fields_then_retries(self):
         dialog, settings, path, destroyed, applied = self.fixture('mint')
@@ -109,15 +117,15 @@ class SettingsTransactionTests(unittest.TestCase):
             applied.append(settings.color_theme)
 
         dialog.window.apply_settings = apply
-        with patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
-            with patch.object(Path, 'write_text', side_effect=OSError('disk unavailable')):
+        with patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
+            with patch.object(Path, 'write_text', new=disk_unavailable):
                 self.assertFalse(dialog.save(before_apply=preset))
             self.assertEqual(id(settings), identity)
             self.assertEqual(asdict(settings), previous)
             self.assertEqual(path.read_bytes(), original)
             self.assertEqual(destroyed, [])
             self.assertTrue(dialog.save(before_apply=preset))
-        self.assertEqual(settings.color_theme, 'mint')
+        self.assertEqual(settings.color_theme, 'lavender')
         self.assertEqual(settings.overlay_placement, 'chat')
 
     def test_apply_failure_restores_persisted_configuration_before_retry(self):
@@ -133,13 +141,13 @@ class SettingsTransactionTests(unittest.TestCase):
             applied.append(settings.color_theme)
 
         dialog.window.apply_settings = apply
-        with patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
+        with patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
             self.assertFalse(dialog.save())
         self.assertEqual(asdict(settings), previous)
         self.assertEqual(path.read_bytes(), stored)
         self.assertEqual(destroyed, [])
         self.assertTrue(dialog.save())
-        self.assertEqual(WindowSettings.load(path).color_theme, 'mint')
+        self.assertEqual(WindowSettings.load(path).color_theme, 'lavender')
 
 
 class SettingsPageTests(unittest.TestCase):
@@ -166,6 +174,8 @@ class SettingsPageTests(unittest.TestCase):
             choose_process=lambda: self.actions.append('process'),
             apply_settings=lambda: self.actions.append('apply'),
             save_settings=lambda: self.settings.save(self.path))
+        # 测试回调捕获 fixture；清理此出边后，已销毁的 Tk 不会落入后台 GC。
+        self.addCleanup(setattr, self, 'window', None)
         apply_theme(self.root, self.settings)
 
     def widgets(self, parent):
@@ -173,40 +183,41 @@ class SettingsPageTests(unittest.TestCase):
             yield child
             yield from self.widgets(child)
 
-    def test_theme_cards_discard_without_mutating_shared_settings_or_disk(self):
+    def test_fixed_lavender_card_and_unsaved_fields_do_not_mutate_shared_settings_or_disk(self):
         before, stored = deepcopy(asdict(self.settings)), self.path.read_bytes()
         dialog = SettingsDialog(self.window)
-        self.assertEqual(set(dialog.theme_cards), {'moonlight', 'graphite', 'mint'})
-        dialog.select_theme('moonlight')
+        self.assertEqual(set(dialog.theme_cards), {'lavender'})
+        self.assertFalse(any(isinstance(widget, (tk.Radiobutton, ttk.Radiobutton))
+                             for widget in self.widgets(dialog.theme_cards['lavender'])))
         dialog.values['font_size'].set('20')
-        self.assertEqual(dialog.values['color_theme'].get(), 'moonlight')
+        self.assertEqual(dialog.values['color_theme'].get(), 'lavender')
         self.assertEqual(asdict(self.settings), before)
         dialog.cancel()
         self.assertEqual(asdict(self.settings), before)
         self.assertEqual(self.path.read_bytes(), stored)
         self.assertEqual(self.actions, [])
 
-    def test_clicking_palette_swatch_selects_its_theme(self):
+    def test_old_theme_choices_are_absent_in_the_settings_page(self):
         dialog = SettingsDialog(self.window)
         self.root.update()
-        card = dialog.theme_cards['moonlight']
-        swatch = next(widget for widget in self.widgets(card)
-                      if isinstance(widget, tk.Frame) and not widget.winfo_children())
-        dialog.select_theme('mint')
-        swatch.event_generate('<Button-1>', x=1, y=1)
-        self.assertEqual(dialog.values['color_theme'].get(), 'moonlight')
+        labels = [str(widget.cget('text')) for widget in self.widgets(dialog.dialog)
+                  if 'text' in widget.keys()]
+        self.assertIn('柔雾紫', labels)
+        for old in ('月白蓝', '石墨紫', '雾青'):
+            self.assertFalse(any(old in label for label in labels))
+        self.assertEqual(dialog.values['color_theme'].get(), 'lavender')
         dialog.cancel()
 
-    def test_each_theme_radio_choice_is_saved_to_temporary_settings(self):
-        for theme in ('moonlight', 'graphite', 'mint'):
-            with self.subTest(theme=theme):
-                dialog = SettingsDialog(self.window)
-                choice = next(widget for widget in self.widgets(dialog.theme_cards[theme])
-                              if isinstance(widget, tk.Radiobutton))
-                choice.invoke()
-                self.assertTrue(dialog.save())
-                self.assertEqual(self.settings.color_theme, theme)
-                self.assertEqual(WindowSettings.load(self.path).color_theme, theme)
+    def test_saving_fixed_theme_preserves_other_appearance_controls(self):
+        dialog = SettingsDialog(self.window)
+        dialog.values['font_size'].set('20')
+        dialog.values['alpha'].set('.75')
+        self.assertTrue(dialog.save())
+        self.assertEqual(self.settings.color_theme, 'lavender')
+        restored = WindowSettings.load(self.path)
+        self.assertEqual((restored.color_theme, restored.font_size, restored.alpha),
+                         ('lavender', 20, .75))
+        self.assertEqual(restored.hotkeys, {'focus': 'Ctrl+T'})
 
     def test_small_high_dpi_window_keeps_actions_inside_and_pages_scrollable(self):
         default_font = tkfont.nametofont('TkDefaultFont', self.root)
@@ -267,6 +278,7 @@ class RuntimeSettingsTransactionTests(unittest.TestCase):
         with patch('hots_chat.ui.main_window.screen_bounds', return_value=[self.metrics.work_area]), \
              patch('hots_chat.ui.overlay_window.Win32Window', return_value=OfflineOverlayNative()):
             self.window = create_app(root, controller, WindowSettings(x=10000, y=10000, hotkeys={}))
+        self.addCleanup(setattr, self, 'window', None)
         self.addCleanup(self.window.close)
         window = self.window
         window._read_display_metrics = lambda: self.metrics
@@ -307,8 +319,8 @@ class RuntimeSettingsTransactionTests(unittest.TestCase):
         deadline = window.overlay.history.next_expiry
         visible = window.overlay._visible
         pending = window.quick_input._pending
-        with patch.object(window, 'save_settings', side_effect=OSError('disk unavailable')), \
-             patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
+        with patch.object(window, 'save_settings', new=disk_unavailable), \
+             patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
             self.assertFalse(dialog.save())
         self.assertEqual(asdict(window.settings), previous)
         self.assertEqual(self.path.read_bytes(), stored)
@@ -338,8 +350,8 @@ class RuntimeSettingsTransactionTests(unittest.TestCase):
         previous = deepcopy(asdict(window.settings))
         geometry = window.overlay.window.geometry()
         entry = next(iter(window.overlay.history.entries.values()))
-        with patch.object(window, 'save_settings', side_effect=OSError('disk unavailable')), \
-             patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
+        with patch.object(window, 'save_settings', new=disk_unavailable), \
+             patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
             self.assertFalse(dialog.save(before_apply=window.overlay.use_chat_preset))
         self.assertEqual(asdict(window.settings), previous)
         self.assertEqual(window.overlay.window.geometry(), geometry)
@@ -370,8 +382,8 @@ class RuntimeSettingsTransactionTests(unittest.TestCase):
             window.overlay._clock = lambda: deadline + 1
             raise OSError('disk unavailable')
 
-        with patch.object(window, 'save_settings', side_effect=fail_after_expiry), \
-             patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
+        with patch.object(window, 'save_settings', new=fail_after_expiry), \
+             patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
             self.assertFalse(dialog.save())
         self.assertTrue(window.settings.overlay_enabled)
         self.assertEqual(list(window.overlay.history.entries), [])
@@ -397,8 +409,8 @@ class RuntimeSettingsTransactionTests(unittest.TestCase):
             if len(calls) == 1:
                 raise ValueError('UI application failed')
 
-        with patch.object(window, 'apply_settings', side_effect=fail_after_apply), \
-             patch('hots_chat.ui.settings_dialog.messagebox.showerror'):
+        with patch.object(window, 'apply_settings', new=fail_after_apply), \
+             patch('hots_chat.ui.settings_dialog.messagebox.showerror', new=ignore_error_dialog):
             self.assertFalse(dialog.save())
         self.assertEqual(asdict(window.settings), previous)
         self.assertEqual(self.path.read_bytes(), stored)

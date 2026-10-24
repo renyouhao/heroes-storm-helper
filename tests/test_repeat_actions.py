@@ -210,7 +210,7 @@ class RepeatActionSettingsTests(unittest.TestCase):
             loaded = WindowSettings.load(path)
             self.assertEqual((getattr(loaded, 'repeat_action', None),
                               getattr(loaded, 'repeat_interval_ms', None)), ('S', 20))
-            self.assertEqual((loaded.font_size, loaded.color_theme), (17, 'mint'))
+            self.assertEqual((loaded.font_size, loaded.color_theme), (17, 'lavender'))
 
     def test_corrupt_action_preferences_fall_back_without_erasing_unrelated_settings(self):
         with tempfile.TemporaryDirectory() as folder:

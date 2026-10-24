@@ -1,4 +1,4 @@
-"""三主题浮窗的可读性与原位换肤；只创建屏幕外 Tk 窗口。"""
+"""旧主题回退柔雾紫的可读性与状态保持；只创建屏幕外 Tk 窗口。"""
 from collections import OrderedDict
 from types import SimpleNamespace
 import tkinter as tk
@@ -76,7 +76,7 @@ class ThreeThemeOverlayTests(unittest.TestCase):
         self.root.update_idletasks()
         return quick
 
-    def test_translation_surfaces_stay_dark_and_readable_as_main_theme_changes(self):
+    def test_legacy_translation_surfaces_share_lavender_and_stay_readable(self):
         overlay = self.overlay()
         accents = set()
         for name in ('moonlight', 'graphite', 'mint'):
@@ -86,12 +86,12 @@ class ThreeThemeOverlayTests(unittest.TestCase):
                 overlay.apply_settings()
                 self.root.update_idletasks()
                 surface = overlay.window.cget('background')
-                self.assertLess(brightness(surface), 70)
+                self.assertEqual(surface, theme.theme_colors('lavender')['surface'])
                 self.assertGreaterEqual(contrast(overlay.rows[0]['translation'].cget('foreground'), surface), 7)
                 self.assertGreaterEqual(contrast(overlay.rows[0]['original'].cget('foreground'), surface), 4.5)
                 self.assertGreater(int(overlay.window.cget('highlightthickness')), 0)
                 accents.add(overlay.done.cget('activebackground'))
-        self.assertEqual(len(accents), 3)
+        self.assertEqual(accents, {theme.theme_colors('lavender')['accent']})
 
     def test_translation_theme_refresh_preserves_history_deadline_timer_and_bottom(self):
         overlay = self.overlay()
@@ -109,9 +109,8 @@ class ThreeThemeOverlayTests(unittest.TestCase):
             self.assertEqual(overlay._timer, timer)
             self.assertEqual(window.winfo_y() + window.winfo_height(), bottom)
 
-    def test_quick_input_retains_dark_fields_and_actions_under_light_main_themes(self):
+    def test_legacy_quick_input_preferences_use_lavender_fields_and_actions(self):
         quick = self.quick_input()
-        accents = set()
         style = ttk.Style(self.root)
         for name in ('moonlight', 'graphite', 'mint'):
             with self.subTest(theme=name):
@@ -123,16 +122,15 @@ class ThreeThemeOverlayTests(unittest.TestCase):
                 entry_style = quick.entry.cget('style') or 'TEntry'
                 entry_background = style.lookup(entry_style, 'fieldbackground')
                 foreground = style.lookup(entry_style, 'foreground')
-                self.assertLess(brightness(surface), 70)
-                self.assertLess(brightness(entry_background), 70)
+                self.assertEqual(surface, theme.theme_colors('lavender')['background'])
+                self.assertEqual(entry_background, theme.theme_colors('lavender')['field'])
                 self.assertGreaterEqual(contrast(foreground, entry_background), 7)
-                self.assertLess(brightness(style.lookup(quick.body.cget('style'), 'background')), 70)
+                self.assertEqual(style.lookup(quick.body.cget('style'), 'background'),
+                                 theme.theme_colors('lavender')['background'])
                 self.assertLess(quick.target_control.winfo_x(), quick.entry.winfo_x())
                 accent_style = quick.submit_button.cget('style')
                 accent = style.lookup(accent_style, 'background')
                 self.assertGreaterEqual(contrast(style.lookup(accent_style, 'foreground'), accent), 4.5)
-                accents.add(accent)
-        self.assertEqual(len(accents), 3)
 
     def test_quick_input_theme_refresh_keeps_pending_job_draft_status_and_timer(self):
         theme.apply_theme(self.root, self.settings)
@@ -159,14 +157,14 @@ class ThreeThemeOverlayTests(unittest.TestCase):
             self.assertEqual(window.geometry(), geometry)
             self.assertTrue(quick.submit_button.instate(['disabled']))
 
-    def test_quick_input_language_popup_stays_dark_before_and_after_main_theme_refresh(self):
+    def test_quick_input_language_popup_uses_lavender_before_and_after_legacy_theme_refresh(self):
         self.settings.color_theme = 'moonlight'
         theme.apply_theme(self.root, self.settings)
         quick = self.quick_input()
         # 只创建自己的隐藏下拉控件，不打开菜单，不与桌面或游戏交互。
         popup = self.root.tk.call('ttk::combobox::PopdownWindow', str(quick.target_control))
         listbox = popup + '.f.l'
-        self.assertLess(brightness(self.root.tk.call(listbox, 'cget', '-background')), 70)
+        self.assertEqual(self.root.tk.call(listbox, 'cget', '-background'), theme.theme_colors('lavender')['field'])
         for name in ('moonlight', 'mint', 'graphite'):
             with self.subTest(theme=name):
                 self.settings.color_theme = name
@@ -174,7 +172,7 @@ class ThreeThemeOverlayTests(unittest.TestCase):
                 quick.refresh_layout(force=True)
                 background = self.root.tk.call(listbox, 'cget', '-background')
                 foreground = self.root.tk.call(listbox, 'cget', '-foreground')
-                self.assertLess(brightness(background), 70)
+                self.assertEqual(background, theme.theme_colors('lavender')['field'])
                 self.assertGreaterEqual(contrast(foreground, background), 7)
 
 

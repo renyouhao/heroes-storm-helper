@@ -114,6 +114,25 @@ class BoardReaderTests(unittest.TestCase):
         self.assertIsNone(result.chat_active)
         self.assertIsNone(result.menu_active)
 
+    def test_new_decoders_share_verified_talent_and_statistics_board_mapping(self):
+        from tests.test_model_codecs import set_memory_codec
+        for decoder in range(16):
+            with self.subTest(decoder=decoder):
+                set_memory_codec(self.memory, decoder)
+                result = self.poll()
+                self.assertEqual(result.status, 'available', result.reason)
+                self.assertEqual(len(result.hits), 1)
+                self.assertEqual(result.hits[0].talent_id, 'ChromieTalent1')
+                self.assertEqual(self.reader.last_diagnostic['decoder_mode'], decoder)
+        self.memory.add_stat()
+        for decoder in range(16):
+            with self.subTest(decoder=decoder, kind='statistics'):
+                set_memory_codec(self.memory, decoder)
+                result = self.poll()
+                self.assertEqual(result.status, 'available', result.reason)
+                self.assertEqual((result.hits[0].metric_id, result.hits[0].value),
+                                 ('hero_damage', 133027))
+
     def test_closed_row_suppresses_stale_rect_while_panel_wrapper_stays_visible(self):
         self.assertEqual(len(self.poll().hits),1)
         self.memory.put(self.memory.row+0x48,b'\x01')

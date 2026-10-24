@@ -1,1 +1,2 @@
 alibabacloud-alimt20181012==1.5.2
+pywebview==6.2.1

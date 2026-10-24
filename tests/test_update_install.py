@@ -39,8 +39,10 @@ class InstallTests(unittest.TestCase):
         return target, executable, staged
 
     def prepare(self, target, executable, staged, **kwargs):
-        return prepare_install(staged, install_dir=target, executable=executable,
-                               frozen=True, pid=12345, process_token='fixture-token', **kwargs)
+        # 这里固定测试 1.1 -> 1.2 的替换/回滚，不随源码发行版本变化。
+        with patch.object(update_install,'__version__','1.1.0'):
+            return prepare_install(staged, install_dir=target, executable=executable,
+                                   frozen=True, pid=12345, process_token='fixture-token', **kwargs)
 
     def apply(self, plan, **kwargs):
         return apply_update(plan.path, helper_executable=plan.helper_executable,
