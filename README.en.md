@@ -4,21 +4,21 @@
 
 A Windows companion for Heroes of the Storm: read incoming English and Korean chat in Chinese, translate your Chinese replies into English or Korean, and use optional helpers for loot chests, repeated key presses, favorite talents, and team callouts.
 
-**Source target: v2.3 · Application/package version: 2.3.0 · Configured channel: `stable`.** Downloadable versions, assets and checksums are determined by the actual Release. The application is distributed as **风暴英雄助手** and uses a Chinese interface. Existing credentials, phrasebook data and preferences remain in place; previous theme choices migrate to Soft Lavender.
+**Latest release/source: v2.3 · Application/package version: 2.3.0 · Configured channel: `stable`.** Downloadable versions, assets and checksums are determined by the actual Release. The application is distributed as **风暴英雄助手** and uses a Chinese interface. Existing credentials, phrasebook data and preferences remain in place; previous theme choices migrate to Soft Lavender.
 
 **Supported validation target: Windows x64, Chinese game client build 98348.** This English introduction does not mean the English game client has been validated. Game updates require another compatibility check.
 
 ## Download
 
-The link below is the published **v2.2 binary package**, including the startup and Brightwing fixes. **The v2.3 source and tag include update shutdown handoff, preparation-stage messages and automatic startup checks; these changes are not yet available in a public binary package.** Existing executables do not acquire fixes from a source or tag update.
+The link below is the published **v2.3 binary package**, including update shutdown handoff, preparation-stage messages and automatic startup checks, plus the earlier startup and Brightwing fixes. **When upgrading from v2.1/v2.2, manually replace the full package.** A running old updater does not acquire the handoff fix from the new download.
 
-**[Download v2.2 for Windows x64](https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.2/HotsHelper-2.2.0-Windows-x64.zip)** · [Release notes and SHA256](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.2) · [All versions](https://github.com/renyouhao/heroes-storm-helper/releases)
+**[Download v2.3 for Windows x64](https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.3/HotsHelper-2.3.0-Windows-x64.zip)** · [Release notes and SHA256](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.3) · [All versions](https://github.com/renyouhao/heroes-storm-helper/releases)
 
-Download `HotsHelper-2.2.0-Windows-x64.zip`, extract the entire archive, and run `风暴英雄助手.exe`. The directory and executable inside the ZIP retain their Chinese names. Keep the `_internal` folder alongside the executable. Python and separate SDK installation are not required for the packaged application.
+Download `HotsHelper-2.3.0-Windows-x64.zip`, extract the entire archive, and run `风暴英雄助手.exe`. The directory and executable inside the ZIP retain their Chinese names. Keep the `_internal` folder alongside the executable. Python and separate SDK installation are not required for the packaged application.
 
 GitHub's **Source code (zip/tar.gz)** downloads contain the source rather than the ready-to-run Windows application. When switching packages, exit the old helper before launching the new copy.
 
-**Older updater stuck on preparation with a disconnected page:** close the entire old helper, extract a new package containing the fix into a new directory, keep `_internal`, and run `风暴英雄助手.exe`. Credentials, phrases and preferences continue to use the existing user-data directory. The public v2.2 download does not contain this handoff fix; availability of a v2.3 binary depends on actual Release assets.
+**Older updater stuck on preparation with a disconnected page:** close the entire old helper, extract a new package containing the fix into a new directory, keep `_internal`, and run `风暴英雄助手.exe`. Credentials, phrases and preferences continue to use the existing user-data directory. The public v2.3 package contains this fix; download the complete ZIP above.
 
 ## Current interface
 
@@ -130,7 +130,7 @@ Choose `S` or alternating `Y+S`, set the interval, and click **保存配置**. R
 - **Configurable key repetition.** Choose `S` or alternating `Y+S`; each mode has its own saved interval of 20–5000 ms, with 20 ms as the default for new settings. `F8` starts/stops repetition; its shortcut can be changed to another F1–F12 key.
 - **Automatic favorite talents — off by default.** Uses the game's existing favorite selection through its shortcut, then reads back whether that tier has been selected. It needs no translation key.
 - **Tab double-click callouts — off by default.** Selected talent callouts begin with “注意” (“Attention”) and include verified quest progress in the same cell. Standalone baseline quests and verified positive numbers from the dedicated Tab cooldown label for allied heroics use their own icons; statistics callouts report only the clicked metric. Talent summaries and known quest names are bundled offline. No translation key is required.
-- **Client updates.** Current source checks official stable releases once in the background on normal startup and shows the update dot when a newer release is confirmed; manual checks remain available. Choose when to download, verify, restart and update. The published v2.2 package still requires a manual check. The updater supports `HotsHelper-<version>-Windows-x64.zip` assets; v2.3 and application version 2.3.0 represent the same version, and downgrades are not offered. Older local 1.1.0 packages require a manual download because their updater only recognizes Chinese asset names.
+- **Client updates.** Current source checks official stable releases once in the background on normal startup and shows the update dot when a newer release is confirmed; manual checks remain available. Choose when to download, verify, restart and update. The published v2.3 package includes startup checks and the shutdown handoff fix; older packages should be replaced manually. The updater supports `HotsHelper-<version>-Windows-x64.zip` assets; v2.3 and application version 2.3.0 represent the same version, and downgrades are not offered. Older local 1.1.0 packages require a manual download because their updater only recognizes Chinese asset names.
 - **Emote handling and optional diagnostics.** Complete image-emote tags display as `[表情]`; emote-only messages skip cloud translation. Diagnostics are off by default and can be enabled for troubleshooting.
 
 </details>
@@ -301,7 +301,7 @@ Old packages are cleaned up only after the new package passes its installation c
 
 ## Validation scope
 
-The v2.3 fix passed **179 related Python tests, 33 frontend tests and a frontend build**, covering update transactions, host PID propagation, native snapshot availability, one-time host shutdown and IPC lock ordering. A local fix build made while its internal version was still 2.2.0 passed installation, desktop dependency and actual WebView2 rendering/bridge checks; it is not a public v2.3 binary. Real cross-version in-place replacement remains unverified.
+The v2.3 fix passed **179 related Python tests, 33 frontend tests and a frontend build**, covering update transactions, host PID propagation, native snapshot availability, one-time host shutdown and IPC lock ordering. The **2.3.0 release build** passed installation, desktop dependency and actual WebView2 rendering/bridge checks; 99 frozen application modules match the `v2.3` source tag. The public ZIP passed updater detection, download, SHA256 verification and isolated extraction; 2.2.0 finds the update and 2.3.0 is not offered the same version. Real cross-version in-place replacement remains unverified. See the [v2.3 Release](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.3) for assets and checksums.
 
 The v2.2 release source `38df948` passed **375 Python tests across 24 isolated test modules and 33 frontend tests**, plus Python syntax and dependency checks. The frozen package passed installation, desktop dependency and actual WebView2 rendering/bridge checks. After adding download markers to all three managed DLLs, startup removed them and rendering passed again. The real published asset passed the 2.1 updater's check, download, SHA256 verification and isolated extraction; no in-place installation was performed. The affected computers/live game still need verification. See the [v2.2 Release](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.2) for assets and checksums.
 
@@ -330,7 +330,7 @@ For fuller behavior notes, troubleshooting steps, and historical validation deta
 
 **New in v2.2:** startup preparation for the bundled Python.NET/WebView2 DLL download markers, native startup-error messages and bounded exception-chain logs; corrected talent identifiers for Brightwing and equivalent Raynor/Zul'jin entries.
 
-**Startup checks in v2.3, not included in the public v2.2 download:** normal startup checks official stable releases once in the background and lights the existing update dot when a newer version is found. Capture reconnection does not repeat the check; demo and installation checks remain offline. A known update keeps its dot through transient network failures or cancellation; a successful check confirming no upgrade clears it. Download and installation remain explicit user actions.
+**Startup checks in v2.3:** normal startup checks official stable releases once in the background and lights the existing update dot when a newer version is found. Capture reconnection does not repeat the check; demo and installation checks remain offline. A known update keeps its dot through transient network failures or cancellation; a successful check confirming no upgrade clears it. Download and installation remain explicit user actions.
 
 **Update handoff in v2.3:** the installer waits for the desktop host PID. The native runtime keeps snapshots available until the host observes installer readiness, closes its window, shuts down the native child and releases the single-instance mutex. Replacement starts after the host exits. Preparation reports archive/file validation, runtime copying and installer startup stages. Real frozen-package cross-version replacement still needs live validation.
 
@@ -340,6 +340,6 @@ For fuller behavior notes, troubleshooting steps, and historical validation deta
 
 Build 98348 supports **all 16 model-decoder branches, 0–15**, with a verified compute-code fingerprint for each. Branches 2, 5, 8, 11 and 14 additionally require a runtime salt. Reads recheck the selector, table root, encoded slot, used keys, and salt pointer/value before trusting the result. All algorithms passed synthetic reads and independent native-instruction comparisons; this does not mean all 16 branches were exercised on affected players’ machines or that newer game builds are supported.
 
-Version note: `v1.1` remains a source-preparation tag; its Release was never published. During release preparation, GitHub stripped Chinese characters from the asset name. The tag is preserved, and the asset naming contract is corrected in `v1.2`, using an ASCII ZIP name shared by the publisher and updater. **Existing local 1.1.0 packages recognize only Chinese ZIP names, so download v2.2 manually using the link above.** Your local user data stays in place.
+Version note: `v1.1` remains a source-preparation tag; its Release was never published. During release preparation, GitHub stripped Chinese characters from the asset name. The tag is preserved, and the asset naming contract is corrected in `v1.2`, using an ASCII ZIP name shared by the publisher and updater. **Existing local 1.1.0 packages recognize only Chinese ZIP names, so download v2.3 manually using the link above.** Your local user data stays in place.
 
 </details>
