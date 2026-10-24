@@ -6,10 +6,11 @@ import threading
 from .memory import ReadOnlyGame, find_game_processes
 from .source import ChatSource
 from ..models import AppEvent, ChatEvent
+from ..channels import DISPLAY_CHANNELS
 
 
 _UNKNOWN = object()
-_CHANNELS = {'match': frozenset(('团队', '所有玩家')),
+_CHANNELS = {'match': frozenset(DISPLAY_CHANNELS),
              'lobby': frozenset(('队伍', '密语'))}
 _LABELS = {'match': '对局', 'lobby': '大厅'}
 _DIAGNOSTIC_STATES = {
@@ -263,17 +264,32 @@ class PersistentChatSource:
                                        not same_pid_replaced else -1)
             return [] if same_pid_replaced else candidates
 
+    def _trace_message(self, name, event, outcome, *, reason='', message_id=None):
+        if self.diagnostics is None or event.kind != 'chat':
+            return
+        try:
+            self.diagnostics.record('capture.state', source=name, stage='merge',
+                outcome=outcome, reason=reason, capture_schema=1,
+                generation=self._generation, child_generation=event.generation,
+                source_message_id=event.payload.message_id,
+                message_id=message_id or event.payload.message_id)
+        except Exception:
+            pass
+
     def _receive(self, name, run_revision, event):
         with self._lock:
             if not self._active or run_revision != self._run_revision:
+                self._trace_message(name, event, 'discarded', reason='inactive_run')
                 return
             worker = self._workers[name]
             floor = max(worker.generation_floor, worker.latest_generation, worker.source.generation)
             if event.generation < floor:
+                self._trace_message(name, event, 'discarded', reason='stale_generation')
                 return
             worker.latest_generation = event.generation
             if (worker.session_revision != self._session_revision or
                     worker.observed != self._session):
+                self._trace_message(name, event, 'discarded', reason='session_mismatch')
                 return
             if event.kind == 'generation':
                 # Child generations guard its cursor only. Forwarding them would
@@ -282,12 +298,16 @@ class PersistentChatSource:
             if event.kind == 'chat':
                 chat = event.payload
                 if self._session in (_UNKNOWN, None) or chat.channel not in _CHANNELS[name]:
+                    self._trace_message(name, event, 'discarded',
+                        reason='session_mismatch' if self._session in (_UNKNOWN,None) else 'channel_filtered')
                     return
                 if chat.generation != event.generation:
+                    self._trace_message(name, event, 'discarded', reason='generation_mismatch')
                     return
                 self._serial += 1
                 replacement = ChatEvent(f'{name}:{self._serial}', self._generation,
                                         chat.channel, chat.sender, chat.timestamp, chat.text)
+                self._trace_message(name, event, 'forwarded', message_id=replacement.message_id)
                 self._publish('chat', replacement)
             elif event.kind == 'capture_state':
                 if self.diagnostics is not None:

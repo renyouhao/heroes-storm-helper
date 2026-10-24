@@ -1,9 +1,12 @@
 import struct
 import time
+import re
+from itertools import count
 from collections import OrderedDict
 from dataclasses import dataclass
-from .history import HistoryInvalid, HistoryReader
-from .memory import StreamingMatcher
+from .history import HistoryInvalid, HistoryReader, MATCH_CAPTURE_SCHEMA
+from .parsing import TIMESTAMP_PREFIX, HISTORY_PREFIXES, has_history_prefix
+from ..channels import DISPLAY_CHANNELS
 
 class DiscoveryCancelled(HistoryInvalid):
     pass
@@ -19,15 +22,42 @@ class DiscoveryResult:
     root: int
     scanned_bytes: int
     elapsed_seconds: float
+    scan_id: int = 0
 
-PREFIX=b'<s val="ChatDisplayTimeStamp">'
+PREFIX=TIMESTAMP_PREFIX
+# A common literal '<' keeps the regex search linear and fast on large blocks.
+_SCAN_PREFIX = re.compile(
+    rb'<(?:s val="ChatDisplayTimeStamp">|(?:sp/><)?c val="[^"<>\r\n]{1,32}">\[(?:'
+    + '|'.join(re.escape(channel) for channel in DISPLAY_CHANNELS).encode('utf-8') + rb')\])')
+_SCAN_IDS = count(1)
+_FAILURE_REASONS = frozenset(('history_invalid', 'invalid_root', 'invalid_address',
+    'read_budget', 'read_unavailable', 'invalid_links', 'invalid_layout', 'timestamp_missing',
+    'invalid_utf8', 'history_cleared', 'node_budget'))
+
+
+class _HistoryPrefixMatcher:
+    def __init__(self):
+        self.tail = b''
+        self.previous_end = None
+
+    def feed(self, base, data):
+        prefix = self.tail if self.previous_end == base else b''
+        combined = prefix + data
+        start = base - len(prefix)
+        for match in _SCAN_PREFIX.finditer(combined):
+            address = start + match.start()
+            if match.end() > len(prefix) and address % 8 == 0:
+                yield address
+        # Both supported heads fit in the same bounded metadata window.
+        self.tail = combined[-95:]
+        self.previous_end = base + len(data)
 
 
 def read_checked(memory,address,size):
     if not 0x10000<=address<0x7fffffff0000 or not 0<size<=4096:
-        raise HistoryInvalid('Invalid candidate read')
+        raise HistoryInvalid('Invalid candidate read', reason='invalid_address')
     data=memory.read(address,size)
-    if len(data)!=size: raise HistoryInvalid('Candidate is no longer readable')
+    if len(data)!=size: raise HistoryInvalid('Candidate is no longer readable', reason='read_unavailable')
     return data
 
 
@@ -40,7 +70,7 @@ def locate_root(memory,node,known_nodes=None):
         return root
     for _ in range(512):
         if node in visited or node%8:
-            raise HistoryInvalid('Candidate has a cycle or invalid alignment')
+            raise HistoryInvalid('Candidate has a cycle or invalid alignment', reason='invalid_links')
         visited.add(node)
         header=read_checked(memory,node,24);headers[node]=header
         cached=known_nodes.get(node) if known_nodes is not None else None
@@ -48,24 +78,50 @@ def locate_root(memory,node,known_nodes=None):
             return remember(cached[0],cached[2])
         older,newer,packed=struct.unpack('<QQQ',header)
         length=(packed&0xffffffff)>>2
-        if not len(PREFIX)<=length<=4096 or read_checked(memory,node+24,len(PREFIX))!=PREFIX:
-            raise HistoryInvalid('Candidate is not an inline chat history string')
+        if (not min(map(len, HISTORY_PREFIXES))<=length<=4096
+                or not has_history_prefix(read_checked(memory,node+24,min(length,len(PREFIX))))):
+            raise HistoryInvalid('Candidate is not an inline chat history string', reason='invalid_layout')
         if older&1:
             root=older&~1
-            if root%8: raise HistoryInvalid('Invalid tagged sentinel')
+            if root%8: raise HistoryInvalid('Invalid tagged sentinel', reason='invalid_links')
             root_header=read_checked(memory,root,16)
             head,tail=struct.unpack('<QQ',root_header)
             if tail!=node:
-                raise HistoryInvalid('Sentinel tail does not reference the oldest node')
+                raise HistoryInvalid('Sentinel tail does not reference the oldest node', reason='invalid_links')
             head_links=struct.unpack('<QQ',read_checked(memory,head,16))
             if head_links[1] not in (root,root|1):
-                raise HistoryInvalid('Sentinel head reciprocity failed')
+                raise HistoryInvalid('Sentinel head reciprocity failed', reason='invalid_links')
             return remember(root,root_header)
         links=struct.unpack('<QQ',read_checked(memory,older,16))
         if links[1]!=node:
-            raise HistoryInvalid('Candidate links are not reciprocal')
+            raise HistoryInvalid('Candidate links are not reciprocal', reason='invalid_links')
         node=older
-    raise HistoryInvalid('Candidate traversal exceeded its budget')
+    raise HistoryInvalid('Candidate traversal exceeded its budget', reason='node_budget')
+
+
+def _poll_candidate(memory, root, checked_roots, channels, counts=None):
+    # A root can gain supported messages while a scan is still in progress.
+    # Keep its bounded cursor, not a permanent "already checked" address mark.
+    reader = checked_roots.get(root)
+    if reader is None:
+        reader = HistoryReader(memory, root, include_history=True, channels=channels)
+    before = reader.diagnostic_snapshot() if counts is not None else {}
+    try:
+        snapshot = reader.poll()
+    except (HistoryInvalid, ValueError, struct.error):
+        checked_roots.pop(root, None)
+        raise
+    finally:
+        if counts is not None:
+            # Commit observations even when a reader fails or is later evicted.
+            for field, value in reader.diagnostic_snapshot().items():
+                counts[field] = counts.get(field, 0) + value - before[field]
+    if not snapshot.retry:
+        checked_roots[root] = reader
+        checked_roots.move_to_end(root)
+        while len(checked_roots) > 128:
+            checked_roots.popitem(last=False)
+    return reader, snapshot
 
 
 class IncrementalDiscovery:
@@ -85,16 +141,36 @@ class IncrementalDiscovery:
         self.channels = channels
         self.ignore_snapshots = ignore_snapshots if ignore_snapshots is not None else {}
         self.finished = False
+        self.scan_id = next(_SCAN_IDS)
         self._started = time.perf_counter()
         self._regions = iter(self._ordered_regions(tuple(preferred_addresses)[:8]))
         self._region = None
         self._offset = 0
-        self._matcher = StreamingMatcher(PREFIX)
+        self._matcher = _HistoryPrefixMatcher()
         self._matches = None
         self._candidate = None
         self._scanned_bytes = 0
+        self._scan_reads = 0
+        self._requested_bytes = 0
+        self._scan_regions = 0
+        self._short_reads = 0
+        self._last_rejection_reason = ''
+        self._counts = dict(candidate_count=0, valid_snapshot_count=0,
+                            invalid_candidate_count=0, empty_snapshot_count=0,
+                            retry_snapshot_count=0, ignored_snapshot_count=0,
+                            candidate_read_failure_count=0, candidate_layout_rejected_count=0,
+                            candidate_link_rejected_count=0, candidate_budget_rejected_count=0)
         self._known_nodes = {}
         self._checked_roots = OrderedDict()
+
+    def diagnostic_snapshot(self):
+        """Return counts only; scan reads exclude bounded candidate validation."""
+        return dict(self._counts, capture_schema=MATCH_CAPTURE_SCHEMA, scan_id=self.scan_id,
+                    scan_region_count=self._scan_regions, requested_bytes=self._requested_bytes,
+                    short_read_count=self._short_reads,
+                    last_rejection_reason=self._last_rejection_reason, read_bytes=self._scanned_bytes,
+                    read_calls=self._scan_reads,
+                    elapsed_ms=(time.perf_counter() - self._started) * 1000)
 
     def _ordered_regions(self,addresses):
         if not addresses:
@@ -137,27 +213,47 @@ class IncrementalDiscovery:
                     return None
                 address = self._candidate
                 self._candidate = None
+                self._counts['candidate_count'] += 1
                 try:
                     root = locate_root(self.memory, address - 24, self._known_nodes)
-                    if root in self._checked_roots:
-                        continue
-                    reader = HistoryReader(self.memory, root, include_history=True, channels=self.channels)
-                    snapshot = reader.poll()
-                    if not snapshot.retry:
-                        self._checked_roots[root]=None
-                        while len(self._checked_roots)>128:self._checked_roots.popitem(last=False)
+                    reader, snapshot = _poll_candidate(self.memory, root, self._checked_roots, self.channels, self._counts)
+                    if snapshot.retry:
+                        self._counts['retry_snapshot_count'] += 1
+                    else:
+                        self._counts['valid_snapshot_count'] += 1
+                        if not snapshot.messages:
+                            self._counts['empty_snapshot_count'] += 1
+                        elif self.ignore_snapshots.get(root) == (reader.last_head, reader.last_stamp):
+                            self._counts['ignored_snapshot_count'] += 1
                     accepted = (snapshot.messages and not snapshot.retry and
                                 self.ignore_snapshots.get(root) != (reader.last_head, reader.last_stamp))
-                except (HistoryInvalid, ValueError, struct.error):
+                except (HistoryInvalid, ValueError, struct.error) as failure:
+                    self._counts['invalid_candidate_count'] += 1
+                    reason = getattr(failure, 'reason', 'invalid_layout')
+                    self._last_rejection_reason = reason if reason in _FAILURE_REASONS else 'history_invalid'
+                    category = {
+                        'read_unavailable': 'candidate_read_failure_count',
+                        'invalid_address': 'candidate_read_failure_count',
+                        'invalid_layout': 'candidate_layout_rejected_count',
+                        'timestamp_missing': 'candidate_layout_rejected_count',
+                        'invalid_utf8': 'candidate_layout_rejected_count',
+                        'invalid_root': 'candidate_link_rejected_count',
+                        'invalid_links': 'candidate_link_rejected_count',
+                        'read_budget': 'candidate_budget_rejected_count',
+                        'node_budget': 'candidate_budget_rejected_count',
+                    }.get(self._last_rejection_reason)
+                    if category:
+                        self._counts[category] += 1
                     accepted = False
                 if self.cancel_event.is_set():
                     raise DiscoveryCancelled('校准已取消')
                 if accepted:
-                    return DiscoveryResult(root, self._scanned_bytes, time.perf_counter() - self._started)
+                    return DiscoveryResult(root, self._scanned_bytes, time.perf_counter() - self._started, self.scan_id)
                 continue
             if self._region is None or self._offset >= self._region[1]:
                 try:
                     self._region = next(self._regions)
+                    self._scan_regions += 1
                     self._offset = 0
                 except StopIteration:
                     self.finished = True
@@ -169,37 +265,51 @@ class IncrementalDiscovery:
             base, size, _ = self._region
             count = min(1024 * 1024, size - self._offset, byte_budget - requested_bytes)
             address = base + self._offset
+            self._scan_reads += 1
+            self._requested_bytes += count
             data = self.memory.read(address, count)
             self._offset += count
+            self._short_reads += int(len(data) != count)
             requested_bytes += count
             self._scanned_bytes += len(data)
             self._matches = iter(self._matcher.feed(address, data))
 
 
-def discover(memory,cancel_event,max_seconds=60,channels=None):
-    matcher=StreamingMatcher(PREFIX)
-    started=time.perf_counter(); cpu=time.process_time(); scanned=0; candidates=0; checked_roots=set()
-    for base,size,protection in memory.regions():
-        for offset in range(0,size,1024*1024):
+def discover(memory,cancel_event,max_seconds=60,channels=None,progress=None):
+    scanner = IncrementalDiscovery(memory, cancel_event, channels=channels)
+
+    def report(outcome):
+        if progress is not None:
+            try:
+                progress(outcome, scanner.diagnostic_snapshot())
+            except Exception:
+                pass  # Diagnostic callbacks must not change discovery results.
+
+    report('started')
+    try:
+        while True:
             if cancel_event.is_set():
                 raise DiscoveryCancelled('校准已取消')
-            if time.perf_counter()-started>max_seconds:
-                raise DiscoveryPending('Calibration time budget exhausted')
-            data=memory.read(base+offset,min(1024*1024,size-offset));scanned+=len(data)
-            for address in matcher.feed(base+offset,data):
-                candidates+=1
-                try:
-                    root=locate_root(memory,address-24)
-                    if root in checked_roots: continue
-                    snapshot=HistoryReader(memory,root,include_history=True,channels=channels).poll()
-                    if snapshot.retry: continue
-                    checked_roots.add(root)
-                    if not snapshot.messages: continue
-                except (HistoryInvalid,ValueError,struct.error):
-                    continue
-                return DiscoveryResult(root,scanned,time.perf_counter()-started)
-            # Initialization is bounded and throttled; polling never repeats this scan.
-            due=scanned/(128*1024*1024)
-            cancel_event.wait(max(0,due-(time.perf_counter()-started)))
-    raise DiscoveryPending('No validated supported in-game chat history found')
+            if time.perf_counter() - scanner._started > max_seconds:
+                report('timeout')
+                raise DiscoveryPending('Calibration time budget exhausted', reason='scan_timeout')
+            result = scanner.step(byte_budget=1024 * 1024)
+            if result is not None:
+                report('candidate_found')
+                return result
+            if scanner.finished:
+                report('exhausted')
+                raise DiscoveryPending('No validated supported in-game chat history found', reason='scan_exhausted')
+            report('scanning')
+            # Keep the existing 128 MiB/s initialization throttle.
+            due = scanner._requested_bytes / (128 * 1024 * 1024)
+            cancel_event.wait(max(0, due - (time.perf_counter() - scanner._started)))
+    except DiscoveryCancelled:
+        report('cancelled')
+        raise
+    except DiscoveryPending:
+        raise
+    except (HistoryInvalid, OSError, ValueError, RuntimeError):
+        report('failed')
+        raise
 

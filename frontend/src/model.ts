@@ -9,7 +9,7 @@ export const previewSnapshot: Snapshot = {
     { id: 'preview-4', sender: 'Raven', channel: '团队', timestamp: '14:23', original: 'Let them use their abilities first.', translation: '别急，等对面先交技能。', status: 'done' },
   ],
   captureState: '静态预览', serviceState: '静态预览', cloudConfigured: false,
-  autoTranslate: true, targetLanguage: 'en', channelFilter: '全部聊天', channelOptions: ['全部聊天', '团队与所有玩家', '仅团队', '仅队伍', '仅密语', '仅所有玩家'], theme: 'lavender',
+  autoTranslate: true, targetLanguage: 'en', channelFilter: '全部聊天', channelOptions: ['全部聊天', '团队与所有玩家', '仅团队', '仅征召团队', '仅队伍', '仅密语', '仅所有玩家'], theme: 'lavender',
   draft: '我们等大招好了再开团', preview: "Let’s wait until our ult is ready, then start the fight.",
   previewSource: '我们等大招好了再开团', manualSource: '示例译文', manualBusy: false,
   status: '静态预览 · 所有示例内容仅用于展示', isDemo: true, updateAvailable: false,
@@ -57,10 +57,11 @@ export function normalizeSnapshot(raw: Partial<Snapshot>): Snapshot {
 export function visibleMessages(messages: Message[], channel: string) {
   if (!channel || channel === 'all' || channel === '全部聊天') return messages
   const channels: Record<string, string[]> = {
-    team: ['team', 'Team', '团队', '队伍'], party: ['party', 'Party', '小队'],
-    '仅团队': ['team', 'Team', '团队'], '仅队伍': ['party', 'Party', '队伍'],
+    team: ['team', 'Team', '团队', '征召团队', '队伍'], party: ['party', 'Party', '小队'],
+    '仅团队': ['team', 'Team', '团队', '征召团队'], '仅征召团队': ['征召团队'],
+    '仅队伍': ['party', 'Party', '队伍'],
     '仅密语': ['密语', 'whisper'], '仅所有玩家': ['所有玩家', 'all'],
-    '团队与所有玩家': ['team', 'Team', '团队', '所有玩家', 'all'],
+    '团队与所有玩家': ['team', 'Team', '团队', '征召团队', '所有玩家', 'all'],
   }
   return messages.filter(message => (channels[channel] ?? [channel]).includes(message.channel))
 }

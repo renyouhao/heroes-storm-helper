@@ -1,7 +1,9 @@
 """对局来源必须定位到自己的频道；只使用合成内存和虚拟时间。"""
 import struct
+import threading
 import unittest
 
+from hots_chat.acquisition.discovery import IncrementalDiscovery
 from hots_chat.acquisition.memory import GameProcess
 from hots_chat.acquisition.source import ChatSource
 from test_history import FakeMemory, chat_line
@@ -126,6 +128,54 @@ class MatchChannelDiscoveryTests(unittest.TestCase):
         texts = [text for _, text in arrivals]
         self.assertIn('active 35', texts, '只有大厅消息变化的旧树不应抢走健康的对局reader')
         self.assertEqual(texts.count('historical team'), 1)
+
+
+class IncrementalMatchChannelDiscoveryTests(unittest.TestCase):
+    def test_team_append_is_found_before_scan_of_party_only_root_finishes(self):
+        memory = FakeMemory()
+        party, team = party_out('party baseline'), chat_line('first team message')
+        node, = memory.set_nodes([party])
+        party_bytes = len(party.encode('utf-8'))
+        # The second node occupies a later part of the same ongoing scan.
+        regions = [(node + 24, party_bytes, 4),
+                   (node + 0x10000 + 24, len(team.encode('utf-8')), 4)]
+        memory.regions = lambda: iter(regions)
+        scanner = IncrementalDiscovery(memory, threading.Event(), channels=('团队', '所有玩家'))
+
+        self.assertIsNone(scanner.step(byte_budget=party_bytes, time_budget=60))
+        self.assertFalse(scanner.finished)
+        memory.set_nodes([party, team])
+
+        result = scanner.step(time_budget=60)
+
+        self.assertIsNotNone(result, '同一轮扫描中追加的团队消息不应等到下一轮扫描')
+        self.assertEqual(result.root, memory.root)
+
+    def test_reused_head_becoming_team_is_found_during_the_same_scan(self):
+        memory = FakeMemory()
+        oldest = party_out('party baseline')
+        team = chat_line('same message body')
+        party = team.replace('[团队]', '[队伍]', 1)
+        nodes = memory.set_nodes([oldest, party])
+        oldest_bytes = len(oldest.encode('utf-8'))
+        regions = [(nodes[0] + 24, oldest_bytes, 4),
+                   (nodes[1] + 24, len(party.encode('utf-8')), 4)]
+        memory.regions = lambda: iter(regions)
+        scanner = IncrementalDiscovery(memory, threading.Event(), channels=('团队', '所有玩家'))
+
+        self.assertIsNone(scanner.step(byte_budget=oldest_bytes, time_budget=60))
+        self.assertFalse(scanner.finished)
+        root_before = memory.read(memory.root, 16)
+        head_before = memory.read(nodes[1], 24)
+        memory.set_nodes([oldest, team])
+        self.assertEqual(memory.read(memory.root, 16), root_before)
+        self.assertEqual(memory.read(nodes[1], 24), head_before,
+                         '复用头节点且字符串长度不变，必须检查内容变化')
+
+        result = scanner.step(time_budget=60)
+
+        self.assertIsNotNone(result, '头地址和长度不变时也应发现新出现的团队消息')
+        self.assertEqual(result.root, memory.root)
 
 
 if __name__ == '__main__':

@@ -2,7 +2,8 @@ import { createElement, useEffect, useId, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent, KeyboardEvent, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, Download, KeyRound, LoaderCircle, RefreshCw, Settings, ShieldCheck, Trash2, X } from 'lucide-react'
-import type { AccountInfo, Command, DesktopPreferences, Phrase, Snapshot, UpdateInfo } from './types'
+import type { AccountBalanceInfo, AccountInfo, Command, DesktopPreferences, ManagementState, Phrase, Snapshot, TranslationProvider, TranslationProviderProfile, UpdateInfo } from './types'
+import { hasConfiguredTranslationProfile, initialTranslationProvider, translationProviders } from './translationProviders'
 import './management.css'
 
 export type ManagementPanel = 'settings' | 'updates' | 'account' | 'phrase'
@@ -23,6 +24,64 @@ const tabs: [SettingsTab, string][] = [['appearance', '外观'], ['overlay', '�
 const categories = ['对线', '团战', '机制', '礼貌']
 const hotkeyFields = [['focus', '呼出快捷输入', 'Ctrl+T'], ['translate', '翻译主窗口中文', 'Ctrl+Enter'], ['copy', '复制主窗口译文', 'Ctrl+Shift+C']] as const
 type HotkeyAction = typeof hotkeyFields[number][0]
+
+const providerNames: Record<TranslationProvider, string> = { aliyun: '阿里云机器翻译', deepseek: 'DeepSeek V4.1 Flash' }
+
+export function accountProviderProfile(account: AccountInfo, provider: TranslationProvider): TranslationProviderProfile {
+  const active = (account.provider || 'aliyun') === provider
+  const saved = account.providers?.find(profile => profile.id === provider)
+  if (saved) return provider === 'deepseek' ? { ...saved,
+    contextEnabled: saved.configured ? saved.contextEnabled ?? (active ? account.contextEnabled ?? true : true) : true } : saved
+  return { id: provider, name: providerNames[provider], configured: active && account.configured,
+    maskedKey: active ? account.maskedKey : '', contextEnabled: provider === 'deepseek' ? account.contextEnabled ?? true : false }
+}
+
+export function prepareAccountConnection(provider: TranslationProvider | null, accessKeyId: string, secret: string, contextEnabled: boolean): { name: string; payload: Record<string, unknown> } | { error: string } {
+  if (!provider) return { error: '请先选择阿里云机器翻译或 DeepSeek。' }
+  if (provider === 'deepseek') {
+    if (!secret.trim()) return { error: '请填写 DeepSeek API Key。' }
+    return { name: 'account_connect_deepseek', payload: { apiKey: secret.trim(), contextEnabled } }
+  }
+  if (!accessKeyId.trim() || !secret.trim()) return { error: '请填写同一把 Key 的 ID 和 Secret。' }
+  return { name: 'account_connect', payload: { accessKeyId: accessKeyId.trim(), accessKeySecret: secret.trim() } }
+}
+
+export function safeAccountFeedback(text: string, payload?: Record<string, unknown>): string {
+  let safe = text
+  const values = ['apiKey', 'accessKeyId', 'accessKeySecret'].map(field => payload?.[field])
+    .filter((value): value is string => typeof value === 'string' && !!value).sort((first, second) => second.length - first.length)
+  for (const value of new Set(values)) safe = safe.split(value).join('[密钥已隐藏]')
+  return safe
+}
+
+export function AccountBalance({ balance }: { balance?: AccountBalanceInfo }) {
+  const updated = balance?.updatedAt ? new Date(balance.updatedAt) : null
+  const updatedLabel = updated && !Number.isNaN(updated.valueOf()) ? updated.toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' }) : balance?.updatedAt
+  return <div className="mg-balance" aria-live="polite" aria-busy={balance?.busy || false}>
+    <div className="mg-balance-heading"><h4>DeepSeek 账户余额</h4>{balance?.busy && <LoaderCircle size={18} className="mg-spin" aria-hidden="true"/>}</div>
+    <p className="mg-help">{balance?.busy ? '正在查询账户余额…' : balance?.message || '点击“查询账户余额”获取账户的实际余额。'}</p>
+    {balance?.available !== null && balance?.available !== undefined && <p className="mg-help">账户状态：{balance.available ? '当前可用' : '当前不可用'}</p>}
+    {!!balance?.balances.length && <div className="mg-balance-grid">{balance.balances.map((item, index) => <div className="mg-balance-currency" key={`${item.currency}-${index}`}><strong>{item.currency === 'CNY' ? '人民币 CNY' : item.currency === 'USD' ? '美元 USD' : item.currency}</strong><dl><div><dt>总余额</dt><dd>{item.totalBalance}</dd></div><div><dt>赠送余额</dt><dd>{item.grantedBalance}</dd></div><div><dt>充值余额</dt><dd>{item.toppedUpBalance}</dd></div></dl></div>)}</div>}
+    {updatedLabel && <p className="mg-help">更新时间（北京时间）：<time dateTime={balance?.updatedAt}>{updatedLabel}</time></p>}
+    <p className="mg-help">余额按账户币种展示；实际费用取决于输入、输出与缓存用量。</p>
+  </div>
+}
+
+export function ProviderChoices({ account, selected, onChange, onOpenPortal, disabled }: { account: AccountInfo; selected: TranslationProvider | null; onChange: (provider: TranslationProvider) => void; onOpenPortal: (provider: TranslationProvider) => void; disabled?: boolean }) {
+  const groupId = useId()
+  return <fieldset className="mg-provider-options" disabled={disabled} aria-describedby={`${groupId}-help`}>
+    <legend className="mg-field-label">选择要配置或使用的翻译服务</legend>
+    <p id={`${groupId}-help`} className="mg-help">先选一项服务，再填写自己的密钥；只有连接或应用成功后才会启用。也可暂时跳过，先看游戏原文。</p>
+    <div className="mg-provider-grid">{translationProviders.map(provider => {
+      const saved = accountProviderProfile(account, provider.id)
+      const active = account.configured && (account.provider || 'aliyun') === provider.id
+      return <div className={`mg-provider-card${selected === provider.id ? ' is-selected' : ''}`} key={provider.id}>
+        <label className="mg-provider-choice"><input type="radio" name={`${groupId}-provider`} value={provider.id} checked={selected === provider.id} data-initial-focus={selected === provider.id || (!selected && provider.id === 'aliyun') || undefined} onChange={() => onChange(provider.id)}/><span><span className="mg-provider-title">{provider.name}</span><span className="mg-provider-billing">{provider.billing}</span><span className="mg-provider-description">{provider.credentials}<br/>{provider.description}</span>{(active || saved.configured) && <span className="mg-provider-status">{active ? '当前正在使用' : '已保存账户'}</span>}</span></label>
+        <button type="button" onClick={() => onOpenPortal(provider.id)}>{provider.portalLabel}</button>
+      </div>
+    })}</div>
+  </fieldset>
+}
 
 const legacyEnvError = '本机 .env 缺失或格式无效，请检查两个访问密钥字段。'
 export function parseLegacyEnv(source: string): { accessKeyId: string; accessKeySecret: string } {
@@ -154,6 +213,15 @@ function Field({ label, help, children }: { label: string; help?: string; childr
   return <label className="mg-field"><span className="mg-field-label">{label}</span>{children}{help && <span className="mg-help">{help}</span>}</label>
 }
 
+export function OverlayMonitorControls({ monitors, selected, onChange, onMove }: { monitors: NonNullable<ManagementState['monitors']>; selected: string; onChange: (value: string) => void; onMove: () => void }) {
+  return <><Field label="字幕显示器" help={!monitors.length ? '显示器列表暂不可用，请稍后重新打开设置。' : undefined}><select value={selected} disabled={!monitors.length} onChange={event => onChange(event.target.value)}>{monitors.map(monitor => <option key={monitor.id} value={monitor.id}>{monitor.label} · {monitor.width} × {monitor.height}</option>)}</select></Field><div className="mg-actions"><button type="button" disabled={!monitors.length} onClick={onMove}>移动到所选屏幕</button></div></>
+}
+
+export function pendingOverlayMonitor(monitors: NonNullable<ManagementState['monitors']>, selected: string): number | null {
+  const monitor = monitors.find(item => String(item.id) === selected)
+  return monitor && !monitor.selected ? monitor.id : null
+}
+
 function Checkbox({ checked, onChange, children, disabled }: { checked: boolean; onChange: (checked: boolean) => void; children: ReactNode; disabled?: boolean }) {
   return <label className="mg-checkbox"><input type="checkbox" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)}/><span>{children}</span></label>
 }
@@ -219,13 +287,21 @@ export function ManagementDialog({ panel, snapshot, command, onClose, onNavigate
   const [editedPhrase, setEditedPhrase] = useState(() => initialPhrase(phrase))
   const [accessKeyId, setAccessKeyId] = useState('')
   const [secret, setSecret] = useState('')
+  const [selectedProvider, setSelectedProvider] = useState<TranslationProvider | null>(() => initialTranslationProvider(snapshot.management.account))
+  const [contextEnabled, setContextEnabled] = useState(() => accountProviderProfile(snapshot.management.account, 'deepseek').contextEnabled ?? true)
   const [deleteAccount, setDeleteAccount] = useState(false)
   const [selectedPid, setSelectedPid] = useState('')
+  const [selectedMonitor, setSelectedMonitor] = useState(() => String(snapshot.management.monitors?.find(monitor => monitor.selected)?.id ?? 0))
+  const actualMonitorRef = useRef(snapshot.management.monitors?.find(monitor => monitor.selected)?.id)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const management = snapshot.management
   const { account, update, diagnostics, processes } = management
+  const monitors = management.monitors || []
+  const activeProvider = account.provider || 'aliyun'
+  const selectedProfile = selectedProvider ? accountProviderProfile(account, selectedProvider) : null
+  const hasSavedProfile = hasConfiguredTranslationProfile(account)
   const accountBusy = busy || account.busy
   const closingBlocked = busy && (activePanel === 'settings' || activePanel === 'phrase')
 
@@ -233,7 +309,11 @@ export function ManagementDialog({ panel, snapshot, command, onClose, onNavigate
   useEffect(() => { setEditedPhrase(initialPhrase(phrase)) }, [phrase?.id])
   useEffect(() => {
     setError(''); setMessage(''); setDeleteAccount(false)
-    if (activePanel !== 'account') { importRevision.current++; setAccessKeyId(''); setSecret('') }
+    importRevision.current++; setAccessKeyId(''); setSecret('')
+    if (activePanel === 'account') {
+      setSelectedProvider(initialTranslationProvider(account))
+      setContextEnabled(accountProviderProfile(account, 'deepseek').contextEnabled ?? true)
+    }
   }, [activePanel])
   useEffect(() => {
     if (account.state === 'ready' || account.state === 'removed') { setAccessKeyId(''); setSecret('') }
@@ -241,6 +321,11 @@ export function ManagementDialog({ panel, snapshot, command, onClose, onNavigate
   useEffect(() => {
     if (processes.length && !processes.some(process => String(process.pid) === selectedPid)) setSelectedPid(String(processes[0].pid))
   }, [processes, selectedPid])
+  useEffect(() => {
+    const actual = monitors.find(monitor => monitor.selected)?.id
+    if (actual !== actualMonitorRef.current || (monitors.length && !monitors.some(monitor => String(monitor.id) === selectedMonitor))) setSelectedMonitor(String(actual ?? monitors[0]?.id ?? 0))
+    actualMonitorRef.current = actual
+  }, [monitors, selectedMonitor])
 
   const cancelOwnedAccountRequest = () => {
     if ((activePanel === 'account' || issuedAccountRef.current) && accountNeedsCancel(account, pendingAccountRef.current || issuedAccountRef.current)) {
@@ -300,7 +385,7 @@ export function ManagementDialog({ panel, snapshot, command, onClose, onNavigate
 
   const perform = async (name: string, payload?: Record<string, unknown>, success?: string): Promise<boolean> => {
     if (requestRef.current) return false
-    const accountRequest = name === 'account_connect' || name === 'account_delete'
+    const accountRequest = ['account_connect', 'account_connect_deepseek', 'account_select_provider', 'account_delete'].includes(name)
     requestRef.current = true; setBusy(true); setError(''); setMessage('')
     try {
       let response
@@ -310,8 +395,8 @@ export function ManagementDialog({ panel, snapshot, command, onClose, onNavigate
         accountRequestPromiseRef.current = response
       } else response = command(name, payload)
       const result = await response
-      if (!result.ok) { if (mountedRef.current) setError(result.error || '操作未完成，请检查当前状态后重试。'); return false }
-      if (mountedRef.current) setMessage(success || result.message || '')
+      if (!result.ok) { if (mountedRef.current) setError(safeAccountFeedback(result.error || '操作未完成，请检查当前状态后重试。', accountRequest ? payload : undefined)); return false }
+      if (mountedRef.current && name !== 'account_refresh_balance') setMessage(safeAccountFeedback(success || result.message || '', accountRequest ? payload : undefined))
       return true
     } catch {
       if (mountedRef.current) setError('未能完成这次操作，请检查助手连接后重试。')
@@ -329,19 +414,36 @@ export function ManagementDialog({ panel, snapshot, command, onClose, onNavigate
   }
   const overlayAction = async (action: 'edit' | 'bottom' | 'finish') => {
     if (!await saveSettings(false)) return
+    const monitor = action === 'finish' ? null : pendingOverlayMonitor(monitors, selectedMonitor)
+    if (monitor !== null && !await perform('overlay_move', { monitor })) return
     const applied = await perform('overlay_action', { action }, action === 'finish' ? '浮窗位置已保存。' : '浮窗设置已保存，可在游戏外的安全空闲时调整位置。')
     if (applied) setValues(current => overlayPreferencesAfterAction(current, action))
+  }
+  const moveOverlay = async () => {
+    if (!await saveSettings(false)) return
+    const applied = await perform('overlay_move', { monitor: Number(selectedMonitor) }, '字幕已移动到所选显示器并保存。')
+    if (applied) setValues(current => ({ ...current, overlay_enabled: true }))
   }
   const submitAccount = async (event: FormEvent) => {
     event.preventDefault()
     if (requestRef.current || account.busy || snapshot.isDemo || deleteAccount) return
-    if (!accessKeyId.trim() || !secret.trim()) { setError('请填写同一把 Key 的 ID 和 Secret。'); return }
-    const credentials = { accessKeyId: accessKeyId.trim(), accessKeySecret: secret.trim() }
-    setSecret('')
-    await perform('account_connect', credentials)
+    const prepared = prepareAccountConnection(selectedProvider, accessKeyId, secret, contextEnabled)
+    if ('error' in prepared) { setError(prepared.error); return }
+    setAccessKeyId(''); setSecret('')
+    await perform(prepared.name, prepared.payload)
+  }
+  const chooseProvider = (provider: TranslationProvider) => {
+    importRevision.current++
+    setSelectedProvider(provider); setAccessKeyId(''); setSecret(''); setDeleteAccount(false); setError(''); setMessage('')
+    setContextEnabled(accountProviderProfile(account, 'deepseek').contextEnabled ?? true)
+  }
+  const useSavedAccount = async () => {
+    if (requestRef.current || account.busy || snapshot.isDemo || deleteAccount || !selectedProvider || !selectedProfile?.configured) return
+    setAccessKeyId(''); setSecret('')
+    await perform('account_select_provider', selectedProvider === 'deepseek' ? { provider: selectedProvider, contextEnabled } : { provider: selectedProvider })
   }
   const importLegacy = async (file?: File) => {
-    if (!file || requestRef.current || account.busy || snapshot.isDemo) return
+    if (!file || requestRef.current || account.busy || snapshot.isDemo || selectedProvider !== 'aliyun') return
     if (file.size > 16384) { setError(legacyEnvError); return }
     const revision = ++importRevision.current
     requestRef.current = true; setBusy(true); setError(''); setMessage('')
@@ -369,6 +471,13 @@ export function ManagementDialog({ panel, snapshot, command, onClose, onNavigate
   }
   const number = (key: 'font_size' | 'overlay_font_size' | 'overlay_width' | 'overlay_timeout' | 'overlay_alpha', min: number, max: number, step = 1) =>
     <input type="number" value={Number.isFinite(values[key]) ? values[key] : ''} min={min} max={max} step={step} onChange={event => change(key, event.target.valueAsNumber)}/>
+  const quotaLabel = activeProvider === 'deepseek' ? '查询账户余额' : '查询免费额度 / 用量'
+  const quotaDisabled = accountBusy || snapshot.isDemo || (activeProvider === 'deepseek' && (!account.configured || account.balance?.busy))
+  const queryQuota = () => perform(activeProvider === 'deepseek' ? 'account_refresh_balance' : 'cloud_quota')
+  const openProviderPortal = (provider: TranslationProvider) => {
+    const portal = translationProviders.find(option => option.id === provider)!
+    return perform('account_open_provider_portal', { provider }, `已请求在默认浏览器打开${portal.portalName}。`)
+  }
 
   const settingsContent = () => {
     if (tab === 'appearance') return <>
@@ -381,7 +490,7 @@ export function ManagementDialog({ panel, snapshot, command, onClose, onNavigate
       <Checkbox checked={values.overlay_enabled} onChange={checked => change('overlay_enabled', checked)}>显示游戏内译文</Checkbox>
       <div className="mg-field-grid"><Field label="显示样式"><select value={values.overlay_style} onChange={event => change('overlay_style', event.target.value as DesktopPreferences['overlay_style'])}><option value="subtitle">透明字幕</option><option value="panel">半透明面板</option></select></Field><Field label="译文字号">{number('overlay_font_size', 10, 32)}</Field><Field label="浮窗宽度" help="280–900，随显示缩放适配。">{number('overlay_width', 280, 900)}</Field><Field label="停留时间（秒）">{number('overlay_timeout', 5, 120)}</Field><Field label="面板不透明度" help="0.35–1；用于半透明面板和位置调整。">{number('overlay_alpha', .35, 1, .05)}</Field></div>
       <Checkbox checked={values.overlay_original} onChange={checked => change('overlay_original', checked)}>同时显示原文</Checkbox>
-      <div className="mg-subsection"><h4>浮窗位置</h4><p className="mg-help">以下操作会先保存当前设置。</p><div className="mg-actions"><button type="button" onClick={() => void overlayAction('edit')}>保存并调整位置</button><button type="button" onClick={() => void overlayAction('bottom')}>保存并放到底部</button><button type="button" onClick={() => void overlayAction('finish')}>完成调整</button></div></div>
+      <div className="mg-subsection"><h4>浮窗位置</h4><p className="mg-help">以下操作会先保存当前设置。先选择字幕显示器，再调整位置；底部预设也使用所选屏幕。</p><OverlayMonitorControls monitors={monitors} selected={selectedMonitor} onChange={setSelectedMonitor} onMove={() => void moveOverlay()}/><div className="mg-actions"><button type="button" onClick={() => void overlayAction('edit')}>保存并调整位置</button><button type="button" onClick={() => void overlayAction('bottom')}>保存并放到底部</button><button type="button" onClick={() => void overlayAction('finish')}>完成调整</button></div></div>
     </>
     if (tab === 'hotkeys') return <>
       <div className="mg-section-heading"><h3>快捷键</h3><p>勾选后启用；与游戏或其他操作冲突时可重新设置。</p></div>
@@ -390,8 +499,9 @@ export function ManagementDialog({ panel, snapshot, command, onClose, onNavigate
     </>
     if (tab === 'connection') return <>
       <div className="mg-section-heading"><h3>翻译服务与游戏连接</h3><p>{snapshot.serviceState}</p></div>
-      <div className="mg-summary"><KeyRound size={22}/><div><strong>{account.configured ? '已保存个人翻译账户' : '尚未配置个人翻译账户'}</strong><p>{account.maskedKey || '未配置时仍可接收游戏原文。'}</p></div><button type="button" onClick={() => navigate('account')}>{account.configured ? '管理账户' : '配置账户'}</button></div>
-      <div className="mg-actions"><button type="button" onClick={() => void perform('cloud_quota')}>查询剩余额度</button></div>
+      <div className="mg-summary"><KeyRound size={22} aria-hidden="true"/><div><strong>{account.configured ? `当前服务：${providerNames[activeProvider]}` : '尚未连接翻译服务'}</strong><p>{account.configured ? account.maskedKey || '已保存个人翻译账户' : '选择并连接自己的服务前，仍可接收游戏原文。'}</p></div><button type="button" onClick={() => navigate('account')}>{account.configured ? '管理账户' : '配置账户'}</button></div>
+      {account.configured && <div className="mg-actions"><button type="button" disabled={quotaDisabled} onClick={() => void queryQuota()}>{activeProvider === 'deepseek' && account.balance?.busy && <LoaderCircle size={18} className="mg-spin" aria-hidden="true"/>}{activeProvider === 'deepseek' && account.balance?.busy ? '正在查询余额…' : quotaLabel}</button></div>}
+      {activeProvider === 'deepseek' && account.configured && <AccountBalance balance={account.balance}/>}
       <div className="mg-subsection"><h4>聊天采集</h4><p>{snapshot.captureState}</p><div className="mg-actions"><button type="button" onClick={() => void perform('capture_reconnect')}>重新连接</button><button type="button" onClick={() => void perform('capture_stop')}>停止采集</button><button type="button" onClick={() => void perform('capture_start')}>恢复采集</button></div></div>
       <div className="mg-subsection"><h4>游戏进程</h4><p className="mg-help">检测到多个进程时，请选择要接收聊天的那一个。</p><Field label="已发现的进程"><select value={selectedPid} disabled={!processes.length} onChange={event => setSelectedPid(event.target.value)}>{!processes.length && <option value="">尚未发现游戏进程</option>}{processes.map(process => <option key={process.pid} value={String(process.pid)}>{process.path?.split(/[\\/]/).pop() || '风暴英雄'} · PID {process.pid}{process.build ? ` · ${process.build}` : ''}</option>)}</select></Field><div className="mg-actions"><button type="button" onClick={() => void perform('capture_processes')}>刷新进程列表</button><button type="button" disabled={!selectedPid || !processes.some(process => String(process.pid) === selectedPid)} onClick={() => void perform('capture_select', { pid: Number(selectedPid) })}>使用所选进程</button></div></div>
     </>
@@ -429,15 +539,22 @@ export function ManagementDialog({ panel, snapshot, command, onClose, onNavigate
         </div><footer className="mg-footer mg-footer-wrap"><button data-initial-focus type="button" disabled={busy || !capabilities.check} onClick={() => void perform('update_check')}><RefreshCw size={18}/>检查更新</button><button type="button" disabled={busy || !capabilities.download} onClick={() => void perform('update_download')}><Download size={18}/>下载更新</button>{capabilities.cancel && <button type="button" disabled={busy} onClick={() => void perform('update_cancel')}>取消任务</button>}<button type="button" className="mg-primary" disabled={busy || !capabilities.install} onClick={() => void perform('update_install')}>重启并更新</button><p className="mg-help">下载后由你决定安装时机；个人密钥和设置保留。</p></footer>
       </>}
       {activePanel === 'account' && <form className="mg-form" onSubmit={event => void submitAccount(event)}>
-        <div className="mg-body"><div className="mg-section-heading"><h3>{account.configured ? '个人密钥已加密保存在本机' : '连接自己的阿里云翻译'}</h3><p>未配置也可接收原文；每位用户使用自己的账户。</p></div>
+        <div className="mg-body"><div className="mg-section-heading"><h3>选择自己的翻译服务</h3><p>个人密钥加密保存在本机；未配置也可接收游戏原文。</p></div>
           {snapshot.isDemo && <p className="mg-privacy">离线演示不连接或配置真实密钥。</p>}
-          {account.configured && <div className="mg-summary"><KeyRound size={22}/><div><strong>{account.maskedKey || '已保存的个人密钥'}</strong>{account.account && <p>账号：{account.account}</p>}</div></div>}
-          <fieldset disabled={accountBusy || snapshot.isDemo}><Field label="AccessKey ID"><input data-initial-focus autoComplete="off" spellCheck={false} value={accessKeyId} onChange={event => setAccessKeyId(event.target.value)}/></Field><Field label="AccessKey Secret" help="只用于本次连接，提交后清空此输入框；不会写入页面快照。"><input type="password" autoComplete="new-password" spellCheck={false} value={secret} onChange={event => setSecret(event.target.value)}/></Field></fieldset>
-          <Field label="导入本机旧 .env" help="主动选择自己的文件，最多 16 KiB；只在本次输入框填入，不会自动连接。"><input type="file" accept=".env" disabled={accountBusy || snapshot.isDemo} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; void importLegacy(file) }}/></Field>
+          <div className="mg-summary"><KeyRound size={22} aria-hidden="true"/><div><strong>{account.configured ? `当前服务：${providerNames[activeProvider]}` : '尚未连接翻译服务'}</strong><p>{account.configured ? account.maskedKey || '已保存个人密钥' : '选择并连接自己的服务后启用翻译，也可先看游戏原文。'}</p>{account.configured && account.account && <p>账号：{account.account}</p>}</div></div>
+          <fieldset disabled={accountBusy || snapshot.isDemo}>
+            <ProviderChoices account={account} selected={selectedProvider} onChange={chooseProvider} onOpenPortal={provider => void openProviderPortal(provider)} disabled={accountBusy || snapshot.isDemo}/>
+            {selectedProvider === 'deepseek' && <div className="mg-context-option"><Checkbox checked={contextEnabled} onChange={setContextEnabled}>发送同会话最近 3 条原文</Checkbox><p className="mg-help">只发送相关会话的最近原文，帮助理解语境；DeepSeek 使用非思考模式翻译。</p></div>}
+            {selectedProfile?.configured && <div className="mg-summary mg-saved-account"><div><strong>{selectedProfile.maskedKey || '此服务已保存个人账户'}</strong><p>{selectedProvider === activeProvider && account.configured ? '当前正在使用此账户。' : '此账户已保存在本机，可直接切换使用。'}</p></div><button type="button" disabled={deleteAccount} onClick={() => void useSavedAccount()}>{selectedProvider === 'deepseek' && selectedProvider === activeProvider && contextEnabled !== (selectedProfile.contextEnabled ?? true) ? '保存上下文设置' : '使用已保存账户'}</button></div>}
+            {selectedProvider === 'aliyun' && <><Field label="AccessKey ID"><input autoComplete="off" spellCheck={false} value={accessKeyId} onChange={event => setAccessKeyId(event.target.value)}/></Field><Field label="AccessKey Secret" help="提交后清空输入；不会回填已保存的密钥。"><input type="password" autoComplete="new-password" spellCheck={false} value={secret} onChange={event => setSecret(event.target.value)}/></Field><Field label="导入本机旧 .env" help="主动选择自己的文件，最多 16 KiB；只在本次输入框填入，不会自动连接。"><input type="file" accept=".env" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; void importLegacy(file) }}/></Field></>}
+            {selectedProvider === 'deepseek' && <Field label="DeepSeek API Key" help="输入自己的 API Key；提交后清空输入，不会回填已保存的密钥。"><input type="password" autoComplete="new-password" spellCheck={false} value={secret} onChange={event => setSecret(event.target.value)}/></Field>}
+          </fieldset>
+          {account.configured && <div className="mg-actions"><button type="button" disabled={quotaDisabled} onClick={() => void queryQuota()}>{activeProvider === 'deepseek' && account.balance?.busy && <LoaderCircle size={18} className="mg-spin" aria-hidden="true"/>}{activeProvider === 'deepseek' && account.balance?.busy ? '正在查询余额…' : quotaLabel}</button></div>}
+          {activeProvider === 'deepseek' && account.configured && <AccountBalance balance={account.balance}/>}
           {account.message && <p className={account.state === 'error' ? 'mg-inline-error' : 'mg-help'} role={account.state === 'error' ? 'alert' : 'status'}>{account.message}</p>}
           {accountBusy && <p className="mg-help">关闭会取消尚未完成的操作；已经完成的保存或删除保持当前结果。</p>}
-          {deleteAccount ? <div className="mg-confirm"><strong>删除本机已保存的密钥并关闭云翻译？</strong><p>原有聊天与短句仍保留。</p><div className="mg-actions"><button type="button" disabled={accountBusy} onClick={() => setDeleteAccount(false)}>保留密钥</button><button className="mg-danger" type="button" disabled={accountBusy} onClick={async () => { setSecret(''); if (await perform('account_delete')) { setAccessKeyId(''); setDeleteAccount(false) } }}>确认删除密钥</button></div></div> : account.configured && <button type="button" className="mg-text-danger" disabled={accountBusy || snapshot.isDemo} onClick={() => setDeleteAccount(true)}><Trash2 size={17}/>删除本机密钥</button>}
-        </div><footer className="mg-footer"><button type="button" onClick={() => navigate('settings')} disabled={busy}>返回设置</button><button type="button" onClick={close}>关闭</button><button className="mg-primary" type="submit" disabled={accountBusy || snapshot.isDemo || deleteAccount || !accessKeyId.trim() || !secret.trim()}>{accountBusy ? <LoaderCircle size={18} className="mg-spin"/> : <KeyRound size={18}/>}连接并开始使用</button></footer>
+          {deleteAccount ? <div className="mg-confirm"><strong>删除当前 {providerNames[activeProvider]} 的本机密钥？</strong><p>原有聊天、短句和其他服务账户仍保留。</p><div className="mg-actions"><button type="button" disabled={accountBusy} onClick={() => setDeleteAccount(false)}>保留密钥</button><button className="mg-danger" type="button" disabled={accountBusy} onClick={async () => { setSecret(''); if (await perform('account_delete')) { setAccessKeyId(''); setDeleteAccount(false) } }}>确认删除当前账户</button></div></div> : account.configured && <button type="button" className="mg-text-danger" disabled={accountBusy || snapshot.isDemo} onClick={() => setDeleteAccount(true)}><Trash2 size={17} aria-hidden="true"/>删除当前 {providerNames[activeProvider]} 账户</button>}
+        </div><footer className="mg-footer"><button type="button" onClick={() => navigate('settings')} disabled={busy}>返回设置</button><button type="button" onClick={close}>{hasSavedProfile ? '关闭' : '暂时跳过，先看原文'}</button>{selectedProvider && <button className="mg-primary" type="submit" disabled={accountBusy || snapshot.isDemo || deleteAccount || (selectedProvider === 'aliyun' && !accessKeyId.trim()) || !secret.trim()}>{accountBusy ? <LoaderCircle size={18} className="mg-spin" aria-hidden="true"/> : <KeyRound size={18} aria-hidden="true"/>}连接并开始使用</button>}</footer>
       </form>}
       {activePanel === 'phrase' && <form className="mg-form" onSubmit={event => void savePhrase(event)}>
         <div className="mg-body"><fieldset disabled={busy}><div className="mg-section-heading"><h3>整理一句常用表达</h3><p>这里只管理短句；保存不会自动发送游戏消息。</p></div><div className="mg-field-grid"><Field label="分类"><select value={editedPhrase.category} onChange={event => setEditedPhrase(current => ({ ...current, category: event.target.value }))}>{categories.map(category => <option key={category}>{category}</option>)}</select></Field><Checkbox checked={editedPhrase.favorite} onChange={favorite => setEditedPhrase(current => ({ ...current, favorite }))}>加入收藏，方便快速找到</Checkbox></div>

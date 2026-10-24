@@ -10,7 +10,7 @@ import math
 import tkinter as tk
 
 from .layout import DisplayMetrics
-from .window_settings import screen_bounds
+from .window_settings import screen_bounds, work_area_at
 
 
 _API_ERRORS = (AttributeError, OSError, TypeError, ValueError, ctypes.ArgumentError)
@@ -163,6 +163,12 @@ class TkDisplayRuntime:
         self._dpi = None
         self._work_area = None
 
+    def work_areas(self):
+        try:
+            return [valid for area in self._work_areas() if (valid:=_valid_work_area(area)) is not None]
+        except _API_ERRORS + (tk.TclError,):
+            return [self._work_area] if self._work_area is not None else []
+
     def _refresh_fonts(self):
         # Tk版本/平台对scaling变更后的命名字体缓存失效行为不同。
         # 重设原始字号使所有现有控件重算像素度量，点值与负像素值均不乘DPI。
@@ -188,8 +194,12 @@ class TkDisplayRuntime:
             self._refresh_fonts()
             self._dpi = dpi
         try:
-            areas = self._work_areas()
-            area = _valid_work_area(areas[0]) if areas else None
+            areas = self.work_areas()
+            try:
+                x,y=self.root.winfo_x(),self.root.winfo_y()
+                area=work_area_at(areas,x,y)
+            except (AttributeError,tk.TclError):
+                area=areas[0] if areas else None
         except _API_ERRORS + (IndexError, tk.TclError):
             area = None
         if area is None:

@@ -107,7 +107,14 @@ def _field_name(class_name, field_name):
     return 'action_token' if (class_name, field_name) == ('DispatchAction', 'token') else field_name
 
 
-_LEGACY_FIELD_DEFAULTS = {'HitSnapshot': {'quest_progress': None, 'quest_state': ''}}
+_LEGACY_FIELD_DEFAULTS = {
+    'HitSnapshot': {'quest_progress': None, 'quest_state': '', 'hero_id': ''},
+    'StatHitSnapshot': {'hero_id': ''},
+    'QuestHitSnapshot': {'hero_id': ''},
+    'CooldownHitSnapshot': {'hero_id': ''},
+    'TalentBroadcastConfig': {'language': 'zh'},
+    'DispatchAction': {'language': 'zh'},
+}
 
 
 def _data_fields(kind, data, cls):
@@ -119,7 +126,7 @@ def _data_fields(kind, data, cls):
 
 
 def _normalize_legacy_fields(value, depth=0):
-    """Only restore the two documented absent quest defaults, including expectations.
+    """Restore documented legacy quest/identity/language defaults, including expectations.
 
     This structural migration never changes recorded messages or behavior results.
     In particular an older talent message can still mismatch the new formatter.

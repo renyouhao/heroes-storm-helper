@@ -1,6 +1,7 @@
 import tkinter as tk
 from pathlib import Path
 import sys
+import uuid
 import webbrowser
 from tkinter import ttk,messagebox,simpledialog,font as tkfont
 from .. import APP_NAME,DISPLAY_VERSION
@@ -175,9 +176,10 @@ class MainWindow:
         self.notebook.add(self.talent_panel,text='天赋辅助')
         self.board_helper=BoardHelper(busy_provider=self._other_input_busy,
             input_locks=(self.talent_helper._dispatch,self.repeat_helper._dispatch),
-            diagnostics=getattr(controller,'diagnostics',None))
+            diagnostics=getattr(controller,'diagnostics',None),language=self.settings.board_output_language)
         self.board_panel=BoardPanel(self.notebook,settings=self.settings,metrics=initial_metrics,
-                                    on_toggle=self.apply_board_config,on_retry=self.retry_board)
+                                    on_toggle=self.apply_board_config,on_retry=self.retry_board,
+                                    on_language=self.apply_board_language)
         self.notebook.add(self.board_panel,text='双击播报')
         self.reply_panel=RoundedPanel(workspace,settings=self.settings,padding=12,fit_height=True,radius=16)
         self.reply_panel.grid(row=4,column=0,sticky='ew',padx=(10,20),pady=(0,5))
@@ -238,8 +240,17 @@ class MainWindow:
         self.screen_ticks=0;self.monitor_bounds=[]
         from .overlay_window import OverlayWindow
         from .quick_input import QuickInput
-        self.settings.recover_overlay([initial_metrics.work_area],scale=initial_metrics.scale)
-        self.overlay=OverlayWindow(root,self.settings,metrics=initial_metrics)
+        saved_overlay_monitor=self.settings.overlay_monitor
+        self.settings.recover_overlay(self._overlay_work_areas(),scale=initial_metrics.scale)
+        from ..display_runtime import TkDisplayRuntime,window_dpi
+        self.overlay=OverlayWindow(root,self.settings,metrics=initial_metrics,
+            work_areas=self._overlay_work_areas,
+            dpi_reader=window_dpi if isinstance(self.display,TkDisplayRuntime) else None,
+            diagnostics=getattr(controller,'diagnostics',None),
+            on_position_changed=self._save_overlay_position)
+        if saved_overlay_monitor is not None and saved_overlay_monitor!=self.settings.overlay_monitor:
+            self.overlay._trace_monitor('recovered',reason='monitor_unavailable',
+                count=len(self._overlay_work_areas()))
         from .helper_notice import HelperNotice
         self.helper_notice=HelperNotice(root,self.settings,metrics=initial_metrics)
         self.quick_input=QuickInput(root,controller,self.settings,self.quick_target_changed,
@@ -384,6 +395,55 @@ class MainWindow:
 
     def retry_talent(self):
         self._retry_helper('talent')
+
+    def apply_board_language(self,language):
+        request_ref=uuid.uuid4().hex
+        recorder=getattr(getattr(self,'controller',None),'diagnostics',None)
+        def trace(outcome,reason):
+            if recorder is None:return
+            try:
+                recorder.record('ui.apply',source='broadcast',operation='language',stage='configuration',
+                    outcome=outcome,reason=reason,request_ref=request_ref,
+                    target_language=language if language in ('zh','en') else '')
+            except Exception:pass
+        trace('started','language_change')
+        if language not in ('zh','en'):
+            trace('rejected','unsupported_language')
+            raise ValueError('播报语言只能选择中文或 English。')
+        if getattr(self,'_update_installing',False):
+            trace('rejected','update_in_progress')
+            raise ValueError('正在准备升级，请等待助手重启。')
+        previous=self.settings.board_output_language
+        if previous==language:
+            trace('unchanged','already_selected')
+            return True
+        self.settings.board_output_language=language
+        try:self.save_settings()
+        except OSError:
+            self.settings.board_output_language=previous
+            trace('error','save_failed')
+            trace('recovered','previous_language_retained')
+            raise OSError('播报语言未保存，已保留原语言；请稍后重试。') from None
+        trace('saved','language_saved')
+        try:
+            if self.board_helper.set_language(language,request_ref=request_ref) is False:raise ValueError('language rejected')
+        except Exception:
+            self.settings.board_output_language=previous
+            trace('error','apply_failed')
+            restored=True
+            try:
+                if self.board_helper.set_language(previous,request_ref=request_ref) is False:restored=False
+            except Exception:restored=False
+            try:self.save_settings()
+            except OSError:
+                restored=False
+                trace('error','rollback_save_failed')
+            trace('recovered' if restored else 'error',
+                  'previous_language_restored' if restored else 'rollback_incomplete')
+            raise OSError('播报语言切换未完成，请核对当前语言后重试。') from None
+        self.board_panel.apply_settings(self.settings,self._layout_metrics)
+        trace('applied','language_ready')
+        return True
 
     def retry_board(self):
         self._retry_helper('board')
@@ -743,6 +803,21 @@ class MainWindow:
         if self.display is not None:return self.display.refresh()
         return display_metrics(self.root,screen_bounds())
 
+    def _overlay_work_areas(self):
+        if self.display is not None:
+            reader=getattr(self.display,'work_areas',None)
+            if callable(reader):
+                areas=reader()
+                if areas:return areas
+            return [self._layout_metrics.work_area]
+        return screen_bounds()
+
+    def _save_overlay_position(self):
+        try:self.save_settings()
+        except OSError:
+            self.status_var.set('字幕位置暂未保存，请检查偏好文件后重试。')
+            raise
+
     def _finish_layout(self):
         self._layout_guard_timer=None
         self._applying_layout=False
@@ -901,19 +976,34 @@ class MainWindow:
             kind=event['kind']
             if kind in ('progress','error') and isinstance(event.get('message'),str):
                 self._desktop_account_message=event['message'][:1200]
-            elif kind in ('ready','removed','cancelled','identified'):
+            elif kind in ('ready','removed','cancelled','identified','selected'):
                 self._desktop_account_message={
                     'ready':'配置成功，翻译已启用。',
                     'removed':'个人密钥已删除；继续接收原文。',
                     'cancelled':'本次配置已取消；已保存的个人密钥保持不变。',
                     'identified':'账号已验证，正在继续测试翻译并保存…',
+                    'selected':'已切换翻译服务，请配置当前服务的个人密钥。',
                 }[kind]
-            if event['kind'] in ('ready','removed'):
+            if event['kind'] in ('ready','removed','selected'):
                 self.clear_draft();self.quick_input.cancel()
                 self.enable_configured_cloud()
                 self.account_button.configure(text='个人密钥' if self.controller.cloud_configured else '配置云翻译')
             if self.credential_dialog is not None:self.credential_dialog.handle(event)
             if event['kind']=='error':self.status_var.set(event['message'])
+        balance_method=getattr(service,'balance_snapshot',None)
+        if callable(balance_method):
+            balance=balance_method()
+            state=(balance.get('busy'),balance.get('as_of'),balance.get('error'))
+            if state!=getattr(self,'_last_balance_state',None):
+                self._last_balance_state=state
+                if balance.get('error'):
+                    self.status_var.set(balance['error'])
+                elif balance.get('as_of') and not balance.get('busy'):
+                    amounts='；'.join(f"{row['currency']} 总余额 {row['total_balance']}" for row in balance.get('balance_infos',[]))
+                    availability=' · 账户当前不可用' if balance.get('is_available') is False else ''
+                    self.status_var.set('DeepSeek：'+(amounts or '未返回余额明细')+availability)
+            dialog=getattr(self,'credential_dialog',None)
+            if dialog is not None:dialog._show_balance()
         if events:self.refresh_service_status()
 
     def save_settings(self):
@@ -935,20 +1025,32 @@ class MainWindow:
 
     def refresh_service_status(self):
         configured=getattr(self.controller,'cloud_configured',False)
+        provider=getattr(getattr(self.controller,'account_setup',None),'selected_provider','aliyun')
+        name='DeepSeek' if provider=='deepseek' else '阿里云机器翻译'
         if getattr(self.controller,'configuration_held',False):
-            text='翻译服务：配置处理中 · 云请求暂停'
+            text=name+'：配置处理中 · 云请求暂停'
         elif not configured:text='翻译服务：未配置 · 接收原文'
-        elif getattr(self.controller,'paused',False):text='翻译服务：已暂停 · 接收原文'
-        else:text='翻译服务：已启用 · '+('自动翻译开启' if self.automatic.get() else '自动翻译暂停')
+        elif getattr(self.controller,'paused',False):text=name+'：已暂停 · 接收原文'
+        else:text=name+'：已启用 · '+('自动翻译开启' if self.automatic.get() else '自动翻译暂停')
         if text!=getattr(self,'_service_text',None):
             self.service_label.configure(text=text)
             self._service_text=text
             if hasattr(self,'cloud_badge'):
-                self.cloud_badge.configure(text=('● 翻译服务已启用' if configured and not getattr(self.controller,'paused',False)
+                self.cloud_badge.configure(text=('● '+name+'已启用' if configured and not getattr(self.controller,'paused',False)
                                                  and not getattr(self.controller,'configuration_held',False)
-                                                 else '翻译服务未配置' if not configured else '翻译服务已暂停'))
+                                                 else '翻译服务未配置' if not configured else name+'已暂停'))
+            if hasattr(self,'quota_button'):
+                self.quota_button.configure(text='查询账户余额' if provider=='deepseek' else '查询剩余额度')
 
     def open_cloud_quota(self):
+        service=getattr(self.controller,'account_setup',None)
+        if getattr(service,'selected_provider','aliyun')=='deepseek':
+            started=service.refresh_balance()
+            if started or service.balance_snapshot().get('busy'):
+                self.status_var.set('正在后台查询 DeepSeek 账户余额…')
+                return True
+            self.status_var.set('余额查询未启动，请先连接当前 DeepSeek 账户并结束配置任务。')
+            return False
         url='https://mt.console.aliyun.com/service'
         try:
             opened=webbrowser.open(url)
@@ -1001,7 +1103,11 @@ class MainWindow:
         m=self.vm.messages[selected[0]]; e=m.event
         context=(' / '.join(item.text for item in self.controller.context.recent())
                  if e.generation==self.controller.generation else '历史连接消息，不显示当前对局上下文。')
-        self.set_text(self.detail,f'{e.timestamp} [{e.channel}] {e.sender}\n原文：{m.original}\n中文译文：{m.engine_translation}\n本机最近三条（不上传）：'+context)
+        engine=getattr(self.controller,'engine',None)
+        context_note=('本机最近消息（实际请求仅取同会话前3条，且可在账户中关闭）'
+                      if getattr(engine,'provider_id',None)=='deepseek' and getattr(engine,'context_enabled',False)
+                      else '本机最近三条（不上传）')
+        self.set_text(self.detail,f'{e.timestamp} [{e.channel}] {e.sender}\n原文：{m.original}\n中文译文：{m.engine_translation}\n{context_note}：'+context)
 
     def pump(self):
         if self.closed:return
@@ -1042,6 +1148,8 @@ class MainWindow:
             metrics=self._read_display_metrics()
             if metrics!=self._layout_metrics:
                 self.apply_settings(layout_only=True,metrics=metrics)
+            refresh=getattr(self.overlay,'refresh_layout',None)
+            if callable(refresh):refresh()
         events=self.controller.drain_events()
         changed=False
         for event in events:

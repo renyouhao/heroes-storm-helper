@@ -189,6 +189,16 @@ class SettingsDialog:
             self._number(section, parent, name, label, unit)
         self._note(section, '面板不透明度用于半透明面板和位置校准，不会淡化透明字幕的文字。完整内容可在主窗口查看。')
         section = self._section(parent, '位置校准')
+        choices=getattr(getattr(self.window,'overlay',None),'monitor_choices',lambda:[])()
+        if choices:
+            self._monitor_choices=choices
+            labels=[f"{choice['label']} · {choice['width']} × {choice['height']}" for choice in choices]
+            current=next((index for index,choice in enumerate(choices) if choice['selected']),0)
+            ttk.Label(section,text='字幕显示器').pack(anchor='w')
+            self.monitor_choice=ttk.Combobox(section,values=labels,state='readonly')
+            self.monitor_choice.current(current)
+            self.monitor_choice.pack(fill='x',pady=self._px(4))
+            ttk.Button(section,text='移动到所选屏幕',command=self.move_overlay).pack(fill='x',pady=self._px(4))
         ttk.Button(section, text='保存并使用底部字幕布局', command=self.use_bottom_preset).pack(fill='x', pady=self._px(4))
         ttk.Button(section, text='保存并调整浮窗位置', command=self.edit_overlay).pack(fill='x', pady=self._px(4))
         self._note(section, '进入调整后拖动浮窗，再点击“完成调整”。')
@@ -223,12 +233,12 @@ class SettingsDialog:
             ttk.Label(row, text=description, style='Muted.TLabel').pack(side='left')
 
     def _connection(self, parent):
-        section = self._section(parent, '翻译服务', '配置个人密钥后即可翻译；未配置时继续接收原文。')
+        section = self._section(parent, '翻译服务与账户', '选择阿里云机器翻译或 DeepSeek；未配置时继续接收原文。')
         if hasattr(self.window.controller, 'account_setup'):
-            ttk.Button(section, text='个人阿里云密钥', command=self.window.configure_account).pack(fill='x', pady=self._px(4))
-            self._note(section, '配置、替换或删除自己的阿里云密钥。')
-        ttk.Button(section, text='查询剩余额度', command=self.window.open_cloud_quota).pack(fill='x', pady=self._px(4))
-        self._note(section, '在默认浏览器打开阿里云控制台，登录后查看剩余额度与实际用量。')
+            ttk.Button(section, text='选择服务 / 配置个人密钥', command=self.window.configure_account).pack(fill='x', pady=self._px(4))
+            self._note(section, '两家账户分别加密保存；切换服务、修改 DeepSeek 上下文开关或删除当前账户。')
+        ttk.Button(section, text='查询当前服务额度 / 余额', command=self.window.open_cloud_quota).pack(fill='x', pady=self._px(4))
+        self._note(section, 'DeepSeek 在后台查询账户余额；阿里云在默认浏览器打开控制台，登录后查看免费字符额度与用量。')
         section = self._section(parent, '采集连接', '启动后自动接入，换局会自动恢复。以下操作立即生效。')
         for label, command in (
                 ('手动重新连接', self.window.controller.source.reconnect),
@@ -288,13 +298,31 @@ class SettingsDialog:
 
     def edit_overlay(self):
         self.values['overlay_enabled'].set(True)
-        if not self.save():
+        if not self.save(before_apply=self._apply_selected_monitor):
             return
         self.window.overlay.set_editing(True)
 
+    def _apply_selected_monitor(self):
+        if not hasattr(self,'monitor_choice'):return
+        index=self.monitor_choice.current()
+        if not 0<=index<len(self._monitor_choices):return
+        selected=self._monitor_choices[index]
+        if not selected['selected']:
+            self.window.overlay.move_to_monitor(selected['id'])
+
+    def move_overlay(self):
+        index=self.monitor_choice.current()
+        if not 0<=index<len(self._monitor_choices):return
+        self.values['overlay_enabled'].set(True)
+        if self.save(before_apply=lambda:self.window.overlay.move_to_monitor(self._monitor_choices[index]['id'])):
+            self.window.overlay.set_editing(True)
+
     def use_chat_preset(self):
         self.values['overlay_enabled'].set(True)
-        if not self.save(before_apply=self.window.overlay.use_chat_preset):
+        def place():
+            self._apply_selected_monitor()
+            self.window.overlay.use_chat_preset()
+        if not self.save(before_apply=place):
             return
         self.window.overlay.set_editing(True)
         self.window.quick_input.refresh_layout(self.window._layout_metrics, force=True)
@@ -302,7 +330,10 @@ class SettingsDialog:
     def use_bottom_preset(self):
         self.values['overlay_enabled'].set(True)
         self.values['overlay_style'].set('subtitle')
-        if not self.save(before_apply=self.window.overlay.use_bottom_preset):
+        def place():
+            self._apply_selected_monitor()
+            self.window.overlay.use_bottom_preset()
+        if not self.save(before_apply=place):
             return
         self.window.quick_input.refresh_layout(self.window._layout_metrics, force=True)
 
@@ -365,6 +396,13 @@ class SettingsDialog:
                 for key, value in previous.items():
                     setattr(self.window.settings, key, deepcopy(value))
 
+            monitor_request=getattr(getattr(self.window,'overlay',None),'_monitor_request',None)
+            def trace_monitor(outcome,reason):
+                overlay=getattr(self.window,'overlay',None)
+                if getattr(overlay,'_monitor_request',None)!=monitor_request:
+                    trace=getattr(overlay,'_trace_monitor',None)
+                    if callable(trace):trace(outcome,reason=reason)
+
             try:
                 for key, value in values.items():
                     setattr(self.window.settings, key, value)
@@ -372,7 +410,9 @@ class SettingsDialog:
                     before_apply()
                 self.window.apply_settings()
                 self.window.save_settings()
-            except (ValueError, OSError):
+                trace_monitor('saved','position_saved')
+            except (ValueError, OSError, tk.TclError):
+                trace_monitor('error','save_failed')
                 restore()
                 try:
                     self.window.apply_settings()
@@ -383,10 +423,11 @@ class SettingsDialog:
                     finally:
                         # 重新应用布局仍可能调整字段，事务失败必须保留原值。
                         restore()
+                        trace_monitor('recovered','settings_rollback')
                 raise
             self.dialog.destroy()
             return True
-        except (ValueError, OSError) as failure:
+        except (ValueError, OSError, tk.TclError) as failure:
             if invalid_key is not None and invalid_key in getattr(self, '_entries', {}):
                 self.notebook.select(self._value_pages[invalid_key])
                 self._entries[invalid_key].focus_set()

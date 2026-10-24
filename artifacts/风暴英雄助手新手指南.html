@@ -46,37 +46,59 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
   <div class="layout">
     <aside class="toc no-print" aria-label="目录">
       <h2 class="toc-title">按顺序来</h2>
-      <nav aria-label="指南章节"><a href="#start">先看这一页</a><a href="#prepare">01 · 先准备好</a><a href="#service">02 · 开通翻译服务</a><a href="#key">03 · 申请自己的 Key</a><a href="#permission">04 · 给它翻译权限</a><a href="#connect">05 · 把 Key 填进助手</a><a href="#translate">06 · 看译文、发消息</a><a href="#overlay-preview">06B · 悬浮窗 A/B 预览</a><a href="#repeat">07 · F8 连按怎么用</a><a href="#talent">07B · 自动选天赋</a><a href="#broadcast">07C · Tab 双击播报</a><a href="#updates">07D · 检查更新</a><a href="#loot">08 · 连续开箱怎么用</a><a href="#settings">09 · 常用设置</a><a href="#faq">10 · 有问题先看这里</a><a href="#quota">11 · 费用和 Key 保管</a><a href="#quick">一页速查</a><a href="#sources">官方入口与说明</a></nav>
+      <nav aria-label="指南章节"><a href="#start">先看这一页</a><a href="#prepare">01 · 先选翻译服务</a><a href="#service">02 · 两条准备路线</a><a href="#deepseek-route">DeepSeek · 一个 API Key</a><a href="#aliyun-route">阿里云 · 开通通用版</a><a href="#key">03 · 阿里云申请 Key</a><a href="#permission">04 · 阿里云添加权限</a><a href="#connect">05 · 连接、切换账户</a><a href="#translate">06 · 看译文、发消息</a><a href="#overlay-preview">06B · 悬浮窗 A/B 预览</a><a href="#repeat">07 · F8 连按怎么用</a><a href="#talent">07B · 自动选天赋</a><a href="#broadcast">07C · Tab 双击播报</a><a href="#updates">07D · 检查更新</a><a href="#loot">08 · 连续开箱怎么用</a><a href="#settings">09 · 常用设置</a><a href="#faq">10 · 有问题先看这里</a><a href="#quota">11 · 费用和 Key 保管</a><a href="#quick">一页速查</a><a href="#sources">官方入口与说明</a></nav>
     </aside>
     <main class="content" id="reportContent">
 <header class="hero" id="start">
-  <p class="eyebrow">第一次使用也能照着做 · v2.1 使用说明（程序 2.1.0）</p>
-  <h1 data-review-id="beginner:title">风暴英雄助手<br><span class="marker">从申请 Key 到上手使用</span></h1>
-  <p class="lead">你只要做三件事：在阿里云准备好自己的翻译 Key，填进助手，再回到游戏里使用。下面按顺序来，不需要会写代码。</p>
-  <div class="meta"><span>文档修订：2026-10-24</span><span>阿里云官网核对：2026-10-21</span><span>面向：Windows 上第一次使用助手的玩家</span></div>
-  <div class="route" aria-label="入门顺序"><span>① 开通服务、申请 Key</span><b>→</b><span>② 填 Key，一键连接</span><b>→</b><span>③ 回游戏看译文</span></div>
-  <p class="small">已经有能用的阿里云机器翻译 Key？直接看<a href="#connect">第 05 节</a>。只想先体验开箱或连按？它们不需要翻译 Key，可先跳过云翻译配置。</p>
+  <p class="eyebrow">第一次使用也能照着做 · 本次源码／新构建使用说明</p>
+  <h1 data-review-id="beginner:title">风暴英雄助手<br><span class="marker">先选翻译服务，再填自己的 Key</span></h1>
+  <p class="lead">先在助手里选择 DeepSeek 或阿里云，再按对应路线准备个人密钥。连接成功后，就能看英文、韩文的中文译文，并用中文回复。不需要会写代码，也不必同时开通两家服务。</p>
+  <div class="meta"><span>文档修订：2026-10-24</span><span>DeepSeek 官方文档核对：2026-10-24</span><span>面向：Windows 新用户及已有阿里云账户的玩家</span></div>
+  <div class="route" aria-label="入门顺序"><span>① 先选一家翻译服务</span><b>→</b><span>② 准备对应 Key 并连接</span><b>→</b><span>③ 回游戏看译文</span></div>
+  <p class="small">已有可用的个人账户？直接看<a href="#connect">第 05 节：连接与切换</a>。也可以先关闭账户页，继续看聊天原文、使用开箱或连按，之后再配置翻译。</p>
+  <div class="callout" data-review-id="beginner:dual-provider-scope"><strong>先确认你用的构建。</strong>本页新增的双服务选择、DeepSeek 翻译与余额查询，适用于包含本次改动的源码或新构建。<strong>目前公开的 v2.3 包还没有 DeepSeek</strong>；更新这份指南不会改变已下载的 EXE，也不表示已发布包含新功能的安装包。版本、附件和校验值仍以实际 Release 为准。</div>
 <p class="small" data-review-id="beginner:release-history">版本说明：v1.1 仅为源码准备标签，没有公开发布 Release。此前 v1.2 发布准备时，GitHub 截去了中文附件名中的中文部分，因此保留原标签，修复发布资产命名约定后改发 v1.2。ZIP 附件统一使用 ASCII 名称，包内目录与“风暴英雄助手.exe”继续使用中文。公开 v1.2 使用《风暴英雄》图标；v2.0 将 EXE、任务栏及窗口标题统一为紫色六角旋涡标志。</p>
-<p class="small" data-review-id="beginner:prerelease">当前源码目标为 <strong>v2.1</strong>，程序版本 <strong>2.1.0</strong>，发行通道配置为 <code>stable</code>；对应包名为 <code>HotsHelper-2.1.0-Windows-x64.zip</code>，实际发布附件与校验值以 Release 为准。主界面采用 React + WebView2，统一柔雾紫单主题和紫色图标，保留 B 方案悬浮窗布局与操作；旧密钥、语言资料、窗口位置和快捷键沿用原用户目录。</p>
+<p class="small" data-review-id="beginner:prerelease">既有桌面界面说明：主界面采用 React + WebView2，沿用柔雾紫单主题、紫色图标及 B 方案悬浮窗布局。升级后，旧阿里云密钥、语言资料、窗口位置和快捷键继续使用原用户目录；<strong>已有阿里云账户不会被自动换成 DeepSeek</strong>。本指南对应 v2.4（2.4.0）源码与本地正式构建；公开下载仍以实际 Release 为准。</p>
 <p class="small" data-review-id="beginner:v21-changes">v2.1 更新：偏好设置、账户、更新与短句编辑共用一个 React 页内弹层，主窗口字号和置顶作用于实际界面；状态、更新提示点和发布说明排版更清楚。原生 Ctrl+T 提供本地短句候选，改进有效译文复制与失败后输入恢复，并将同一 R 天赋与 CD 覆盖层归并为一个命中目标。</p>
 <p class="small" data-review-id="beginner:decoder-scope">build 98348 的模型解码覆盖 <strong>0–15 全部 16 分支</strong>，每个分支核对计算代码指纹；其中 2、5、8、11、14 另读取游戏运行时的动态 salt。16 个算法已完成合成读取与独立原生指令对照；朋友机器并未逐个实测全部分支，英文、2K和不同对局仍需现场验收。日志默认关闭，开启后统一录制原文、译文及复现数据，总上限 100 MiB。</p>
 </header>
 
-<section class="section" id="prepare"><h2>01 · 先准备好这几样</h2>
+<section class="section" id="prepare"><h2>01 · 安装后，先选自己的翻译服务</h2>
 <article class="card" data-review-id="beginner:prepare"><ol class="steps">
-<li><strong>一台 Windows 64 位电脑，以及完整的助手压缩包。</strong>从<a href="https://github.com/renyouhao/heroes-storm-helper/releases">官方发行页查看已发布附件</a>；本轮 v2.1 的目标文件为 HotsHelper-2.1.0-Windows-x64.zip，可下载版本和附件以实际 Release 为准。下载后解压到一个普通文件夹里，再打开里面的“风暴英雄助手.exe”。整个文件夹都要保留，不要只把 exe 单独拖出来；不用另外安装 Python 或 SDK。助手会自动创建自己的配置目录，不用拷贝 AppData。更新时先正常退出旧助手，再启动新文件夹里的程序。</li>
-<li><strong>自己的阿里云账号。</strong>浏览器打开<a href="https://www.aliyun.com/">阿里云官网</a>，注册或登录。网页如果要求身份认证，按它的提示完成。申请和开通服务都由你在官网操作。</li>
+<li><strong>一台 Windows 64 位电脑，以及完整的助手文件夹。</strong>从<a href="https://github.com/renyouhao/heroes-storm-helper/releases">官方发行页查看已发布附件</a>，确认版本是否包含你要用的功能。完整解压后打开“风暴英雄助手.exe”，保留整个文件夹。发行包无需另外安装 Python 或 SDK；使用本次源码时按项目安装步骤准备环境。更新前先正常退出旧助手，个人配置沿用原用户目录。</li>
+<li><strong>先选一家服务，再准备它的个人账户。</strong>打开助手的<strong>个人翻译账户</strong>页。首次没有任何已保存账户时，会先显示两张服务卡片，<strong>不替你预选</strong>。点 DeepSeek 后准备一个 API Key；点阿里云后准备 AccessKey ID 和 Secret。选择卡片只是切换表单，连接验证成功后才启用翻译。</li>
 <li><strong>能上网的网络和《风暴英雄》。</strong>云翻译需要网络；助手目前适配中文客户端 build 98348。建议游戏用“无边框窗口化”，方便显示游戏内提示。</li>
 </ol></article>
+<figure class="card step-card" data-review-id="beginner:service-choice-diagram">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 380" role="img" aria-labelledby="serviceChoiceTitle serviceChoiceDesc" style="display:block;width:100%;height:auto">
+<title id="serviceChoiceTitle">首次选择翻译服务的流程示意</title><desc id="serviceChoiceDesc">首次账户页不预选服务。DeepSeek填写一个API Key；阿里云填写AccessKey ID和Secret。连接成功后才启用，也可以先关闭页面继续看原文。这是示意图，不是实际截图。</desc>
+<defs><marker id="guideServiceArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#a7472b"/></marker></defs>
+<g font-family="system-ui,Segoe UI,sans-serif" text-anchor="middle" fill="#26221d">
+<rect x="180" y="12" width="500" height="54" rx="10" fill="#fff2dc" stroke="#ded2c3"/><text x="430" y="45" font-size="20" font-weight="700">首次：先选服务，不预选</text>
+<path d="M430 66V82H220V99M430 82H640V99" fill="none" stroke="#a7472b" stroke-width="2" marker-end="url(#guideServiceArrow)"/>
+<rect x="35" y="102" width="370" height="142" rx="12" fill="#fffdf9" stroke="#a7472b"/><text x="220" y="137" font-size="23" font-weight="700">DeepSeek</text><text x="220" y="171" font-size="18">填写 1 段 API Key</text><text x="220" y="202" font-size="16">先在官方开放平台创建密钥</text><text x="220" y="228" font-size="16">账户余额不足时按需充值</text>
+<rect x="455" y="102" width="370" height="142" rx="12" fill="#fffdf9" stroke="#a7472b"/><text x="640" y="137" font-size="23" font-weight="700">阿里云机器翻译</text><text x="640" y="171" font-size="18">填写 AccessKey ID + Secret</text><text x="640" y="202" font-size="16">开通通用版，为 RAM 用户授权</text><text x="640" y="228" font-size="16">已有账户继续保留，可随时切回</text>
+<path d="M220 245V262H430V278M640 245V262H430" fill="none" stroke="#a7472b" stroke-width="2" marker-end="url(#guideServiceArrow)"/>
+<rect x="180" y="280" width="500" height="48" rx="10" fill="#edf6ef" stroke="#387c62"/><text x="430" y="311" font-size="18" font-weight="700">点“连接并开始使用”，成功后才启用</text>
+<text x="430" y="362" font-size="16" fill="#70665c">也可先关闭，继续看原文，之后再配置</text></g></svg>
+<figcaption class="small">首次服务选择流程示意（非截图）。图中只有字段名称，不含可填写真实密钥的输入框。</figcaption>
+</figure>
 <div class="grid key-grid section">
-<article class="card" data-review-id="beginner:key-id"><strong>AccessKey ID</strong><p>可以把它当作这把 Key 的“用户名”。复制到助手的同名框里。</p></article>
-<article class="card" data-review-id="beginner:key-secret"><strong>AccessKey Secret</strong><p>可以把它当作这把 Key 的“密码”。要和上面的 ID 配对使用，自己保管。</p></article>
+<article class="card" data-review-id="beginner:deepseek-api-key"><strong>DeepSeek API Key</strong><p>只有一段，粘贴到 DeepSeek 的 API Key 框。它是开放平台给软件用的密钥，不是网页登录密码。</p></article>
+<article class="card" data-review-id="beginner:key-id"><strong>阿里云 AccessKey ID</strong><p>阿里云路线的第一段，复制到助手的同名框里，与 Secret 配对使用。</p></article>
+<article class="card" data-review-id="beginner:key-secret"><strong>阿里云 AccessKey Secret</strong><p>阿里云路线的第二段，作为私密凭据保管。它不能填进 DeepSeek 的 API Key 框。</p></article>
 </div>
-<p class="source-note">本文的 Key 指阿里云 AccessKey，由 ID 和 Secret 两段组成。助手用它连接翻译服务，不用填写阿里云网页登录账号和密码。<a href="https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair">阿里云官方说明</a></p>
+<p class="source-note">本文把服务密钥统称为 Key：DeepSeek 是一段 API Key，阿里云是 ID／Secret 两段。先看选中的服务，再复制对应字段。参考：<a href="https://api-docs.deepseek.com/zh-cn/">DeepSeek 首次调用说明</a>、<a href="https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair">阿里云 AccessKey 说明</a>。</p>
 </section>
 
-<section class="section" id="service"><h2>02 · 在阿里云开通“机器翻译通用版”</h2>
-<article class="card" data-review-id="beginner:service"><p class="eyebrow">这一步在浏览器里操作</p><ol class="steps">
+<section class="section" id="service"><h2>02 · 按选中的服务，准备对应账户</h2>
+<article class="card" id="deepseek-route" data-review-id="beginner:deepseek-setup"><h3>A · DeepSeek：创建一个 API Key</h3><p class="eyebrow">选了 DeepSeek，就按这条路线；之后直接看第 05 节</p><ol class="steps">
+<li>在助手的 DeepSeek 配置区点<strong>打开 DeepSeek 官方入口</strong>，或自行打开<a href="https://platform.deepseek.com/api_keys">DeepSeek 官方 API Key 页面</a>，注册或登录自己的开放平台账户。</li>
+<li>登录后在 API Key 页面创建个人密钥，按官网提示保存完整 Key。官网布局可能变化，本指南不指定登录后的按钮位置。请把它保存在自己的密码管理器等私密位置。</li>
+<li>查看开放平台的账户余额与计费说明。<strong>账户余额不足时再按需充值</strong>，按官网提示完成；具体权益和费用以自己的账户为准。本指南不要求固定充值金额，也不承诺免费额度。</li>
+<li>回到助手，选中 DeepSeek，在唯一的<strong>API Key</strong>框粘贴完整密钥。保留或关闭<strong>发送同会话最近 3 条原文</strong>，再点<strong>连接并开始使用</strong>。</li>
+</ol><p>助手会验证 Key、测试一次翻译；成功后加密保存并启用。DeepSeek 路线无需填写阿里云的 ID／Secret，也不需要进行下面的 RAM 授权步骤。</p><p class="source-note">官方依据：<a href="https://api-docs.deepseek.com/zh-cn/">首次调用 API 与 Key 入口</a>、<a href="https://api-docs.deepseek.com/zh-cn/quick_start/pricing/">计量与按需充值说明</a>。本轮只核对公开文档，未登录你的账户。</p></article>
+<article class="card" id="aliyun-route" data-review-id="beginner:service"><h3>B · 阿里云：开通“机器翻译通用版”</h3><p class="eyebrow">以下开通、创建 RAM 用户和授权步骤，仅阿里云用户阅读</p><ol class="steps">
 <li>登录阿里云后，在产品搜索里输入<strong>“机器翻译”</strong>。也可以从<a href="https://www.aliyun.com/product/ai/alimt">机器翻译官方产品页</a>进入控制台。</li>
 <li>找到<strong>通用版翻译引擎／机器翻译通用版</strong>，选择开通，按页面提示完成。助手用的是这个文本翻译服务。</li>
 <li>确认控制台显示该服务已经开通。看到资源包、购买或支付页面时，先看清免费额度、价格和你要买的内容，再决定是否继续；本文不要求你购买资源包。</li>
@@ -84,7 +106,8 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <p class="source-note">页面叫法可能调整，认准“机器翻译”和“通用版”。<a href="https://help.aliyun.com/zh/machine-translation/getting-started/documentation">官方开通步骤</a></p></article>
 </section>
 
-<section class="section" id="key"><h2>03 · 给助手申请一把专用 Key</h2>
+<section class="section" id="key"><h2>03 · 阿里云用户：申请专用 AccessKey</h2>
+<p class="small">选择 DeepSeek 的读者可跳过本节和第 04 节，直接看<a href="#connect">第 05 节：连接与切换</a>。已有可用阿里云 Key 和权限，也可直接连接。</p>
 <article class="card" data-review-id="beginner:ram-user"><p>推荐给助手建一个单独的 <strong>RAM 用户</strong>。大白话就是：给助手一把专门做翻译的“副钥匙”，而不是把整个阿里云账号的“大钥匙”交出去。</p><p class="eyebrow">继续在浏览器里，用你自己的阿里云主账号操作</p>
 <ol class="steps">
 <li>打开<a href="https://ram.console.aliyun.com/">RAM 访问控制台</a>，左侧选择<strong>身份管理 → 用户 → 创建用户</strong>。</li>
@@ -95,7 +118,8 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <p class="source-note">新建 RAM 用户本身不收费，调用翻译服务按其计费规则计算。参考：<a href="https://help.aliyun.com/zh/ram/user-guide/create-a-ram-user">创建 RAM 用户</a>、<a href="https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair">创建 AccessKey</a>。</p></article>
 </section>
 
-<section class="section" id="permission"><h2>04 · 告诉阿里云：“允许这把 Key 做文字翻译”</h2>
+<section class="section" id="permission"><h2>04 · 阿里云用户：允许这把 Key 做文字翻译</h2>
+<p class="small">本节是阿里云 RAM 权限配置，DeepSeek 用户可直接看<a href="#connect">第 05 节</a>。</p>
 <article class="card" data-review-id="beginner:permission"><p>刚创建的 RAM 用户还没有翻译权限。这里按“只给文字翻译权限”的办法做一次，下面这段内容<strong>不用看懂，完整复制即可</strong>。</p>
 <ol class="steps">
 <li>在 RAM 控制台左侧找到<strong>权限管理 → 权限策略 → 创建权限策略</strong>，切到<strong>脚本编辑</strong>。</li>
@@ -123,20 +147,22 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <details class="card step-card" data-review-id="beginner:system-policy"><summary>如果已经加过机器翻译权限，还要再做一次吗？</summary><p>如果这个 RAM 用户已经有 <code>AliyunMTFullAccess</code>，它也包含助手需要的文字翻译权限，可以直接进入下一步。它允许管理整个机器翻译服务，范围比上面的专用策略更大；上面的方法更适合只给这个助手使用。<a href="https://help.aliyun.com/zh/ram/developer-reference/aliyunmtfullaccess">系统策略官方说明</a></p></details>
 </section>
 
-<section class="section" id="connect"><h2>05 · 填好 Key，点一次“连接并开始使用”</h2>
+<section class="section" id="connect"><h2>05 · 连接自己的账户，之后可切回另一家</h2>
 <article class="card" data-review-id="beginner:connect"><p class="eyebrow">这一步开始，在风暴英雄助手里操作</p><ol class="steps">
-<li>打开“风暴英雄助手.exe”，点击<strong>配置翻译服务</strong>，或进入<strong>偏好设置 → 连接 → 配置账户</strong>；已配置时显示<strong>管理账户</strong>。个人密钥在主界面的页内弹层中填写。</li>
-<li>把两段 Key 分别粘贴进 <strong>AccessKey ID</strong> 和 <strong>AccessKey Secret</strong>，别填反，前后也不要多出空格。</li>
-<li>点击一次<strong>“连接并开始使用”</strong>，等待完成。助手会自动验证密钥所属主账号，再测试翻译“你好”；成功后使用 DPAPI 加密保存凭据并启用翻译。首次不必分开点击验证和保存。</li>
-<li>看到“配置成功，翻译已启用”后即可使用。Key 已加密保存在当前 Windows 用户下，之后通常不用每次重填；完整 ID 和 Secret 不进入全局界面状态快照。</li>
+<li>打开“风暴英雄助手.exe”，进入<strong>个人翻译账户</strong>，或从<strong>偏好设置 → 连接 → 配置账户／管理账户</strong>进入。首次没有已保存账户时，先在两张卡片中选一家；也可先关闭，继续接收聊天原文。</li>
+<li><strong>DeepSeek：只填 API Key。</strong>可在页面打开官方 Key 入口，按第 02 节准备密钥；<strong>阿里云：填 AccessKey ID 和 Secret</strong>，两段必须来自同一把 Key。两家的密钥不能混用。</li>
+<li>点击一次<strong>连接并开始使用</strong>，等待验证和翻译测试结束。DeepSeek 会通过余额接口验证 Key，再测试翻译；阿里云会先验证账号身份，再测试翻译。成功后，助手使用 Windows DPAPI 加密保存对应服务的凭据并启用翻译。</li>
+<li>看到<strong>配置成功，翻译已启用</strong>后再回游戏。以后重启会记住已经成功选中的服务，并加载它的本机账户；通常不用重新输入 Key。页面只显示掩码，不会回填完整密钥。</li>
 </ol></article>
 <div class="mock section" data-review-id="beginner:fields"><p class="eyebrow">填写位置示意 · 不是网页输入表单，也不是实际截图</p>
-<div class="mock-row"><strong>AccessKey ID</strong><span class="mock-value">粘贴自己的 ID</span></div>
-<div class="mock-row"><strong>AccessKey Secret</strong><span class="mock-value">●●●●●●●●</span></div>
-<div class="mock-action">连接并开始使用</div></div>
-<p class="small" data-review-id="beginner:legacy-key-import">已有自己的旧配置文件时，可在个人翻译账户页主动选择<strong>导入本机旧 .env</strong>，文件上限 16 KiB。它仅把两个密钥字段填入本次输入框，不会自动连接；关闭后清空 Secret。正常启动不会自动读取该文件。</p>
-<div class="callout" data-review-id="beginner:usage-field"><strong>只需填写自己的 Key。</strong>助手不统计用量或限制月度额度；实际用量与费用以阿里云控制台为准。无需填写其他调用的用量或确认月度额度，界面不显示月度剩余量。</div>
-<div class="callout okay" data-review-id="beginner:connect-state"><strong>等结果后再修改或重试。</strong>处理中字段暂时不能改；关闭会取消尚未完成的操作，已经完成的保存或删除保持当前结果。失败会提示卡在哪个阶段，并显示安全错误类别或可识别的云错误码，未知错误不会直接展开底层内容。翻译测试和重新连接时的测试均会调用云服务，实际用量与费用以阿里云控制台为准。服务开通和 RAM 授权仍需先在阿里云完成。</div>
+<div class="mock-row"><strong>选 DeepSeek</strong><span class="mock-value">API Key：●●●●●●●●（一段）</span></div>
+<div class="mock-row"><strong>选阿里云</strong><span class="mock-value">AccessKey ID ＋ AccessKey Secret（两段）</span></div>
+<div class="mock-action">准备好对应 Key → 连接并开始使用 → 等待成功</div></div>
+<article class="card step-card" data-review-id="beginner:switch-provider"><h3>已有阿里云的老用户，怎么加 DeepSeek？</h3><ol class="steps"><li><strong>继续用原账户：</strong>升级后，已保存的阿里云账户照常保留，不会自动切到 DeepSeek；原有 Key 不需要重新申请。</li><li><strong>先看当前服务，再选要配置的服务：</strong>账户页上方的“当前服务”表示实际正在使用的路线。改选服务卡片或表单，只是准备配置另一家，不会立刻切换实际翻译。</li><li><strong>新增另一家：</strong>选择 DeepSeek，输入自己的 API Key，点击连接。另一家已在本机保存时，直接点<strong>使用已保存账户</strong>即可，无需重输 Key。验证与翻译测试成功后才激活。</li><li><strong>想切回：</strong>进入管理账户，选阿里云，再点使用已保存账户。两家凭据分开加密保存，切换一家不会覆盖另一家的 Key。</li></ol><p>删除账户只删除<strong>当前服务</strong>在本机保存的凭据；另一家仍保留。删除后不会自动改用另一家，重新选择并验证后才能启用。</p></article>
+<article class="card step-card" data-review-id="beginner:deepseek-context"><h3>DeepSeek 的上下文开关怎么选？</h3><p><strong>发送同会话最近 3 条原文</strong>默认开启。接收消息翻译时，最多附带当前消息之前的 3 条相关原文，用来帮助理解缩写和指代；只取同一对话，密语按联系人隔离，无法确认联系人时不拼接其他私聊。发送者用匿名编号表示，不上传真实昵称。</p><p>可取消勾选；已保存 DeepSeek 账户时，点<strong>保存上下文设置</strong>应用修改。手动输入中文的翻译不附带聊天历史。DeepSeek 使用<strong>非思考模式</strong>；它仍可能误解俚语或有歧义的短句，发送前请检查译文。附带历史会增加输入用量，关闭后只发送当前正文及必要翻译指令。</p></article>
+<p class="small" data-review-id="beginner:legacy-key-import"><strong>仅阿里云旧配置：</strong>可在阿里云表单主动选择<strong>导入本机旧 .env</strong>，文件上限 16 KiB，只填入本次 ID／Secret 输入框，不会自动连接；关闭后清空 Secret。正常启动不会自动读取该文件，DeepSeek 无需此步骤。</p>
+<div class="callout" data-review-id="beginner:usage-field"><strong>配置只需对应服务的个人密钥。</strong>不必填写“其他调用用量”或确认月度额度。DeepSeek 可按按钮查询 API 账户的总／赠送／充值余额；阿里云的免费字符额度和实际用量仍到官方控制台查看，详见<a href="#quota">第 11 节</a>。</div>
+<div class="callout okay" data-review-id="beginner:connect-state"><strong>等结果后再修改或重试。</strong>处理中暂不能改字段。关闭会取消尚未完成的配置，已经完成的保存或删除不会撤销。切换失败时，助手保留原服务并暂停云翻译，<strong>不会自动改用另一家或恢复旧 Key 计费</strong>。取消未完成的切换后，想恢复原服务，请回到<strong>个人翻译账户 → 选原服务 → 使用已保存账户</strong>，等验证成功再用；单独打开“自动翻译”不能恢复已暂停的云请求。按提示的阶段检查 Key、余额、网络或本机保存权限；每次连接和重新连接的翻译测试都会调用所选云服务。</div>
 </section>
 
 <section class="section" id="translate"><h2>06 · 看别人说什么，发出自己想说的话</h2>
@@ -148,7 +174,7 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <li>保持游戏和助手都开着，确认主界面<strong>“自动翻译”</strong>开关已开启，“频道”先选<strong>全部聊天</strong>。</li>
 <li>等游戏里出现一条<strong>英文或韩文文字消息</strong>。不需要先发一句来“热身”，只发一句也可以等待它接上；新位置的自动定位仍可能需要一些时间。</li>
 <li>在主界面的<strong>实时消息</strong>看原文和译文。游戏里也会短暂显示底部译文；想回看完整内容就切到主界面。</li>
-</ol><p>支持你在游戏聊天框里本来就能看到的团队、队伍、密语、所有玩家消息；大厅队伍和密语也可接收。换局、返回大厅时让助手保持打开即可，一般不用每把点重连。其他语言、纯中文和数字通常保留原文。</p><div class="callout okay"><strong>第一次连上时，会收哪些消息？</strong><br>大厅队伍、密语：补收这次开启采集以后发出的消息，连接过程中发的第一句也会收。<br>试用和普通对局：首次找到一条新的聊天记录链时，最多补收该链最近 5 条，可能带上打开助手前的近几条；首次连上前已经连发超过 5 条时，更早的内容可能不在补收范围。之后按新消息继续，不会每次轮询都重翻这 5 条。已有记录位置的重连，也从未读处继续。</div></article>
+</ol><p>支持你在游戏聊天框里本来就能看到的团队、征召团队、队伍、密语、所有玩家消息；大厅队伍和密语也可接收。征召团队指选人／禁用英雄阶段的【征召团队】频道；“仅团队”包含普通团队与征召团队，也可选“仅征召团队”。v2.4 支持已知显示历史结构中有／无时间戳的格式，不要求打开游戏聊天时间显示；真实征召阶段格式仍需实机复测。换局、返回大厅时让助手保持打开即可，一般不用每把点重连。其他语言、纯中文和数字通常保留原文。</p><div class="callout okay"><strong>第一次连上时，会收哪些消息？</strong><br>大厅队伍、密语：补收这次开启采集以后发出的消息，连接过程中发的第一句也会收。<br>试用和普通对局：首次找到一条新的聊天记录链时，最多补收该链最近 5 条，可能带上打开助手前的近几条；首次连上前已经连发超过 5 条时，更早的内容可能不在补收范围。之后按新消息继续，不会每次轮询都重翻这 5 条。已有记录位置的重连，也从未读处继续。</div></article>
 <article class="card" data-review-id="beginner:send"><h3>B. 用中文写，让助手帮你译成英语或韩语</h3><div class="route"><span><kbd>Ctrl</kbd> + <kbd>T</kbd></span><b>→</b><span>输入中文、选语言</span><b>→</b><span><kbd>Enter</kbd> 翻译</span><b>→</b><span>回游戏粘贴发送</span></div>
 <ol class="steps">
 <li>在游戏里按 <strong>Ctrl+T</strong>，打开中文输入条。</li>
@@ -185,7 +211,7 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <li>在助手打开<strong>双击播报</strong>，勾选“开启 Tab 双击播报，自动发送到己方团队”。默认关闭，开启后会记住。</li>
 <li>回游戏打开 Tab 的<strong>天赋页</strong>。双击<strong>一个已选的天赋</strong>，会以“注意”开头说明玩家、英雄、真实天赋等级、名称和一句效果；任务天赋还会在同一格附带当前层数或完成状态。</li>
 <li>双击<strong>统计页里一个具体数字</strong>，就只说那一项。例如点英雄伤害，只发“【我方】玩家（安度因）｜英雄伤害：12,345”，不会顺带说死亡次数。</li>
-</ol><p>击杀、助攻、死亡、英雄伤害、攻城伤害、治疗、自我治疗、经验贡献都按各自一格处理。0 可以说，“—”不说，不给玩家排名或评好坏。自己、队友、对手都能提示，内容发到<strong>己方团队</strong>。</p><p>双击后松开鼠标和按键。游戏里 Ctrl＋Enter 的团队聊天快捷键保持默认。打开聊天框或菜单、正在开箱／F8 连按／快捷输入时暂停；切出游戏就取消。不改剪贴板、不覆盖你写了一半的话。失败不会自动重试；若留下一段未发送文字，按 Esc 取消。同一项 3 秒内不会重复，任意两次至少间隔 2 秒。</p><p>如果没发出来，请看助手<strong>“双击播报”页里的状态文字</strong>，这里会显示聊天框仍打开、正文未校验完整、操作取消或限频等具体原因，切回助手查看时会保留上次结果。如果文字留在框里，先按 Esc 关闭，再重新双击；若提示“消息可能已经发送”，先查聊天记录，避免重复。状态短暂读不清时会稍等再确认，不会重复输入或补发回车。需要排查时，开启“设置 → 诊断”，复现后导出日志；日志会记录发送阶段、错误码、耗时及回放需要的输入、状态和内容；分享前检查聊天隐私。最下方的大厅／对局文字只是聊天采集来源。Tab 没关就退出对局，也不会把旧目标带到下一局；新局重新打开 Tab 并双击即可。</p><div class="callout">中文 build 98348 试用的面板数据已做只读核对，用户已确认前一修复包的天赋和统计能发到团队。本轮稳定性修复后的实机表现、乱斗连续多局、英文客户端和其他分辨率还需要实际验收。天赋短效果离线提供，不用翻译 Key，也不额外调用 AI。</div></article>
+</ol><p>v2.4 可在“双击播报”页的“发给队友的播报语言”选择中文或 English，默认中文，选择后保存，重启沿用。英文模式使用随包离线英雄、天赋、任务和大招资料及英文统计文案；英文昵称保留；中文及其他非拉丁文字昵称以 Player 加可信槽位序号代称，同时显示英文英雄名，不猜译人名，无需云翻译。切换会取消尚未发送的旧动作，下一次双击使用新语言。英文资料缺失时不混发中文或内部 ID。此选项不改变聊天翻译目标，也不表示英文游戏客户端已实机验证。击杀、助攻、死亡、英雄伤害、攻城伤害、治疗、自我治疗、经验贡献都按各自一格处理。0 可以说，“—”不说，不给玩家排名或评好坏。自己、队友、对手都能提示，内容发到<strong>己方团队</strong>。</p><p>双击后松开鼠标和按键。游戏里 Ctrl＋Enter 的团队聊天快捷键保持默认。打开聊天框或菜单、正在开箱／F8 连按／快捷输入时暂停；切出游戏就取消。不改剪贴板、不覆盖你写了一半的话。失败不会自动重试；若留下一段未发送文字，按 Esc 取消。同一项 3 秒内不会重复，任意两次至少间隔 2 秒。</p><p>如果没发出来，请看助手<strong>“双击播报”页里的状态文字</strong>，这里会显示聊天框仍打开、正文未校验完整、操作取消或限频等具体原因，切回助手查看时会保留上次结果。如果文字留在框里，先按 Esc 关闭，再重新双击；若提示“消息可能已经发送”，先查聊天记录，避免重复。状态短暂读不清时会稍等再确认，不会重复输入或补发回车。需要排查时，开启“设置 → 诊断”，复现后导出日志；日志会记录发送阶段、错误码、耗时及回放需要的输入、状态和内容；分享前检查聊天隐私。最下方的大厅／对局文字只是聊天采集来源。Tab 没关就退出对局，也不会把旧目标带到下一局；新局重新打开 Tab 并双击即可。</p><div class="callout">中文 build 98348 试用的面板数据已做只读核对，用户已确认前一修复包的天赋和统计能发到团队。本轮稳定性修复后的实机表现、乱斗连续多局、英文客户端和其他分辨率还需要实际验收。天赋短效果离线提供，不用翻译 Key，也不额外调用 AI。</div></article>
 <article class="card" data-review-id="beginner:broadcast-progress"><h3>任务层数与我方大招冷却</h3>
 <p><strong>任务天赋继续双击同一格：</strong>我方、对方的任务天赋都可在原已选天赋格附带可信计数，例如“任务层数：0”。有限任务完成时说明“任务已完成”。真实进行中的零层有效；隐藏、不跟踪或无法确认的数值不当作零，也不用隐藏标签残留的旧数字。</p>
 <p><strong>基础任务看独立图标：</strong>例如阿尔萨斯“霜之哀伤的饥渴”不是某一级已选天赋格。中文名称目录现收录 16 个有明确 Face 和本地化来源的基础任务条目；精确名称未命中时，只有原生身份、玩家归属和数值仍通过校验，才显示“基础任务1／基础任务2”，不会猜技能名。</p>
@@ -210,169 +236,199 @@ kbd{font:600 .9em/1.6 system-ui,sans-serif;background:#f2eadd;border:1px solid #
 <div class="table-scroll" data-review-id="beginner:settings"><table><thead><tr><th>想做什么</th><th>去哪里</th><th>怎么选</th></tr></thead><tbody>
 <tr><td>调整主窗口阅读</td><td>偏好设置 → 外观</td><td>内容字号 10–32，保存后作用于消息和输入文字；可选标准／精简布局，“主窗口保持置顶”作用于实际可见的助手窗口。界面沿用柔雾紫。</td></tr>
 <tr><td>调整游戏内译文</td><td>设置 → 游戏内</td><td>可调字号、宽度、停留时间、是否显示原文；先用默认值也可以。</td></tr>
-<tr><td>挪一下译文位置</td><td>偏好设置 → 游戏内 → 保存并调整位置</td><td>拖到不挡技能和游戏聊天的位置，点“完成调整”。</td></tr>
+<tr><td>把字幕移到主屏</td><td>偏好设置 → 游戏内 → 字幕显示器</td><td>选择“主显示器”，点“移动到所选屏幕”；底部预设和调整位置也使用所选屏幕。</td></tr>
+<tr><td>挪一下译文位置</td><td>偏好设置 → 游戏内 → 保存并调整位置</td><td>拖到不挡技能和游戏聊天的位置，可跨屏拖动，松开后保存，再点“完成调整”。拔掉原显示器时回退到可用屏幕；物理双屏与不同 DPI 仍需实机复验。</td></tr>
 <tr><td>换 F8 开关键</td><td>偏好设置 → 快捷键 → 动作连按开始 / 取消快捷键</td><td>从 F1–F12 选一个并保存；下方提示会同步。回游戏新按所选键即可开始，不用重新准备。</td></tr>
 <tr><td>少看一些频道</td><td>实时消息 → 频道</td><td>例如仅队伍、仅密语。筛选影响后续消息，旧历史不会清空。</td></tr>
 <tr><td>准备常说的话</td><td>主界面 → 常用短句</td><td>新增／编辑时可勾选收藏；在主界面点“使用短句”或在 Ctrl+T 中选择候选，检查语言后翻译并复制，再自己粘贴发送。</td></tr>
+<tr><td>选择或切回翻译服务</td><td>偏好设置 → 连接 → 管理账户</td><td>区分“当前服务”和准备填写的表单；已保存另一家时点“使用已保存账户”，验证成功才启用。</td></tr>
+<tr><td>关闭 DeepSeek 聊天上下文</td><td>个人翻译账户 → DeepSeek</td><td>取消“发送同会话最近 3 条原文”，已保存账户点“保存上下文设置”；手动中文回复始终不附聊天历史。</td></tr>
+<tr><td>查余额或免费字符用量</td><td>偏好设置 → 连接</td><td>DeepSeek 点“查询账户余额”，在助手里看总／赠送／充值余额和时间；阿里云点查询免费额度／用量，到官方控制台查看。</td></tr>
 </tbody></table></div><p class="small" data-review-id="beginner:desktop-preferences">新桌面壳目前不提供主窗口透明度与位置锁定控件；-Legacy 兼容入口保留这些原生设置。全局快捷键可在“快捷键”页取消勾选并保存，禁用后仍可从主界面的“快捷输入”按钮打开输入条。</p></section>
 
 <section class="section" id="faq"><h2>10 · 有问题，先对照这里</h2>
-<details class="faq-item" data-review-id="beginner:faq-raw"><summary>有原文，没有中文翻译</summary><p>先看“自动翻译”开关有没有开启，再看是否点过“连接并开始使用”并等到配置成功。收到的文字也要在英文或韩文支持范围内。云服务没配好时，助手仍能接收原文。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-raw"><summary>有原文，没有中文翻译</summary><p>先看“自动翻译”是否开启，再到个人翻译账户页确认<strong>当前服务</strong>已连接。仅选择服务卡片或填好 Key，还没有启用翻译；需要点连接或使用已保存账户，等到验证成功。切换失败或取消未完成的配置后，请回到<strong>个人翻译账户 → 选原服务 → 使用已保存账户</strong>，验证成功后恢复；只打开自动翻译不能恢复云请求。收到的文字也要在英文或韩文支持范围内；尚未配置云服务时，助手仍能接收原文。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-capture"><summary>提示找不到聊天／大厅消息没接上</summary><p>确认游戏和助手都开着，频道先选“全部聊天”。在游戏里手动发一条普通团队、队伍或密语消息，等它连接，不需要特意再发第二条。0.3.10 已调整首句补收；如果还在用旧版，请先退出旧程序并打开新版。仍不行就到“设置 → 连接 → 手动重新连接”。如果之前停过采集，先点“恢复采集”。独立战网客户端里的聊天不在采集范围；游戏已覆盖或释放的记录也无法补回。</p></details>
-<details class="faq-item" data-review-id="beginner:faq-identity"><summary>一键连接提示身份验证阶段失败</summary><p>核对 ID 和 Secret 是否来自同一把 Key，有没有漏字符、多空格、Key 被禁用或删除，以及网络能否访问阿里云。这里填的是 AccessKey，不是阿里云网页登录账号密码。Secret 丢了就创建新 Key，不用反复猜旧 Secret。按窗口的阶段、安全错误类别或可识别云错误码排查；反馈时不用提供 Key。</p></details>
-<details class="faq-item" data-review-id="beginner:faq-cloud"><summary>身份验证通过，翻译测试或保存阶段失败</summary><p>身份验证成功只说明 Key 能确认身份。翻译测试失败时，检查是否开通“机器翻译通用版”、是否给刚才那个 RAM 用户加了翻译权限，以及阿里云是否有欠费或服务限制。保存阶段可核对当前 Windows 用户和写入权限。看窗口显示的阶段和安全提示排查，等结果后再重试；每次翻译测试均会调用云服务。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-identity"><summary>连接提示密钥验证失败</summary><p><strong>DeepSeek：</strong>确认选中的是 DeepSeek，填写的是开放平台完整 API Key，密钥没有被撤销，网络可访问官方 API。这里只需要一个 API Key，不填阿里云 ID／Secret或网页登录密码。</p><p><strong>阿里云：</strong>核对 ID 和 Secret 是否来自同一把 Key，有无漏字符、多空格、Key 被禁用或删除，以及网络能否访问阿里云。Secret 丢失时到官网创建新 Key。根据窗口的阶段和固定错误提示排查，反馈时不要发送完整密钥。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-cloud"><summary>密钥验证通过，翻译测试或保存阶段失败</summary><p><strong>DeepSeek：</strong>检查开放平台是否有可用于 API 的余额、服务是否受限，以及网络是否稳定。能登录官网不等于 API 翻译测试已经成功。</p><p><strong>阿里云：</strong>检查机器翻译通用版是否开通，当前 RAM 用户是否有翻译权限，以及账户是否欠费或受限。</p><p><strong>本机保存失败：</strong>检查当前 Windows 用户及用户数据目录写入权限。失败的切换不会自动改用另一家；修正后重试，或明确选回已保存账户并验证。每次翻译测试都会调用所选云服务。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-provider-choice"><summary>账户页只显示两张服务卡片，或者找不到 DeepSeek</summary><p>第一次还没有保存任何账户时，页面先请你选择 DeepSeek 或阿里云，选中后才显示对应输入框。已有阿里云账户的用户会保留原服务，可在管理账户里选择另一家，不会强制切换。</p><p>如果完全没有 DeepSeek 选项，先确认是否使用包含本次改动的源码或新构建；<strong>当前公开 v2.3 包还没有 DeepSeek</strong>。不要因为看了新指南就反复重填旧包里的阿里云字段。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-deepseek-balance"><summary>DeepSeek 余额没更新，或者查询失败</summary><p>先确认当前服务是已连接的 DeepSeek，再点查询账户余额。查询在后台进行，不会清空中文草稿或关闭快捷输入。失败时看余额区域的错误；显示的旧金额和更新时间属于上次成功查询，不代表刚刚刷新成功。余额不是剩余字符数，也不能直接换算成固定可翻译条数。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-month"><summary>旧版本的用量文件需要处理吗？</summary><p>不用处理。旧 usage.sqlite3 和 usage.sqlite3.initialized 保留原样，当前版本不读取、不新建、不迁移或修复；旧账本缺失或损坏不影响启动、配置或翻译。凭据、语言资料、偏好和日志继续使用原来的 HotsChatHelper 用户目录。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-copy"><summary>Ctrl+T 翻译了，游戏里却没发出去</summary><p>它只帮你复制。请回到游戏打开聊天框，Ctrl+V 粘贴，再按 Enter 发送。输入法还在选字时，先确定汉字，再按一次 Enter 提交翻译。快捷键无反应可以从助手主界面的“快捷输入”按钮打开。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-repeat"><summary>按 F8 没出现 s，或者连按没效果</summary><p>确认使用 v2.1（程序 2.1.0），关闭助手输入条，松开所有修饰键，再回游戏单独按 F8；游戏聊天输入框无需关闭，开着时会输入所选动作的 S 或 Y、S。此前按过 Enter／Esc 也不影响这次启动；运行中按 Enter／Esc 会结束当前连按，松开后可再按 F8 重开。如果改过快捷键，按你保存的那个键。用下方“按 F8 取消”提示判断是否启动；没有提示或有提示但无输入／动作，可分别反馈这两种情况。</p></details>
-<details class="faq-item" data-review-id="beginner:faq-overlay"><summary>游戏里看不到译文，或者位置挡视线</summary><p>先在主界面确认确实有新的译文。字幕显示时间较短，可在“设置 → 游戏内”调整；用无边框窗口化，重新拖动浮窗位置。透明字幕模式主要显示文字，想要底色可改为半透明面板。</p></details>
-<details class="faq-item" data-review-id="beginner:faq-word"><summary>某个短词翻译不符合语境</summary><p>主界面保留原文，可以对照着看；需要时选择消息再点“重试所选”。短词缺少上下文时仍可能有多种意思，重试也会调用云翻译，别连续刷同一句。</p></details>
-<details class="faq-item" data-review-id="beginner:faq-diagnostics"><summary>怎么把日志发给开发者排查？</summary><p>诊断默认关闭。打开<strong>设置 → 诊断 → 开启诊断日志</strong>，复现一次，再点<strong>导出诊断日志</strong>。后台完成后会显示<strong>已导出的 ZIP 路径</strong>，可以选中复制；检查文件后，由你附上出问题的大致时间并自行分享。开启后会记录聊天原文、译文及翻译、自动天赋和双击播报的复现输入与状态；仅一个开关，没有额外详细模式或十分钟到期。下次启动仍关闭，关闭后已有日志仍可导出。</p><p>默认日志总上限 <strong>100 MiB</strong>，滚动覆盖最旧文件、保留七天；队列过载、覆盖和截断会计数。已配置密钥递归脱敏，分享前检查其他聊天隐私；不要额外附带 .env、credentials.dpapi 或用户数据库。导出不调用云服务、不自动上传。开发者可离线重放录制的业务判断；缺失或截断的数据会标明不完整，不能保证还原真实游戏、驱动或云端故障。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-overlay"><summary>游戏里看不到译文，或者位置挡视线</summary><p>先在主界面确认确实有新的译文。双屏时，到“偏好设置 → 游戏内 → 字幕显示器”选“主显示器”，点“移动到所选屏幕”；也可“保存并调整位置”后跨屏拖动。字幕显示时间较短，可在同页调整；用无边框窗口化。透明字幕模式主要显示文字，想要底色可改为半透明面板。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-word"><summary>某个短词或俚语翻译不符合语境</summary><p>先对照保留的原文。使用 DeepSeek 时，可在账户页启用发送同会话最近 3 条原文，帮助理解简称和指代；需要保存上下文设置后才生效。阿里云当前路线按单条正文翻译。上下文也不能保证消除歧义，陌生俚语、断句或反话仍可能误译。需要时选消息点重试所选，或切换到已保存的另一家做比较；重试和连接测试都会调用云服务。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-diagnostics"><summary>怎么把日志发给开发者排查？</summary><p>诊断默认关闭。打开<strong>设置 → 诊断 → 开启诊断日志</strong>，复现一次，再点<strong>导出诊断日志</strong>。后台完成后会显示<strong>已导出的 ZIP 路径</strong>，可以选中复制；检查文件后，由你附上出问题的大致时间并自行分享。开启后会记录聊天原文、译文及翻译、自动天赋和双击播报的复现输入与状态；仅一个开关，没有额外详细模式或十分钟到期。下次启动仍关闭，关闭后已有日志仍可导出。</p><p>默认日志总上限 <strong>100 MiB</strong>，滚动覆盖最旧文件、保留七天；队列过载、覆盖和截断会计数。已配置密钥递归脱敏，分享前检查其他聊天隐私；不要额外附带 .env、credentials.dpapi、deepseek.dpapi 或用户数据库。导出不调用云服务、不自动上传。开发者可离线重放录制的业务判断；缺失或截断的数据会标明不完整，不能保证还原真实游戏、驱动或云端故障。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-emotes"><summary>表情为什么显示为 [表情]？</summary><p>游戏的图片表情标签会统一显示成 [表情]，避免露出很长的资源路径。只有表情时不会请求云翻译；混合英文、韩文的文字继续正常翻译。普通 Unicode 表情照常显示。</p></details>
 <details class="faq-item" data-review-id="beginner:faq-model-codecs"><summary>解码已经补全，是否代表所有电脑都验证过？</summary><p>自 v2.0 起对 build 98348 支持 0–15 全部 16 种模型解码，每种先核对对应计算代码指纹。2、5、8、11、14 额外读取动态 salt，这是游戏解码参数，不是阿里云密钥。读取后复核模式、表根、编码槽、所用 key 与 salt 指针和值；变化或缺失就停止本次辅助判断。</p><p>16 个算法完成了合成读取和 <strong>303,810 次独立原生指令对照</strong>；朋友机器并未逐个分支实测全部 16 种。若自动天赋和双击播报仍不生效，保留原语言、分辨率和缩放，在进局前开启诊断，复现后导出 ZIP，并附操作时间、游戏 build、对局和窗口模式。解码回放包含编码、所需 key／salt 和计算结果，不是完整内存转储；回放一致只表示相同输入能重现相同判断，不代表功能实际成功或云端、游戏环境被还原。</p></details>
-<details class="faq-item" data-review-id="beginner:faq-feedback"><summary>还是解决不了，应该怎么反馈？</summary><p>说明助手版本、是在大厅还是对局、你做了什么、显示什么提示，以及是否改过快捷键。也可先从“设置 → 诊断”导出日志；截图时遮住 AccessKey、Secret、账号信息、好友昵称和私人聊天。不要把完整 Key 发给别人。</p><p>游戏里能看到团队消息、助手却没有原文？本轮已修复对局来源误接大厅记录，以及旧记录持续更新妨碍发现新局的问题；朋友现场是否同因仍需复现确认。请在进局前开启“设置 → 诊断 → 开启诊断日志”，复现后导出 ZIP，并附发生时间。公开 v1.0 不支持这套诊断导出。</p><p>大厅队伍昵称偶尔“未知”？0.3.11 已补充同账号的昵称查找：好友关系暂不可读、或者名字只在上层记录里时，会尝试恢复合法昵称。实在无法确认身份或名字数据损坏时仍显示“发送者未知”，正文照常接收。后续新消息会重新查名，旧消息不会自动改名；反馈时说明是否刚组队、同一个人的后续发言有没有恢复，不用提供真实昵称或聊天内容。</p></details>
+<details class="faq-item" data-review-id="beginner:faq-feedback"><summary>还是解决不了，应该怎么反馈？</summary><p>说明助手版本、当前使用 DeepSeek 还是阿里云、是在大厅还是对局、做了什么、显示什么提示，以及是否改过快捷键。可先从设置 → 诊断导出日志；截图时遮住 API Key、AccessKey ID／Secret、账号信息、好友昵称和私人聊天，不要发送完整密钥。</p><p>游戏里能看到团队／征召团队消息、助手却没有原文？大厅队伍／密语与对局显示聊天独立采集，“等待对局聊天”不等于翻译服务失败。v2.4 修复已知显示历史格式对时间戳的强制依赖，并保留节点、历史链与频道校验。请在进局前开启“设置 → 诊断 → 开启诊断日志”，在相应【团队】或【征召团队】频道发一条 hello，确认游戏里可见，记下时间并导出 ZIP。不要只用密语代替测试。扫描摘要会记录读取进度、候选、拒绝原因及有／无时间戳解析检查计数；计数可能含重复轮询，不等于收到的消息条数。朋友机器的实际效果仍需新包复测。公开 v1.0 不支持这套诊断导出。</p><p>大厅队伍昵称偶尔“未知”？0.3.11 已补充同账号的昵称查找：好友关系暂不可读、或者名字只在上层记录里时，会尝试恢复合法昵称。实在无法确认身份或名字数据损坏时仍显示“发送者未知”，正文照常接收。后续新消息会重新查名，旧消息不会自动改名；反馈时说明是否刚组队、同一个人的后续发言有没有恢复，不用提供真实昵称或聊天内容。</p></details>
 </section>
 
 <section class="section" id="quota"><h2>11 · 费用和 Key，记住这几句话就够了</h2>
-<article class="card" data-review-id="beginner:cost"><h3>实际用量与费用以阿里云控制台为准</h3><p>想查看剩余额度和实际用量时：</p><ol class="steps"><li>点击<strong>偏好设置 → 连接</strong>中的<strong>“查询剩余额度”</strong>。</li><li>默认浏览器会打开<a href="https://mt.console.aliyun.com/service">阿里云机器翻译控制台</a>，登录自己的阿里云账号后，在控制台查询。</li></ol><p>此按钮仅打开控制台，不自动查询或读取账号数据。助手启动时不会自动打开浏览器，也不会建立本地用量账本。</p><p>助手不统计用量或限制月度额度；实际用量与费用以阿里云控制台为准。云端服务的计费方式不因本地功能调整而改变。开通前看清自己账号的实际权益和计费说明，不要把免费权益理解为永久免费。<a href="https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview">查看官方计费说明</a></p><p>助手不再建立本地月度账本，也不提供月度额度确认或剩余量显示。请求队列、自动翻译限流、缓存去重和暂停继续保留；这些功能不能替代阿里云的账单或账号费用管理。</p><p>阿里云控制台测试、助手里的翻译测试、手动重试和实际聊天翻译都会调用云服务。给助手使用专用 Key，并在阿里云控制台查看账号的用量与费用。</p></article>
-<article class="card" data-review-id="beginner:privacy"><h3>Key 放自己手里，别人不需要知道</h3><p>助手使用 DPAPI 把 Key 加密保存在当前 Windows 用户下；之后可在“个人阿里云密钥”里替换或删除。<strong>从助手删除，只删除本机保存的 Key，不会去阿里云注销这把 Key。</strong>如果泄露，到 RAM 控制台禁用或删除旧 Key，再创建新的并重新配置助手。</p><p>云翻译会把待翻译的消息正文发给阿里云；助手不把发送者昵称当作翻译内容上传。聊天历史只保留本次运行最近 500 条，退出助手后清空。本文不收集 Key，也没有可以填写真实 Key 的网页输入框。</p><p class="source-note">Key 保管与泄露处理参见<a href="https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair">阿里云 AccessKey 官方说明</a>。</p></article>
+<article class="card" data-review-id="beginner:deepseek-balance"><h3>DeepSeek：在助手里查 API 账户余额</h3><ol class="steps"><li>确认<strong>当前服务</strong>是已连接的 DeepSeek，进入<strong>偏好设置 → 连接</strong>或个人翻译账户页。</li><li>点<strong>查询账户余额</strong>。助手后台向 DeepSeek 官方余额接口查询，不会清空正在编辑的中文或关闭快捷输入。</li><li>按币种查看<strong>总余额、赠送余额、充值余额和更新时间</strong>；总余额已包含可用赠金和充值余额，不要再把三项相加。</li></ol><p>启动时不自动刷新余额；连接验证也会调用余额接口。界面金额是<strong>上次成功查询</strong>的结果，查询失败不会把旧时间改成刚刚成功。账户有 CNY／USD 时分别展示，不自行换算汇率。余额不是剩余字符数，也不是月度免费额度。</p><p>模型调用按输入、输出及相应缓存用量计费；提示词和附带历史也属于输入。请在开放平台查看账单，按需充值。当前价格和权益以<a href="https://api-docs.deepseek.com/zh-cn/quick_start/pricing/">DeepSeek 官方计费说明</a>及自己的账户为准。字段解释见<a href="https://api-docs.deepseek.com/zh-cn/api/get-user-balance/">官方余额文档</a>。</p></article>
+<article class="card" data-review-id="beginner:cost"><h3>阿里云：到控制台查免费字符额度与实际用量</h3><ol class="steps"><li>当前服务为阿里云时，在<strong>偏好设置 → 连接</strong>点<strong>查询免费额度／用量</strong>，或在阿里云配置区点<strong>打开阿里云官方入口</strong>。</li><li>默认浏览器打开<a href="https://mt.console.aliyun.com/service">阿里云机器翻译控制台</a>，登录自己的账号，查看该账号实际的免费字符权益、已用量和费用。</li></ol><p>助手只提供控制台入口，不自动读取阿里云用量，也不建立本地月度账本或承诺统一免费额度。服务开通前看清账号实际权益和<a href="https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview">官方计费规则</a>；不要把免费权益理解为永久免费。</p><p>请求队列、限流、缓存去重和暂停继续保留，但不能替代任一家服务的账单和费用管理。助手里的连接测试、重新连接测试、重试消息和实际翻译都会调用所选服务。</p></article>
+<article class="card" data-review-id="beginner:privacy"><h3>两家 Key 分开保存，消息发给当前选中的服务</h3><p>阿里云和 DeepSeek 的凭据分开使用 Windows DPAPI 加密，保存在当前 Windows 用户下；在<strong>个人翻译账户</strong>中替换、切换或删除。<strong>删除当前服务的本机账户，不会删除另一家，也不会去官网撤销这把 Key。</strong>密钥泄露时，到对应官方 Key 管理页撤销旧 Key，再创建新 Key 并重新配置助手。</p><p><strong>阿里云：</strong>上传当前待译正文，不把发送者昵称作为翻译字段上传。<strong>DeepSeek：</strong>上传当前正文和必要的翻译指令；默认附带最多 3 条匿名标识的同会话原文，可在账户页关闭，手动中文回复始终不附历史。匿名化的是发送者标识，正文仍按消息实际内容发送。</p><p>默认聊天列表保留本次运行最近 500 条，退出后清空；主动开启诊断后，日志会按<a href="#faq">诊断说明</a>保存原文和译文。本文可离线阅读，不收集 Key，也没有可以填写真实 Key 的网页输入框；请不要把密钥写进点评或反馈。</p><p class="source-note">管理入口：<a href="https://platform.deepseek.com/api_keys">DeepSeek API Key 页面</a>、<a href="https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair">阿里云 AccessKey 说明</a>。</p></article>
 </section>
 
 <section class="section" id="quick"><h2>一页速查：平时就看这张卡</h2>
 <article class="card" data-review-id="beginner:quick"><div class="section-heading"><h3>复制给自己，或者发给新用户</h3><button type="button" data-copy-target="quickSteps">复制速查卡</button></div>
 <pre id="quickSteps">先打开助手，再回游戏。
-升级到 v2.1（可下载包以实际 Release 为准）：1.1.0 本地包请手动下载 HotsHelper-2.1.0-Windows-x64.zip；退出旧助手后解压启动，ZIP 内目录和 EXE 仍为中文。
+版本边界：双服务选择与 DeepSeek 需要本次源码／新构建；当前公开 v2.3 包还没有 DeepSeek。更新指南不会改变旧 EXE，发行附件以实际 Release 为准。
 看翻译：自动翻译勾上，频道先选“全部聊天”，等新的英文／韩文消息。
-首次配 Key：先开通服务并授权 RAM → 填 AccessKey ID / Secret → 点“连接并开始使用” → 等身份验证和“你好”测试成功、加密保存并启用。
+首次配置：无已存账户时先看到两张卡片、不预选 → 选择一家服务，也可先关闭看原文。
+DeepSeek：打开官方入口 → 登录并创建 API Key → 余额不足时按需充值 → 回助手只填 API Key → 连接并开始使用。
+阿里云：开通机器翻译通用版 → 创建 RAM 用户并授权 → 回助手填 AccessKey ID / Secret → 连接并开始使用。
+老用户：原阿里云账户继续保留；选另一家只是切表单，连接或“使用已保存账户”验证成功后才激活。重启记住成功选中的服务，可切回。
+DeepSeek 上下文：默认最多附带同会话前 3 条匿名标识原文，可关；手动中文翻译无历史，思考模式关闭。
 发消息：Ctrl+T → 写中文并选语言 → Enter 翻译 → 回游戏 Enter 打开聊天 → Ctrl+V → Enter 发送。
 常用短句：空输入看收藏，输入中文查匹配 → Tab 进入候选，方向键选择 → Tab／鼠标只填字 → Enter 翻译并复制。
 动作连按：先选 S 或 Y＋S，填间隔并保存应用 → 游戏前台 F8 开始 → 再 F8 取消。聊天框开着会输入对应按键；Esc／Enter 结束本次后，新按 F8 可重开。右键点地面由自己操作。
 开补给箱：助手点“准备开箱” → 回游戏打开补给箱页 → 空格开始／暂停／继续 → Esc 结束。
 更换或删除 Key：偏好设置 → 连接 → 管理账户。
-查剩余额度：偏好设置 → 连接 → 查询剩余额度 → 默认浏览器打开阿里云控制台，登录后查询。
-Key、Secret 自己保管，截图和反馈都别带上它们。</pre></article>
+查费用：DeepSeek 点“查询账户余额”，后台看总／赠送／充值余额和上次成功时间；阿里云点“查询免费额度／用量”，到官方控制台看字符权益和账单。
+切换失败不自动改用另一家；取消未完成配置后保持暂停。恢复：个人翻译账户 → 选原服务 → 使用已保存账户 → 等验证成功；只打开自动翻译不能恢复云请求。
+两家 Key 分开加密保存；删除当前本机账户不影响另一家，也不会在官网撤销 Key。截图和反馈不带密钥。</pre></article>
 </section>
 
 <section class="section" id="sources"><h2>官方入口与说明</h2>
-<article class="card" data-review-id="beginner:sources"><p>阿里云流程按 <strong>2026-10-21</strong>可访问的官方资料核对，按钮名称和账号权益可能变化。上文用的是步骤说明和字段示意，没有登录真实账号或截取用户界面。</p><ul>
+<article class="card" data-review-id="beginner:sources"><p>DeepSeek 的 Key 入口、API 与余额字段按 <strong>2026-10-24</strong>公开官方文档核对；API Key 页面需要登录，本轮仅核对公开文档中的官方链接，不指定登录后的按钮位置。阿里云开通与授权流程沿用 <strong>2026-10-21</strong>核对的资料，按钮名称和账号权益可能变化。图示为流程说明，未登录你的账号或截取用户界面。</p><ul>
+<li><a href="https://platform.deepseek.com/api_keys">DeepSeek 官方 API Key 页面</a> · <a href="https://api-docs.deepseek.com/zh-cn/">首次调用 API（包含官方 Key 入口）</a></li>
+<li><a href="https://api-docs.deepseek.com/zh-cn/api/get-user-balance/">DeepSeek 查询余额：总／赠送／充值、币种</a> · <a href="https://api-docs.deepseek.com/zh-cn/quick_start/pricing/">DeepSeek 计量计费与按需充值说明</a></li>
 <li><a href="https://www.aliyun.com/product/ai/alimt">机器翻译产品入口</a> · <a href="https://help.aliyun.com/zh/machine-translation/getting-started/documentation">服务开通说明</a></li>
 <li><a href="https://ram.console.aliyun.com/">RAM 控制台</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/create-a-ram-user">创建 RAM 用户</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair">创建 Key</a></li>
 <li><a href="https://help.aliyun.com/zh/machine-translation/getting-started/ram-user-authorization">翻译权限说明</a> · <a href="https://help.aliyun.com/zh/ram/create-a-custom-policy">创建自定义权限策略</a> · <a href="https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user">给用户授权</a></li>
-<li><a href="https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview">额度与收费规则</a></li>
-<li><a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1">v2.1 发行入口（附件以实际 Release 为准）</a> · <a href="https://github.com/renyouhao/heroes-storm-helper/releases">已发布的 Windows x64 完整包</a></li>
-</ul><p class="small" data-review-id="beginner:verification">此前统一源码 51daf8e（并入 69ec5a3）完成 1247 项测试（113 个模块各用独立进程）和 20 项采集探针；这些数字仅属于原验证基线。v2.1 本轮最终回归通过 570 项 Python 测试和 33 项前端测试；验证范围、包校验、提交与 SHA256 以 <a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1">Release 记录</a>为准。</p><p class="small">助手用法按 v2.1 的功能整理，2026-10-24 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。</p></article>
-<details class="card step-card no-print"><summary>复制全文的纯文字版</summary><button type="button" data-copy-target="originalMarkdown">复制全文</button><pre id="originalMarkdown">第一次使用也能照着做 · v2.1 使用说明（程序 2.1.0）
+<li><a href="https://mt.console.aliyun.com/service">阿里云机器翻译控制台</a> · <a href="https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview">阿里云额度与收费规则</a></li>
+<li><a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1">既有 v2.1 发行记录</a> · <a href="https://github.com/renyouhao/heroes-storm-helper/releases">实际已发布的 Windows x64 完整包</a>。本次文档更新没有发布新包，公开 v2.3 仍不包含 DeepSeek。</li>
+</ul><p class="small" data-review-id="beginner:verification">此前统一源码 51daf8e（并入 69ec5a3）完成 1247 项测试（113 个模块各用独立进程）和 20 项采集探针；这些数字仅属于原验证基线。既有 v2.1 最终回归通过 570 项 Python 测试和 33 项前端测试；验证范围、包校验、提交与 SHA256 以 <a href="https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1">对应 Release 记录</a>为准，不代表本次新增双服务已经发布。</p><p class="small">本次修订补齐双服务配置、切换、上下文、费用查询、征召团队和字幕显示器操作；其他游戏功能章节保留既有说明。指南可单文件离线阅读，只有打开官方入口、申请 Key 和实际云翻译需要联网。右上角“导出 PDF”调用打印窗口，选择“另存为 PDF”保存；逐段点评保存在当前浏览器，不会自动发给开发者。</p></article>
+<details class="card step-card no-print"><summary>复制全文的纯文字版</summary><button type="button" data-copy-target="originalMarkdown">复制全文</button><pre id="originalMarkdown">第一次使用也能照着做 · 本次源码／新构建使用说明
 
 风暴英雄助手
+先选翻译服务，再填自己的 Key
 
-从申请 Key 到上手使用
+先在助手里选择 DeepSeek 或阿里云，再按对应路线准备个人密钥。连接成功后，就能看英文、韩文的中文译文，并用中文回复。不需要会写代码，也不必同时开通两家服务。
 
-你只要做三件事：在阿里云准备好自己的翻译 Key，填进助手，再回到游戏里使用。下面按顺序来，不需要会写代码。
+文档修订：2026-10-24DeepSeek 官方文档核对：2026-10-24面向：Windows 新用户及已有阿里云账户的玩家
 
-文档修订：2026-10-24阿里云官网核对：2026-10-21面向：Windows 上第一次使用助手的玩家
+① 先选一家翻译服务→② 准备对应 Key 并连接→③ 回游戏看译文
 
-① 开通服务、申请 Key→② 填 Key，一键连接→③ 回游戏看译文
+已有可用的个人账户？直接看第 05 节：连接与切换。也可以先关闭账户页，继续看聊天原文、使用开箱或连按，之后再配置翻译。
 
-已经有能用的阿里云机器翻译 Key？直接看第 05 节。只想先体验开箱或连按？它们不需要翻译 Key，可先跳过云翻译配置。
+先确认你用的构建。本页新增的双服务选择、DeepSeek 翻译与余额查询，适用于包含本次改动的源码或新构建。目前公开的 v2.3 包还没有 DeepSeek；更新这份指南不会改变已下载的 EXE，也不表示已发布包含新功能的安装包。版本、附件和校验值仍以实际 Release 为准。
 
 版本说明：v1.1 仅为源码准备标签，没有公开发布 Release。此前 v1.2 发布准备时，GitHub 截去了中文附件名中的中文部分，因此保留原标签，修复发布资产命名约定后改发 v1.2。ZIP 附件统一使用 ASCII 名称，包内目录与“风暴英雄助手.exe”继续使用中文。公开 v1.2 使用《风暴英雄》图标；v2.0 将 EXE、任务栏及窗口标题统一为紫色六角旋涡标志。
 
-当前源码目标为 v2.1，程序版本 2.1.0，发行通道配置为 stable；对应包名为 HotsHelper-2.1.0-Windows-x64.zip，实际发布附件与校验值以 Release 为准。主界面采用 React + WebView2，统一柔雾紫单主题和紫色图标，保留 B 方案悬浮窗布局与操作；旧密钥、语言资料、窗口位置和快捷键沿用原用户目录。
+既有桌面界面说明：主界面采用 React + WebView2，沿用柔雾紫单主题、紫色图标及 B 方案悬浮窗布局。升级后，旧阿里云密钥、语言资料、窗口位置和快捷键继续使用原用户目录；已有阿里云账户不会被自动换成 DeepSeek。本指南对应 v2.4（2.4.0）源码与本地正式构建；公开下载仍以实际 Release 为准。
 
 v2.1 更新：偏好设置、账户、更新与短句编辑共用一个 React 页内弹层，主窗口字号和置顶作用于实际界面；状态、更新提示点和发布说明排版更清楚。原生 Ctrl+T 提供本地短句候选，改进有效译文复制与失败后输入恢复，并将同一 R 天赋与 CD 覆盖层归并为一个命中目标。
 
 build 98348 的模型解码覆盖 0–15 全部 16 分支，每个分支核对计算代码指纹；其中 2、5、8、11、14 另读取游戏运行时的动态 salt。16 个算法已完成合成读取与独立原生指令对照；朋友机器并未逐个实测全部分支，英文、2K和不同对局仍需现场验收。日志默认关闭，开启后统一录制原文、译文及复现数据，总上限 100 MiB。
 
-01 · 先准备好这几样
+01 · 安装后，先选自己的翻译服务
 
-一台 Windows 64 位电脑，以及完整的助手压缩包。从官方发行页查看已发布附件（https://github.com/renyouhao/heroes-storm-helper/releases）；本轮 v2.1 的目标文件为 HotsHelper-2.1.0-Windows-x64.zip，可下载版本和附件以实际 Release 为准。下载后解压到一个普通文件夹里，再打开里面的“风暴英雄助手.exe”。整个文件夹都要保留，不要只把 exe 单独拖出来；不用另外安装 Python 或 SDK。助手会自动创建自己的配置目录，不用拷贝 AppData。更新时先正常退出旧助手，再启动新文件夹里的程序。
+• 一台 Windows 64 位电脑，以及完整的助手文件夹。从官方发行页查看已发布附件（https://github.com/renyouhao/heroes-storm-helper/releases），确认版本是否包含你要用的功能。完整解压后打开“风暴英雄助手.exe”，保留整个文件夹。发行包无需另外安装 Python 或 SDK；使用本次源码时按项目安装步骤准备环境。更新前先正常退出旧助手，个人配置沿用原用户目录。
 
-自己的阿里云账号。浏览器打开阿里云官网（https://www.aliyun.com/），注册或登录。网页如果要求身份认证，按它的提示完成。申请和开通服务都由你在官网操作。
+• 先选一家服务，再准备它的个人账户。打开助手的个人翻译账户页。首次没有任何已保存账户时，会先显示两张服务卡片，不替你预选。点 DeepSeek 后准备一个 API Key；点阿里云后准备 AccessKey ID 和 Secret。选择卡片只是切换表单，连接验证成功后才启用翻译。
 
-能上网的网络和《风暴英雄》。云翻译需要网络；助手目前适配中文客户端 build 98348。建议游戏用“无边框窗口化”，方便显示游戏内提示。
+• 能上网的网络和《风暴英雄》。云翻译需要网络；助手目前适配中文客户端 build 98348。建议游戏用“无边框窗口化”，方便显示游戏内提示。
 
-AccessKey ID
+首次服务选择流程示意（非截图）。图中只有字段名称，不含可填写真实密钥的输入框。
 
-可以把它当作这把 Key 的“用户名”。复制到助手的同名框里。
+DeepSeek API Key
 
-AccessKey Secret
+只有一段，粘贴到 DeepSeek 的 API Key 框。它是开放平台给软件用的密钥，不是网页登录密码。
 
-可以把它当作这把 Key 的“密码”。要和上面的 ID 配对使用，自己保管。
+阿里云 AccessKey ID
 
-本文的 Key 指阿里云 AccessKey，由 ID 和 Secret 两段组成。助手用它连接翻译服务，不用填写阿里云网页登录账号和密码。阿里云官方说明（https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair）
+阿里云路线的第一段，复制到助手的同名框里，与 Secret 配对使用。
 
-02 · 在阿里云开通“机器翻译通用版”
+阿里云 AccessKey Secret
 
-这一步在浏览器里操作
+阿里云路线的第二段，作为私密凭据保管。它不能填进 DeepSeek 的 API Key 框。
 
-登录阿里云后，在产品搜索里输入“机器翻译”。也可以从机器翻译官方产品页（https://www.aliyun.com/product/ai/alimt）进入控制台。
+本文把服务密钥统称为 Key：DeepSeek 是一段 API Key，阿里云是 ID／Secret 两段。先看选中的服务，再复制对应字段。参考：DeepSeek 首次调用说明（https://api-docs.deepseek.com/zh-cn/）、阿里云 AccessKey 说明（https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair）。
 
-找到通用版翻译引擎／机器翻译通用版，选择开通，按页面提示完成。助手用的是这个文本翻译服务。
+02 · 按选中的服务，准备对应账户
 
-确认控制台显示该服务已经开通。看到资源包、购买或支付页面时，先看清免费额度、价格和你要买的内容，再决定是否继续；本文不要求你购买资源包。
+A · DeepSeek：创建一个 API Key
+
+选了 DeepSeek，就按这条路线；之后直接看第 05 节
+
+• 在助手的 DeepSeek 配置区点打开 DeepSeek 官方入口，或自行打开DeepSeek 官方 API Key 页面（https://platform.deepseek.com/api_keys），注册或登录自己的开放平台账户。
+
+• 登录后在 API Key 页面创建个人密钥，按官网提示保存完整 Key。官网布局可能变化，本指南不指定登录后的按钮位置。请把它保存在自己的密码管理器等私密位置。
+
+• 查看开放平台的账户余额与计费说明。账户余额不足时再按需充值，按官网提示完成；具体权益和费用以自己的账户为准。本指南不要求固定充值金额，也不承诺免费额度。
+
+• 回到助手，选中 DeepSeek，在唯一的API Key框粘贴完整密钥。保留或关闭发送同会话最近 3 条原文，再点连接并开始使用。
+
+助手会验证 Key、测试一次翻译；成功后加密保存并启用。DeepSeek 路线无需填写阿里云的 ID／Secret，也不需要进行下面的 RAM 授权步骤。
+
+官方依据：首次调用 API 与 Key 入口（https://api-docs.deepseek.com/zh-cn/）、计量与按需充值说明（https://api-docs.deepseek.com/zh-cn/quick_start/pricing/）。本轮只核对公开文档，未登录你的账户。
+
+B · 阿里云：开通“机器翻译通用版”
+
+以下开通、创建 RAM 用户和授权步骤，仅阿里云用户阅读
+
+• 登录阿里云后，在产品搜索里输入“机器翻译”。也可以从机器翻译官方产品页（https://www.aliyun.com/product/ai/alimt）进入控制台。
+
+• 找到通用版翻译引擎／机器翻译通用版，选择开通，按页面提示完成。助手用的是这个文本翻译服务。
+
+• 确认控制台显示该服务已经开通。看到资源包、购买或支付页面时，先看清免费额度、价格和你要买的内容，再决定是否继续；本文不要求你购买资源包。
 
 检查一下：现在是“翻译服务已开通”。接下来还要创建 Key 并添加权限，光完成这一步还不能让助手翻译。
 
 页面叫法可能调整，认准“机器翻译”和“通用版”。官方开通步骤（https://help.aliyun.com/zh/machine-translation/getting-started/documentation）
 
-03 · 给助手申请一把专用 Key
+03 · 阿里云用户：申请专用 AccessKey
+
+选择 DeepSeek 的读者可跳过本节和第 04 节，直接看第 05 节：连接与切换。已有可用阿里云 Key 和权限，也可直接连接。
 
 推荐给助手建一个单独的 RAM 用户。大白话就是：给助手一把专门做翻译的“副钥匙”，而不是把整个阿里云账号的“大钥匙”交出去。
 
 继续在浏览器里，用你自己的阿里云主账号操作
 
-打开RAM 访问控制台（https://ram.console.aliyun.com/），左侧选择身份管理 → 用户 → 创建用户。
+• 打开RAM 访问控制台（https://ram.console.aliyun.com/），左侧选择身份管理 → 用户 → 创建用户。
 
-“登录名称”可以填 hots-helper；“显示名称”可以填“风暴英雄助手”。如果名称已被用过，换一个名称即可。
+• “登录名称”可以填 hots-helper；“显示名称”可以填“风暴英雄助手”。如果名称已被用过，换一个名称即可。
 
-在“访问方式”里选择使用永久 AccessKey 访问；部分页面也可能写“OpenAPI 调用访问”。这是给软件使用的，通常不需要再为这个用户开“控制台访问”或设置网页登录密码。读完创建提示后确认创建。
+• 在“访问方式”里选择使用永久 AccessKey 访问；部分页面也可能写“OpenAPI 调用访问”。这是给软件使用的，通常不需要再为这个用户开“控制台访问”或设置网页登录密码。读完创建提示后确认创建。
 
-创建成功后，保存 AccessKey ID 和 AccessKey Secret。如果创建时没有显示 Key，点进这个用户，找凭证管理 → AccessKey → 创建 AccessKey，再按提示完成验证。
+• 创建成功后，保存 AccessKey ID 和 AccessKey Secret。如果创建时没有显示 Key，点进这个用户，找凭证管理 → AccessKey → 创建 AccessKey，再按提示完成验证。
 
 Secret 一般只显示这一次。关掉前先保存到自己的密码管理器等私密位置。不要发到群里、截图教程里或文档点评区；如果丢了，要重新创建 Key。
 
 新建 RAM 用户本身不收费，调用翻译服务按其计费规则计算。参考：创建 RAM 用户（https://help.aliyun.com/zh/ram/user-guide/create-a-ram-user）、创建 AccessKey（https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair）。
 
-04 · 告诉阿里云：“允许这把 Key 做文字翻译”
+04 · 阿里云用户：允许这把 Key 做文字翻译
+
+本节是阿里云 RAM 权限配置，DeepSeek 用户可直接看第 05 节。
 
 刚创建的 RAM 用户还没有翻译权限。这里按“只给文字翻译权限”的办法做一次，下面这段内容不用看懂，完整复制即可。
 
-在 RAM 控制台左侧找到权限管理 → 权限策略 → 创建权限策略，切到脚本编辑。
+• 在 RAM 控制台左侧找到权限管理 → 权限策略 → 创建权限策略，切到脚本编辑。
 
-把编辑框原来的内容全部替换成下面这段。点击确定或“继续编辑基本信息”，策略名称填写 HotsTextTranslateOnly，备注可不填，然后保存。
+• 把编辑框原来的内容全部替换成下面这段。点击确定或“继续编辑基本信息”，策略名称填写 HotsTextTranslateOnly，备注可不填，然后保存。
 
 要复制的权限内容
 
-复制权限内容
-
 {
-
 "Version": "1",
-
 "Statement": [
-
 {
-
 "Effect": "Allow",
-
 "Action": [
-
 "alimt:TranslateGeneral"
-
 ],
-
 "Resource": "*"
-
 }
-
 ]
-
 }
 
-回到身份管理 → 用户，找到刚才的 hots-helper，点击添加权限。
+• 回到身份管理 → 用户，找到刚才的 hots-helper，点击添加权限。
 
-选择自定义策略，搜 HotsTextTranslateOnly 并勾选。若出现“资源范围”，选择整个云账号，再点确认新增授权。
+• 选择自定义策略，搜 HotsTextTranslateOnly 并勾选。若出现“资源范围”，选择整个云账号，再点确认新增授权。
 
-看到用户权限列表里有这条策略，就完成了。保存 Key 后不需要把阿里云网页登录密码填进助手。
+• 看到用户权限列表里有这条策略，就完成了。保存 Key 后不需要把阿里云网页登录密码填进助手。
 
 这段策略只允许调用通用版文字翻译。你不需要把自己的账号 ID、AccessKey ID 或 Secret 填进这段权限内容。
 
@@ -382,31 +438,46 @@ Secret 一般只显示这一次。关掉前先保存到自己的密码管理器�
 
 如果这个 RAM 用户已经有 AliyunMTFullAccess，它也包含助手需要的文字翻译权限，可以直接进入下一步。它允许管理整个机器翻译服务，范围比上面的专用策略更大；上面的方法更适合只给这个助手使用。系统策略官方说明（https://help.aliyun.com/zh/ram/developer-reference/aliyunmtfullaccess）
 
-05 · 填好 Key，点一次“连接并开始使用”
+05 · 连接自己的账户，之后可切回另一家
 
 这一步开始，在风暴英雄助手里操作
 
-打开“风暴英雄助手.exe”，点击配置翻译服务，或进入偏好设置 → 连接 → 配置账户；已配置时显示管理账户。个人密钥在主界面的页内弹层中填写。
+• 打开“风暴英雄助手.exe”，进入个人翻译账户，或从偏好设置 → 连接 → 配置账户／管理账户进入。首次没有已保存账户时，先在两张卡片中选一家；也可先关闭，继续接收聊天原文。
 
-把两段 Key 分别粘贴进 AccessKey ID 和 AccessKey Secret，别填反，前后也不要多出空格。
+• DeepSeek：只填 API Key。可在页面打开官方 Key 入口，按第 02 节准备密钥；阿里云：填 AccessKey ID 和 Secret，两段必须来自同一把 Key。两家的密钥不能混用。
 
-点击一次“连接并开始使用”，等待完成。助手会自动验证密钥所属主账号，再测试翻译“你好”；成功后使用 DPAPI 加密保存凭据并启用翻译。首次不必分开点击验证和保存。
+• 点击一次连接并开始使用，等待验证和翻译测试结束。DeepSeek 会通过余额接口验证 Key，再测试翻译；阿里云会先验证账号身份，再测试翻译。成功后，助手使用 Windows DPAPI 加密保存对应服务的凭据并启用翻译。
 
-看到“配置成功，翻译已启用”后即可使用。Key 已加密保存在当前 Windows 用户下，之后通常不用每次重填；完整 ID 和 Secret 不进入全局界面状态快照。
+• 看到配置成功，翻译已启用后再回游戏。以后重启会记住已经成功选中的服务，并加载它的本机账户；通常不用重新输入 Key。页面只显示掩码，不会回填完整密钥。
 
 填写位置示意 · 不是网页输入表单，也不是实际截图
 
-AccessKey ID粘贴自己的 ID
+选 DeepSeekAPI Key：●●●●●●●●（一段）
 
-AccessKey Secret●●●●●●●●
+选阿里云AccessKey ID ＋ AccessKey Secret（两段）
 
-连接并开始使用
+准备好对应 Key → 连接并开始使用 → 等待成功
 
-已有自己的旧配置文件时，可在个人翻译账户页主动选择导入本机旧 .env，文件上限 16 KiB。它仅把两个密钥字段填入本次输入框，不会自动连接；关闭后清空 Secret。正常启动不会自动读取该文件。
+已有阿里云的老用户，怎么加 DeepSeek？
 
-只需填写自己的 Key。助手不统计用量或限制月度额度；实际用量与费用以阿里云控制台为准。无需填写其他调用的用量或确认月度额度，界面不显示月度剩余量。
+• 继续用原账户：升级后，已保存的阿里云账户照常保留，不会自动切到 DeepSeek；原有 Key 不需要重新申请。
+• 先看当前服务，再选要配置的服务：账户页上方的“当前服务”表示实际正在使用的路线。改选服务卡片或表单，只是准备配置另一家，不会立刻切换实际翻译。
+• 新增另一家：选择 DeepSeek，输入自己的 API Key，点击连接。另一家已在本机保存时，直接点使用已保存账户即可，无需重输 Key。验证与翻译测试成功后才激活。
+• 想切回：进入管理账户，选阿里云，再点使用已保存账户。两家凭据分开加密保存，切换一家不会覆盖另一家的 Key。
 
-等结果后再修改或重试。处理中字段暂时不能改；关闭会取消尚未完成的操作，已经完成的保存或删除保持当前结果。失败会提示卡在哪个阶段，并显示安全错误类别或可识别的云错误码，未知错误不会直接展开底层内容。翻译测试和重新连接时的测试均会调用云服务，实际用量与费用以阿里云控制台为准。服务开通和 RAM 授权仍需先在阿里云完成。
+删除账户只删除当前服务在本机保存的凭据；另一家仍保留。删除后不会自动改用另一家，重新选择并验证后才能启用。
+
+DeepSeek 的上下文开关怎么选？
+
+发送同会话最近 3 条原文默认开启。接收消息翻译时，最多附带当前消息之前的 3 条相关原文，用来帮助理解缩写和指代；只取同一对话，密语按联系人隔离，无法确认联系人时不拼接其他私聊。发送者用匿名编号表示，不上传真实昵称。
+
+可取消勾选；已保存 DeepSeek 账户时，点保存上下文设置应用修改。手动输入中文的翻译不附带聊天历史。DeepSeek 使用非思考模式；它仍可能误解俚语或有歧义的短句，发送前请检查译文。附带历史会增加输入用量，关闭后只发送当前正文及必要翻译指令。
+
+仅阿里云旧配置：可在阿里云表单主动选择导入本机旧 .env，文件上限 16 KiB，只填入本次 ID／Secret 输入框，不会自动连接；关闭后清空 Secret。正常启动不会自动读取该文件，DeepSeek 无需此步骤。
+
+配置只需对应服务的个人密钥。不必填写“其他调用用量”或确认月度额度。DeepSeek 可按按钮查询 API 账户的总／赠送／充值余额；阿里云的免费字符额度和实际用量仍到官方控制台查看，详见第 11 节。
+
+等结果后再修改或重试。处理中暂不能改字段。关闭会取消尚未完成的配置，已经完成的保存或删除不会撤销。切换失败时，助手保留原服务并暂停云翻译，不会自动改用另一家或恢复旧 Key 计费。取消未完成的切换后，想恢复原服务，请回到个人翻译账户 → 选原服务 → 使用已保存账户，等验证成功再用；单独打开“自动翻译”不能恢复已暂停的云请求。按提示的阶段检查 Key、余额、网络或本机保存权限；每次连接和重新连接的翻译测试都会调用所选云服务。
 
 06 · 看别人说什么，发出自己想说的话
 
@@ -433,7 +504,6 @@ v2.1 构建采用以下桌面主界面；下载后保留整个程序文件夹。
 也可双击项目根目录的 打开悬浮窗对比.cmd，无需 PowerShell，默认打开 B 方案的快捷输入预览，命令行窗口不会常驻。运行 预览悬浮窗AB.ps1 也可打开对比控制台，切换“A · 原型新样式”／“B · 原样换配色”和“默认字幕”／“消息面板”／“快捷输入”；“切换浅色背景”“下一条消息”“恢复位置”用于比较显示效果。A 的双栏输入、圆角和浅紫白面板保留为备选预览；在预览里切换方案不会改写正式配置。
 
 .\预览悬浮窗AB.ps1
-
 .\预览悬浮窗AB.ps1 -方案 B -状态 input
 
 -方案 可选 A／B，-状态 可选 subtitle／panel／input，默认 B／input。预览使用项目现有虚拟环境和 Tk，无需 npm、构建或网络；不读取游戏、密钥或偏好，不调用云服务，不注册全局 Ctrl + T，该快捷键只在预览窗口内使用。
@@ -442,31 +512,29 @@ v2.1 构建采用以下桌面主界面；下载后保留整个程序文件夹。
 
 A. 看英文、韩文的中文翻译
 
-保持游戏和助手都开着，确认主界面“自动翻译”开关已开启，“频道”先选全部聊天。
+• 保持游戏和助手都开着，确认主界面“自动翻译”开关已开启，“频道”先选全部聊天。
 
-等游戏里出现一条英文或韩文文字消息。不需要先发一句来“热身”，只发一句也可以等待它接上；新位置的自动定位仍可能需要一些时间。
+• 等游戏里出现一条英文或韩文文字消息。不需要先发一句来“热身”，只发一句也可以等待它接上；新位置的自动定位仍可能需要一些时间。
 
-在主界面的实时消息看原文和译文。游戏里也会短暂显示底部译文；想回看完整内容就切到主界面。
+• 在主界面的实时消息看原文和译文。游戏里也会短暂显示底部译文；想回看完整内容就切到主界面。
 
-支持你在游戏聊天框里本来就能看到的团队、队伍、密语、所有玩家消息；大厅队伍和密语也可接收。换局、返回大厅时让助手保持打开即可，一般不用每把点重连。其他语言、纯中文和数字通常保留原文。
+支持你在游戏聊天框里本来就能看到的团队、征召团队、队伍、密语、所有玩家消息；大厅队伍和密语也可接收。征召团队指选人／禁用英雄阶段的【征召团队】频道；“仅团队”包含普通团队与征召团队，也可选“仅征召团队”。v2.4 支持已知显示历史结构中有／无时间戳的格式，不要求打开游戏聊天时间显示；真实征召阶段格式仍需实机复测。换局、返回大厅时让助手保持打开即可，一般不用每把点重连。其他语言、纯中文和数字通常保留原文。
 
 第一次连上时，会收哪些消息？
-
 大厅队伍、密语：补收这次开启采集以后发出的消息，连接过程中发的第一句也会收。
-
 试用和普通对局：首次找到一条新的聊天记录链时，最多补收该链最近 5 条，可能带上打开助手前的近几条；首次连上前已经连发超过 5 条时，更早的内容可能不在补收范围。之后按新消息继续，不会每次轮询都重翻这 5 条。已有记录位置的重连，也从未读处继续。
 
 B. 用中文写，让助手帮你译成英语或韩语
 
 Ctrl + T→输入中文、选语言→Enter 翻译→回游戏粘贴发送
 
-在游戏里按 Ctrl+T，打开中文输入条。
+• 在游戏里按 Ctrl+T，打开中文输入条。
 
-输入想说的中文，例如“我们一起走”，选择英语或韩语。Ctrl+Tab 也能切换这两种语言。
+• 输入想说的中文，例如“我们一起走”，选择英语或韩语。Ctrl+Tab 也能切换这两种语言。
 
-按 Enter 或点翻译并复制。正在用中文输入法选字时，第一次 Enter 可能只是确定汉字；汉字确定后再按一次才提交。
+• 按 Enter 或点翻译并复制。正在用中文输入法选字时，第一次 Enter 可能只是确定汉字；汉字确定后再按一次才提交。
 
-成功后，助手会把译文复制好，输入条随后收起。回到游戏，按 Enter 打开游戏聊天框，Ctrl+V 粘贴 → 看一下频道和内容 → Enter 发送。
+• 成功后，助手会把译文复制好，输入条随后收起。回到游戏，按 Enter 打开游戏聊天框，Ctrl+V 粘贴 → 看一下频道和内容 → Enter 发送。
 
 发送前最后一个 Enter 由你来按。助手负责翻译和复制，不会替你把话自动发出去。翻译时先等结果，别急着点到别的窗口；失去焦点会取消本次自动复制，文字仍保留，可以重新翻译。当前源码中，点一次输入条右上角关闭按钮或按 Esc 即可收起，草稿仍保留。
 
@@ -482,15 +550,15 @@ Tab 先进入候选列表，方向键在候选内选择，再按 Tab 或用鼠�
 
 这个功能可重复按 S，或交替按 Y＋S，不需要翻译 Key。先在助手的“动作连按”页选择动作；S 和 Y＋S 的“按键间隔”都可填 20–5000 毫秒整数，分别保存，新配置均默认 20；旧版保存值保留，然后点击保存并应用。
 
-启动助手正式程序，切回游戏。聊天输入框开着也可以，无需先关闭。
+• 启动助手正式程序，切回游戏。聊天输入框开着也可以，无需先关闭。
 
-单独按 F8 开始已保存的动作。不用先去助手里点击“准备连按”；需要配合游戏动作时，自己右键点游戏地面。
+• 单独按 F8 开始已保存的动作。不用先去助手里点击“准备连按”；需要配合游戏动作时，自己右键点游戏地面。
 
-如果 Y＋S 间隔填 200，就是 Y → 等 200 毫秒 → S → 等 200 毫秒再循环。S 模式也可以改间隔，例如填 100 就是每隔 100 毫秒按一次 S。保存新配置会结束当前动作，需回游戏再按 F8；实际节奏受系统与游戏响应影响，卡顿不补发。
+• 如果 Y＋S 间隔填 200，就是 Y → 等 200 毫秒 → S → 等 200 毫秒再循环。S 模式也可以改间隔，例如填 100 就是每隔 100 毫秒按一次 S。保存新配置会结束当前动作，需回游戏再按 F8；实际节奏受系统与游戏响应影响，卡顿不补发。
 
-看到游戏下方显示“正在连按 / 按 F8 取消”，就是本次连按的状态提示。
+• 看到游戏下方显示“正在连按 / 按 F8 取消”，就是本次连按的状态提示。
 
-再按一次 F8 取消，提示会收起。之后想再开，松开按键后重新按 F8 就行。
+• 再按一次 F8 取消，提示会收起。之后想再开，松开按键后重新按 F8 就行。
 
 Esc、Enter、打开 Ctrl+T、按组合键或切出游戏，也会结束本次。Esc／Enter 只结束当前连按，不会阻止你松开按键后下一次单独按 F8 重新开始；切回游戏不会自动继续。右键仍由你自己操作；动作连按和连续开箱不能同时运行。
 
@@ -500,13 +568,13 @@ Esc、Enter、打开 Ctrl+T、按组合键或切出游戏，也会结束本次�
 
 自 v2.0 起沿用 v1.2 加入的自动首选天赋；v1.0 及更早的包不包含。它不需要翻译 Key，默认关闭。
 
-先在游戏里给各层想用的天赋标好爱心，选中自己要用的首选方案。
+• 先在游戏里给各层想用的天赋标好爱心，选中自己要用的首选方案。
 
-游戏内“快速选择首选天赋”快捷键保持为 Ctrl＋反引号。反引号在 Esc 下方、数字 1 左边。
+• 游戏内“快速选择首选天赋”快捷键保持为 Ctrl＋反引号。反引号在 Esc 下方、数字 1 左边。
 
-助手打开天赋辅助，勾选“自动选择游戏内的爱心天赋”，再回游戏。开关会保存，下一局自动重新识别；不用每把准备。
+• 助手打开天赋辅助，勾选“自动选择游戏内的爱心天赋”，再回游戏。开关会保存，下一局自动重新识别；不用每把准备。
 
-天赋待选时，助手先按下 Ctrl 约 80 毫秒，再按住反引号约 80 毫秒后释放，让游戏先识别修饰键；发送主键前再次核验待选状态与前台。每层只尝试一次，然后回读确认该层是否选中。显示 3 秒未确认时，请检查爱心和快捷键，并手选本层；下一层会继续检测。反复关开开关不会重试本层。
+• 天赋待选时，助手先按下 Ctrl 约 80 毫秒，再按住反引号约 80 毫秒后释放，让游戏先识别修饰键；发送主键前再次核验待选状态与前台。每层只尝试一次，然后回读确认该层是否选中。显示 3 秒未确认时，请检查爱心和快捷键，并手选本层；下一层会继续检测。反复关开开关不会重试本层。
 
 切出游戏时不发按键，也不会抢焦点；后台低频只读，观察返回大厅或换局。使用开箱、连按或快捷输入期间延后。关闭开关后停止读取和发送。看不准自己的玩家身份、游戏版本或天赋状态时暂停。
 
@@ -516,13 +584,13 @@ Esc、Enter、打开 Ctrl+T、按组合键或切出游戏，也会结束本次�
 
 v2.0 已保留 v1.2 的双击播报稳定性修复、对局聊天来源与换局探测、用量账本移除及额度查询入口，并加入完整模型解码兼容与诊断回放。先退出旧助手，再启动新文件夹里的 EXE。v1.0 及更早的公开包不包含双击播报。
 
-在助手打开双击播报，勾选“开启 Tab 双击播报，自动发送到己方团队”。默认关闭，开启后会记住。
+• 在助手打开双击播报，勾选“开启 Tab 双击播报，自动发送到己方团队”。默认关闭，开启后会记住。
 
-回游戏打开 Tab 的天赋页。双击一个已选的天赋，会以“注意”开头说明玩家、英雄、真实天赋等级、名称和一句效果；任务天赋还会在同一格附带当前层数或完成状态。
+• 回游戏打开 Tab 的天赋页。双击一个已选的天赋，会以“注意”开头说明玩家、英雄、真实天赋等级、名称和一句效果；任务天赋还会在同一格附带当前层数或完成状态。
 
-双击统计页里一个具体数字，就只说那一项。例如点英雄伤害，只发“【我方】玩家（安度因）｜英雄伤害：12,345”，不会顺带说死亡次数。
+• 双击统计页里一个具体数字，就只说那一项。例如点英雄伤害，只发“【我方】玩家（安度因）｜英雄伤害：12,345”，不会顺带说死亡次数。
 
-击杀、助攻、死亡、英雄伤害、攻城伤害、治疗、自我治疗、经验贡献都按各自一格处理。0 可以说，“—”不说，不给玩家排名或评好坏。自己、队友、对手都能提示，内容发到己方团队。
+v2.4 可在“双击播报”页的“发给队友的播报语言”选择中文或 English，默认中文，选择后保存，重启沿用。英文模式使用随包离线英雄、天赋、任务和大招资料及英文统计文案；英文昵称保留；中文及其他非拉丁文字昵称以 Player 加可信槽位序号代称，同时显示英文英雄名，不猜译人名，无需云翻译。切换会取消尚未发送的旧动作，下一次双击使用新语言。英文资料缺失时不混发中文或内部 ID。此选项不改变聊天翻译目标，也不表示英文游戏客户端已实机验证。击杀、助攻、死亡、英雄伤害、攻城伤害、治疗、自我治疗、经验贡献都按各自一格处理。0 可以说，“—”不说，不给玩家排名或评好坏。自己、队友、对手都能提示，内容发到己方团队。
 
 双击后松开鼠标和按键。游戏里 Ctrl＋Enter 的团队聊天快捷键保持默认。打开聊天框或菜单、正在开箱／F8 连按／快捷输入时暂停；切出游戏就取消。不改剪贴板、不覆盖你写了一半的话。失败不会自动重试；若留下一段未发送文字，按 Esc 取消。同一项 3 秒内不会重复，任意两次至少间隔 2 秒。
 
@@ -550,11 +618,9 @@ v2.0 已保留 v1.2 的双击播报稳定性修复、对局聊天来源与换局
 
 如果正在使用 1.1.0 本地包，旧更新器只识别中文 ZIP 名，无法匹配新的 GitHub ASCII 附件；请手动下载 HotsHelper-2.1.0-Windows-x64.zip，先退出旧助手，再解压启动新版。本机 Key、语言资料和偏好仍在原用户目录，不用搬动。1.2.0 起的更新器支持 HotsHelper-&lt;版本&gt;-Windows-x64.zip 命名。 打开 v2.1 发行页（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1）。
 
-点主窗侧栏底部检查更新，再点页内更新界面的检查按钮。仅打开这个界面不会联网，检查由你明确发起。
-
-有新版本时，先看说明，再点下载更新。下载失败可以重试；没有可信校验信息时，按提示到官方发行页手动下载。
-
-下载校验成功，点重启并更新。助手会退出，升级程序备份并替换程序后重新打开；个人 Key、语言资料和设置保留。
+• 点主窗侧栏底部检查更新，再点页内更新界面的检查按钮。仅打开这个界面不会联网，检查由你明确发起。
+• 有新版本时，先看说明，再点下载更新。下载失败可以重试；没有可信校验信息时，按提示到官方发行页手动下载。
+• 下载校验成功，点重启并更新。助手会退出，升级程序备份并替换程序后重新打开；个人 Key、语言资料和设置保留。
 
 当前源码中，“检查更新”旁的提示点只在手动检查确认有可用新版本后显示；尚未检查、已是最新版或检查失败时不显示，下载完成但尚未安装时仍保留。发布说明按标题、段落和列表排版，文字随说明区宽度自动换行；调整主窗口长宽时，页内说明区自适应排版，长内容可滚动阅读。上述界面细节以包含这些改动的构建为准。
 
@@ -562,13 +628,13 @@ v2.0 已保留 v1.2 的双击播报稳定性修复、对局聊天来源与换局
 
 08 · 在补给箱页面连续开箱
 
-在助手主界面点开箱助手 → 准备开箱。
+• 在助手主界面点开箱助手 → 准备开箱。
 
-切回游戏，自己打开主菜单的补给箱页面。准备后 30 秒内开始，超时就重新准备。
+• 切回游戏，自己打开主菜单的补给箱页面。准备后 30 秒内开始，超时就重新准备。
 
-按一下空格开始 → 再按一下空格暂停 → 再按继续。不需要一直按住空格。
+• 按一下空格开始 → 再按一下空格暂停 → 再按继续。不需要一直按住空格。
 
-不想开了就按 Esc。开始后的鼠标点击、滚轮、其他按键或切出游戏，也会结束本次；再次使用需要回助手重新准备。
+• 不想开了就按 Esc。开始后的鼠标点击、滚轮、其他按键或切出游戏，也会结束本次；再次使用需要回助手重新准备。
 
 助手会循环按空格，不会替你点购买、重掷，也不知道还剩几个箱子。箱子开完请自己停止。准备阶段可以切回游戏选页面；开始后再点击鼠标会结束。
 
@@ -576,19 +642,27 @@ v2.0 已保留 v1.2 的双击播报稳定性修复、对局聊天来源与换局
 
 包含本轮改动的构建中，偏好设置、检查更新、个人密钥和短句编辑共用一个 React 页内弹层。重复点击复用当前界面，打开偏好设置不会带出快捷输入条。保存失败时会保留编辑内容，原有偏好不变。
 
-想做什么去哪里怎么选
+想做什么 ｜ 去哪里 ｜ 怎么选 ｜
 
-调整主窗口阅读偏好设置 → 外观内容字号 10–32，保存后作用于消息和输入文字；可选标准／精简布局，“主窗口保持置顶”作用于实际可见的助手窗口。界面沿用柔雾紫。
+调整主窗口阅读 ｜ 偏好设置 → 外观 ｜ 内容字号 10–32，保存后作用于消息和输入文字；可选标准／精简布局，“主窗口保持置顶”作用于实际可见的助手窗口。界面沿用柔雾紫。 ｜
 
-调整游戏内译文设置 → 游戏内可调字号、宽度、停留时间、是否显示原文；先用默认值也可以。
+调整游戏内译文 ｜ 设置 → 游戏内 ｜ 可调字号、宽度、停留时间、是否显示原文；先用默认值也可以。 ｜
 
-挪一下译文位置偏好设置 → 游戏内 → 保存并调整位置拖到不挡技能和游戏聊天的位置，点“完成调整”。
+把字幕移到主屏 ｜ 偏好设置 → 游戏内 → 字幕显示器 ｜ 选择“主显示器”，点“移动到所选屏幕”；底部预设和调整位置也使用所选屏幕。 ｜
 
-换 F8 开关键偏好设置 → 快捷键 → 动作连按开始 / 取消快捷键从 F1–F12 选一个并保存；下方提示会同步。回游戏新按所选键即可开始，不用重新准备。
+挪一下译文位置 ｜ 偏好设置 → 游戏内 → 保存并调整位置 ｜ 拖到不挡技能和游戏聊天的位置，可跨屏拖动，松开后保存，再点“完成调整”。拔掉原显示器时回退到可用屏幕；物理双屏与不同 DPI 仍需实机复验。 ｜
 
-少看一些频道实时消息 → 频道例如仅队伍、仅密语。筛选影响后续消息，旧历史不会清空。
+换 F8 开关键 ｜ 偏好设置 → 快捷键 → 动作连按开始 / 取消快捷键 ｜ 从 F1–F12 选一个并保存；下方提示会同步。回游戏新按所选键即可开始，不用重新准备。 ｜
 
-准备常说的话主界面 → 常用短句新增／编辑时可勾选收藏；在主界面点“使用短句”或在 Ctrl+T 中选择候选，检查语言后翻译并复制，再自己粘贴发送。
+少看一些频道 ｜ 实时消息 → 频道 ｜ 例如仅队伍、仅密语。筛选影响后续消息，旧历史不会清空。 ｜
+
+准备常说的话 ｜ 主界面 → 常用短句 ｜ 新增／编辑时可勾选收藏；在主界面点“使用短句”或在 Ctrl+T 中选择候选，检查语言后翻译并复制，再自己粘贴发送。 ｜
+
+选择或切回翻译服务 ｜ 偏好设置 → 连接 → 管理账户 ｜ 区分“当前服务”和准备填写的表单；已保存另一家时点“使用已保存账户”，验证成功才启用。 ｜
+
+关闭 DeepSeek 聊天上下文 ｜ 个人翻译账户 → DeepSeek ｜ 取消“发送同会话最近 3 条原文”，已保存账户点“保存上下文设置”；手动中文回复始终不附聊天历史。 ｜
+
+查余额或免费字符用量 ｜ 偏好设置 → 连接 ｜ DeepSeek 点“查询账户余额”，在助手里看总／赠送／充值余额和时间；阿里云点查询免费额度／用量，到官方控制台查看。 ｜
 
 新桌面壳目前不提供主窗口透明度与位置锁定控件；-Legacy 兼容入口保留这些原生设置。全局快捷键可在“快捷键”页取消勾选并保存，禁用后仍可从主界面的“快捷输入”按钮打开输入条。
 
@@ -596,19 +670,35 @@ v2.0 已保留 v1.2 的双击播报稳定性修复、对局聊天来源与换局
 
 有原文，没有中文翻译
 
-先看“自动翻译”开关有没有开启，再看是否点过“连接并开始使用”并等到配置成功。收到的文字也要在英文或韩文支持范围内。云服务没配好时，助手仍能接收原文。
+先看“自动翻译”是否开启，再到个人翻译账户页确认当前服务已连接。仅选择服务卡片或填好 Key，还没有启用翻译；需要点连接或使用已保存账户，等到验证成功。切换失败或取消未完成的配置后，请回到个人翻译账户 → 选原服务 → 使用已保存账户，验证成功后恢复；只打开自动翻译不能恢复云请求。收到的文字也要在英文或韩文支持范围内；尚未配置云服务时，助手仍能接收原文。
 
 提示找不到聊天／大厅消息没接上
 
 确认游戏和助手都开着，频道先选“全部聊天”。在游戏里手动发一条普通团队、队伍或密语消息，等它连接，不需要特意再发第二条。0.3.10 已调整首句补收；如果还在用旧版，请先退出旧程序并打开新版。仍不行就到“设置 → 连接 → 手动重新连接”。如果之前停过采集，先点“恢复采集”。独立战网客户端里的聊天不在采集范围；游戏已覆盖或释放的记录也无法补回。
 
-一键连接提示身份验证阶段失败
+连接提示密钥验证失败
 
-核对 ID 和 Secret 是否来自同一把 Key，有没有漏字符、多空格、Key 被禁用或删除，以及网络能否访问阿里云。这里填的是 AccessKey，不是阿里云网页登录账号密码。Secret 丢了就创建新 Key，不用反复猜旧 Secret。按窗口的阶段、安全错误类别或可识别云错误码排查；反馈时不用提供 Key。
+DeepSeek：确认选中的是 DeepSeek，填写的是开放平台完整 API Key，密钥没有被撤销，网络可访问官方 API。这里只需要一个 API Key，不填阿里云 ID／Secret或网页登录密码。
 
-身份验证通过，翻译测试或保存阶段失败
+阿里云：核对 ID 和 Secret 是否来自同一把 Key，有无漏字符、多空格、Key 被禁用或删除，以及网络能否访问阿里云。Secret 丢失时到官网创建新 Key。根据窗口的阶段和固定错误提示排查，反馈时不要发送完整密钥。
 
-身份验证成功只说明 Key 能确认身份。翻译测试失败时，检查是否开通“机器翻译通用版”、是否给刚才那个 RAM 用户加了翻译权限，以及阿里云是否有欠费或服务限制。保存阶段可核对当前 Windows 用户和写入权限。看窗口显示的阶段和安全提示排查，等结果后再重试；每次翻译测试均会调用云服务。
+密钥验证通过，翻译测试或保存阶段失败
+
+DeepSeek：检查开放平台是否有可用于 API 的余额、服务是否受限，以及网络是否稳定。能登录官网不等于 API 翻译测试已经成功。
+
+阿里云：检查机器翻译通用版是否开通，当前 RAM 用户是否有翻译权限，以及账户是否欠费或受限。
+
+本机保存失败：检查当前 Windows 用户及用户数据目录写入权限。失败的切换不会自动改用另一家；修正后重试，或明确选回已保存账户并验证。每次翻译测试都会调用所选云服务。
+
+账户页只显示两张服务卡片，或者找不到 DeepSeek
+
+第一次还没有保存任何账户时，页面先请你选择 DeepSeek 或阿里云，选中后才显示对应输入框。已有阿里云账户的用户会保留原服务，可在管理账户里选择另一家，不会强制切换。
+
+如果完全没有 DeepSeek 选项，先确认是否使用包含本次改动的源码或新构建；当前公开 v2.3 包还没有 DeepSeek。不要因为看了新指南就反复重填旧包里的阿里云字段。
+
+DeepSeek 余额没更新，或者查询失败
+
+先确认当前服务是已连接的 DeepSeek，再点查询账户余额。查询在后台进行，不会清空中文草稿或关闭快捷输入。失败时看余额区域的错误；显示的旧金额和更新时间属于上次成功查询，不代表刚刚刷新成功。余额不是剩余字符数，也不能直接换算成固定可翻译条数。
 
 旧版本的用量文件需要处理吗？
 
@@ -624,17 +714,17 @@ Ctrl+T 翻译了，游戏里却没发出去
 
 游戏里看不到译文，或者位置挡视线
 
-先在主界面确认确实有新的译文。字幕显示时间较短，可在“设置 → 游戏内”调整；用无边框窗口化，重新拖动浮窗位置。透明字幕模式主要显示文字，想要底色可改为半透明面板。
+先在主界面确认确实有新的译文。双屏时，到“偏好设置 → 游戏内 → 字幕显示器”选“主显示器”，点“移动到所选屏幕”；也可“保存并调整位置”后跨屏拖动。字幕显示时间较短，可在同页调整；用无边框窗口化。透明字幕模式主要显示文字，想要底色可改为半透明面板。
 
-某个短词翻译不符合语境
+某个短词或俚语翻译不符合语境
 
-主界面保留原文，可以对照着看；需要时选择消息再点“重试所选”。短词缺少上下文时仍可能有多种意思，重试也会调用云翻译，别连续刷同一句。
+先对照保留的原文。使用 DeepSeek 时，可在账户页启用发送同会话最近 3 条原文，帮助理解简称和指代；需要保存上下文设置后才生效。阿里云当前路线按单条正文翻译。上下文也不能保证消除歧义，陌生俚语、断句或反话仍可能误译。需要时选消息点重试所选，或切换到已保存的另一家做比较；重试和连接测试都会调用云服务。
 
 怎么把日志发给开发者排查？
 
 诊断默认关闭。打开设置 → 诊断 → 开启诊断日志，复现一次，再点导出诊断日志。后台完成后会显示已导出的 ZIP 路径，可以选中复制；检查文件后，由你附上出问题的大致时间并自行分享。开启后会记录聊天原文、译文及翻译、自动天赋和双击播报的复现输入与状态；仅一个开关，没有额外详细模式或十分钟到期。下次启动仍关闭，关闭后已有日志仍可导出。
 
-默认日志总上限 100 MiB，滚动覆盖最旧文件、保留七天；队列过载、覆盖和截断会计数。已配置密钥递归脱敏，分享前检查其他聊天隐私；不要额外附带 .env、credentials.dpapi 或用户数据库。导出不调用云服务、不自动上传。开发者可离线重放录制的业务判断；缺失或截断的数据会标明不完整，不能保证还原真实游戏、驱动或云端故障。
+默认日志总上限 100 MiB，滚动覆盖最旧文件、保留七天；队列过载、覆盖和截断会计数。已配置密钥递归脱敏，分享前检查其他聊天隐私；不要额外附带 .env、credentials.dpapi、deepseek.dpapi 或用户数据库。导出不调用云服务、不自动上传。开发者可离线重放录制的业务判断；缺失或截断的数据会标明不完整，不能保证还原真实游戏、驱动或云端故障。
 
 表情为什么显示为 [表情]？
 
@@ -648,82 +738,85 @@ Ctrl+T 翻译了，游戏里却没发出去
 
 还是解决不了，应该怎么反馈？
 
-说明助手版本、是在大厅还是对局、你做了什么、显示什么提示，以及是否改过快捷键。也可先从“设置 → 诊断”导出日志；截图时遮住 AccessKey、Secret、账号信息、好友昵称和私人聊天。不要把完整 Key 发给别人。
+说明助手版本、当前使用 DeepSeek 还是阿里云、是在大厅还是对局、做了什么、显示什么提示，以及是否改过快捷键。可先从设置 → 诊断导出日志；截图时遮住 API Key、AccessKey ID／Secret、账号信息、好友昵称和私人聊天，不要发送完整密钥。
 
-游戏里能看到团队消息、助手却没有原文？本轮已修复对局来源误接大厅记录，以及旧记录持续更新妨碍发现新局的问题；朋友现场是否同因仍需复现确认。请在进局前开启“设置 → 诊断 → 开启诊断日志”，复现后导出 ZIP，并附发生时间。公开 v1.0 不支持这套诊断导出。
+游戏里能看到团队／征召团队消息、助手却没有原文？大厅队伍／密语与对局显示聊天独立采集，“等待对局聊天”不等于翻译服务失败。v2.4 修复已知显示历史格式对时间戳的强制依赖，并保留节点、历史链与频道校验。请在进局前开启“设置 → 诊断 → 开启诊断日志”，在相应【团队】或【征召团队】频道发一条 hello，确认游戏里可见，记下时间并导出 ZIP。不要只用密语代替测试。扫描摘要会记录读取进度、候选、拒绝原因及有／无时间戳解析检查计数；计数可能含重复轮询，不等于收到的消息条数。朋友机器的实际效果仍需新包复测。公开 v1.0 不支持这套诊断导出。
 
 大厅队伍昵称偶尔“未知”？0.3.11 已补充同账号的昵称查找：好友关系暂不可读、或者名字只在上层记录里时，会尝试恢复合法昵称。实在无法确认身份或名字数据损坏时仍显示“发送者未知”，正文照常接收。后续新消息会重新查名，旧消息不会自动改名；反馈时说明是否刚组队、同一个人的后续发言有没有恢复，不用提供真实昵称或聊天内容。
 
 11 · 费用和 Key，记住这几句话就够了
 
-实际用量与费用以阿里云控制台为准
+DeepSeek：在助手里查 API 账户余额
 
-想查看剩余额度和实际用量时：
+• 确认当前服务是已连接的 DeepSeek，进入偏好设置 → 连接或个人翻译账户页。
+• 点查询账户余额。助手后台向 DeepSeek 官方余额接口查询，不会清空正在编辑的中文或关闭快捷输入。
+• 按币种查看总余额、赠送余额、充值余额和更新时间；总余额已包含可用赠金和充值余额，不要再把三项相加。
 
-点击偏好设置 → 连接中的“查询剩余额度”。
+启动时不自动刷新余额；连接验证也会调用余额接口。界面金额是上次成功查询的结果，查询失败不会把旧时间改成刚刚成功。账户有 CNY／USD 时分别展示，不自行换算汇率。余额不是剩余字符数，也不是月度免费额度。
 
-默认浏览器会打开阿里云机器翻译控制台（https://mt.console.aliyun.com/service），登录自己的阿里云账号后，在控制台查询。
+模型调用按输入、输出及相应缓存用量计费；提示词和附带历史也属于输入。请在开放平台查看账单，按需充值。当前价格和权益以DeepSeek 官方计费说明（https://api-docs.deepseek.com/zh-cn/quick_start/pricing/）及自己的账户为准。字段解释见官方余额文档（https://api-docs.deepseek.com/zh-cn/api/get-user-balance/）。
 
-此按钮仅打开控制台，不自动查询或读取账号数据。助手启动时不会自动打开浏览器，也不会建立本地用量账本。
+阿里云：到控制台查免费字符额度与实际用量
 
-助手不统计用量或限制月度额度；实际用量与费用以阿里云控制台为准。云端服务的计费方式不因本地功能调整而改变。开通前看清自己账号的实际权益和计费说明，不要把免费权益理解为永久免费。查看官方计费说明（https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview）
+• 当前服务为阿里云时，在偏好设置 → 连接点查询免费额度／用量，或在阿里云配置区点打开阿里云官方入口。
+• 默认浏览器打开阿里云机器翻译控制台（https://mt.console.aliyun.com/service），登录自己的账号，查看该账号实际的免费字符权益、已用量和费用。
 
-助手不再建立本地月度账本，也不提供月度额度确认或剩余量显示。请求队列、自动翻译限流、缓存去重和暂停继续保留；这些功能不能替代阿里云的账单或账号费用管理。
+助手只提供控制台入口，不自动读取阿里云用量，也不建立本地月度账本或承诺统一免费额度。服务开通前看清账号实际权益和官方计费规则（https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview）；不要把免费权益理解为永久免费。
 
-阿里云控制台测试、助手里的翻译测试、手动重试和实际聊天翻译都会调用云服务。给助手使用专用 Key，并在阿里云控制台查看账号的用量与费用。
+请求队列、限流、缓存去重和暂停继续保留，但不能替代任一家服务的账单和费用管理。助手里的连接测试、重新连接测试、重试消息和实际翻译都会调用所选服务。
 
-Key 放自己手里，别人不需要知道
+两家 Key 分开保存，消息发给当前选中的服务
 
-助手使用 DPAPI 把 Key 加密保存在当前 Windows 用户下；之后可在“个人阿里云密钥”里替换或删除。从助手删除，只删除本机保存的 Key，不会去阿里云注销这把 Key。如果泄露，到 RAM 控制台禁用或删除旧 Key，再创建新的并重新配置助手。
+阿里云和 DeepSeek 的凭据分开使用 Windows DPAPI 加密，保存在当前 Windows 用户下；在个人翻译账户中替换、切换或删除。删除当前服务的本机账户，不会删除另一家，也不会去官网撤销这把 Key。密钥泄露时，到对应官方 Key 管理页撤销旧 Key，再创建新 Key 并重新配置助手。
 
-云翻译会把待翻译的消息正文发给阿里云；助手不把发送者昵称当作翻译内容上传。聊天历史只保留本次运行最近 500 条，退出助手后清空。本文不收集 Key，也没有可以填写真实 Key 的网页输入框。
+阿里云：上传当前待译正文，不把发送者昵称作为翻译字段上传。DeepSeek：上传当前正文和必要的翻译指令；默认附带最多 3 条匿名标识的同会话原文，可在账户页关闭，手动中文回复始终不附历史。匿名化的是发送者标识，正文仍按消息实际内容发送。
 
-Key 保管与泄露处理参见阿里云 AccessKey 官方说明（https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair）。
+默认聊天列表保留本次运行最近 500 条，退出后清空；主动开启诊断后，日志会按诊断说明保存原文和译文。本文可离线阅读，不收集 Key，也没有可以填写真实 Key 的网页输入框；请不要把密钥写进点评或反馈。
+
+管理入口：DeepSeek API Key 页面（https://platform.deepseek.com/api_keys）、阿里云 AccessKey 说明（https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair）。
 
 一页速查：平时就看这张卡
 
 复制给自己，或者发给新用户
 
-复制速查卡
-
 先打开助手，再回游戏。
-
-升级到 v2.1（可下载包以实际 Release 为准）：1.1.0 本地包请手动下载 HotsHelper-2.1.0-Windows-x64.zip；退出旧助手后解压启动，ZIP 内目录和 EXE 仍为中文。
-
+版本边界：双服务选择与 DeepSeek 需要本次源码／新构建；当前公开 v2.3 包还没有 DeepSeek。更新指南不会改变旧 EXE，发行附件以实际 Release 为准。
 看翻译：自动翻译勾上，频道先选“全部聊天”，等新的英文／韩文消息。
-
-首次配 Key：先开通服务并授权 RAM → 填 AccessKey ID / Secret → 点“连接并开始使用” → 等身份验证和“你好”测试成功、加密保存并启用。
-
+首次配置：无已存账户时先看到两张卡片、不预选 → 选择一家服务，也可先关闭看原文。
+DeepSeek：打开官方入口 → 登录并创建 API Key → 余额不足时按需充值 → 回助手只填 API Key → 连接并开始使用。
+阿里云：开通机器翻译通用版 → 创建 RAM 用户并授权 → 回助手填 AccessKey ID / Secret → 连接并开始使用。
+老用户：原阿里云账户继续保留；选另一家只是切表单，连接或“使用已保存账户”验证成功后才激活。重启记住成功选中的服务，可切回。
+DeepSeek 上下文：默认最多附带同会话前 3 条匿名标识原文，可关；手动中文翻译无历史，思考模式关闭。
 发消息：Ctrl+T → 写中文并选语言 → Enter 翻译 → 回游戏 Enter 打开聊天 → Ctrl+V → Enter 发送。
 常用短句：空输入看收藏，输入中文查匹配 → Tab 进入候选，方向键选择 → Tab／鼠标只填字 → Enter 翻译并复制。
-
 动作连按：先选 S 或 Y＋S，填间隔并保存应用 → 游戏前台 F8 开始 → 再 F8 取消。聊天框开着会输入对应按键；Esc／Enter 结束本次后，新按 F8 可重开。右键点地面由自己操作。
-
 开补给箱：助手点“准备开箱” → 回游戏打开补给箱页 → 空格开始／暂停／继续 → Esc 结束。
-
 更换或删除 Key：偏好设置 → 连接 → 管理账户。
-
-查剩余额度：偏好设置 → 连接 → 查询剩余额度 → 默认浏览器打开阿里云控制台，登录后查询。
-
-Key、Secret 自己保管，截图和反馈都别带上它们。
+查费用：DeepSeek 点“查询账户余额”，后台看总／赠送／充值余额和上次成功时间；阿里云点“查询免费额度／用量”，到官方控制台看字符权益和账单。
+切换失败不自动改用另一家；取消未完成配置后保持暂停。恢复：个人翻译账户 → 选原服务 → 使用已保存账户 → 等验证成功；只打开自动翻译不能恢复云请求。
+两家 Key 分开加密保存；删除当前本机账户不影响另一家，也不会在官网撤销 Key。截图和反馈不带密钥。
 
 官方入口与说明
 
-阿里云流程按 2026-10-21可访问的官方资料核对，按钮名称和账号权益可能变化。上文用的是步骤说明和字段示意，没有登录真实账号或截取用户界面。
+DeepSeek 的 Key 入口、API 与余额字段按 2026-10-24公开官方文档核对；API Key 页面需要登录，本轮仅核对公开文档中的官方链接，不指定登录后的按钮位置。阿里云开通与授权流程沿用 2026-10-21核对的资料，按钮名称和账号权益可能变化。图示为流程说明，未登录你的账号或截取用户界面。
 
-机器翻译产品入口（https://www.aliyun.com/product/ai/alimt） · 服务开通说明（https://help.aliyun.com/zh/machine-translation/getting-started/documentation）
+• DeepSeek 官方 API Key 页面（https://platform.deepseek.com/api_keys） · 首次调用 API（包含官方 Key 入口）（https://api-docs.deepseek.com/zh-cn/）
 
-RAM 控制台（https://ram.console.aliyun.com/） · 创建 RAM 用户（https://help.aliyun.com/zh/ram/user-guide/create-a-ram-user） · 创建 Key（https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair）
+• DeepSeek 查询余额：总／赠送／充值、币种（https://api-docs.deepseek.com/zh-cn/api/get-user-balance/） · DeepSeek 计量计费与按需充值说明（https://api-docs.deepseek.com/zh-cn/quick_start/pricing/）
 
-翻译权限说明（https://help.aliyun.com/zh/machine-translation/getting-started/ram-user-authorization） · 创建自定义权限策略（https://help.aliyun.com/zh/ram/create-a-custom-policy） · 给用户授权（https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user）
+• 机器翻译产品入口（https://www.aliyun.com/product/ai/alimt） · 服务开通说明（https://help.aliyun.com/zh/machine-translation/getting-started/documentation）
 
-额度与收费规则（https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview）
+• RAM 控制台（https://ram.console.aliyun.com/） · 创建 RAM 用户（https://help.aliyun.com/zh/ram/user-guide/create-a-ram-user） · 创建 Key（https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair）
 
-v2.1 发行入口（附件以实际 Release 为准）（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1） · 已发布的 Windows x64 完整包（https://github.com/renyouhao/heroes-storm-helper/releases）
+• 翻译权限说明（https://help.aliyun.com/zh/machine-translation/getting-started/ram-user-authorization） · 创建自定义权限策略（https://help.aliyun.com/zh/ram/create-a-custom-policy） · 给用户授权（https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user）
 
-此前统一源码 51daf8e（并入 69ec5a3）完成 1247 项测试（113 个模块各用独立进程）和 20 项采集探针；这些数字仅属于原验证基线。v2.1 本轮最终回归通过 570 项 Python 测试和 33 项前端测试；验证范围、包校验、提交与 SHA256 以 Release 记录（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1）为准。
+• 阿里云机器翻译控制台（https://mt.console.aliyun.com/service） · 阿里云额度与收费规则（https://help.aliyun.com/zh/machine-translation/product-overview/billing-overview）
 
-助手用法按 v2.1 的功能整理，2026-10-24 修订；阿里云流程沿用 2026-10-21 的官网核对结果，本轮未重新登录或逐页核对。本文可离线阅读；打开阿里云入口、申请 Key 和云翻译需要联网。右上角“导出 PDF”会打开打印窗口，选择“另存为 PDF”即可保存。</pre></details>
+• 既有 v2.1 发行记录（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1） · 实际已发布的 Windows x64 完整包（https://github.com/renyouhao/heroes-storm-helper/releases）。本次文档更新没有发布新包，公开 v2.3 仍不包含 DeepSeek。
+
+此前统一源码 51daf8e（并入 69ec5a3）完成 1247 项测试（113 个模块各用独立进程）和 20 项采集探针；这些数字仅属于原验证基线。既有 v2.1 最终回归通过 570 项 Python 测试和 33 项前端测试；验证范围、包校验、提交与 SHA256 以 对应 Release 记录（https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.1）为准，不代表本次新增双服务已经发布。
+
+本次修订补齐双服务配置、切换、上下文、费用查询、征召团队和字幕显示器操作；其他游戏功能章节保留既有说明。指南可单文件离线阅读，只有打开官方入口、申请 Key 和实际云翻译需要联网。右上角“导出 PDF”调用打印窗口，选择“另存为 PDF”保存；逐段点评保存在当前浏览器，不会自动发给开发者。</pre></details>
 </section>
 <footer>风暴英雄助手新手指南 · v2.1 使用说明（程序 2.1.0） · 修订于 2026-10-24。点评只保存在当前浏览器，需要自己复制或下载；请勿在点评里填写 Key 或私人聊天。</footer>
 </main>

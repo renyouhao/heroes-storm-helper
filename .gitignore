@@ -1,4 +1,5 @@
 # Local credentials, including backup variants.
+/txt/
 .env
 .env.*
 !.env.example

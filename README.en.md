@@ -4,13 +4,15 @@
 
 A Windows companion for Heroes of the Storm: read incoming English and Korean chat in Chinese, translate your Chinese replies into English or Korean, and use optional helpers for loot chests, repeated key presses, favorite talents, and team callouts.
 
-**Latest release/source: v2.3 · Application/package version: 2.3.0 · Configured channel: `stable`.** Downloadable versions, assets and checksums are determined by the actual Release. The application is distributed as **风暴英雄助手** and uses a Chinese interface. Existing credentials, phrasebook data and preferences remain in place; previous theme choices migrate to Soft Lavender.
+**Current source/local package target: v2.4 · Application/package version: 2.4.0 · Configured channel: `stable`.** The public download below remains **v2.3**; a local v2.4 build does not create a GitHub Release. Downloadable versions, assets and checksums are determined by the actual Release. The application is distributed as **风暴英雄助手** and uses a Chinese interface. Existing credentials, phrasebook data and preferences remain in place; previous theme choices migrate to Soft Lavender.
 
 **Supported validation target: Windows x64, Chinese game client build 98348.** This English introduction does not mean the English game client has been validated. Game updates require another compatibility check.
 
 ## Download
 
 The link below is the published **v2.3 binary package**, including update shutdown handoff, preparation-stage messages and automatic startup checks, plus the earlier startup and Brightwing fixes. **When upgrading from v2.1/v2.2, manually replace the full package.** A running old updater does not acquire the handoff fix from the new download.
+
+The **local v2.4 build** includes untimestamped match-chat capture, known-format support for draft-team chat (【征召团队】), subtitle monitor selection, enhanced diagnostics and the complete Aliyun/DeepSeek service selection, API-key, balance and context controls. The earlier v2.3 match-diagnostics test build used the old baseline and did not include DeepSeek; the public v2.3 package does not include these additions either.
 
 **[Download v2.3 for Windows x64](https://github.com/renyouhao/heroes-storm-helper/releases/download/v2.3/HotsHelper-2.3.0-Windows-x64.zip)** · [Release notes and SHA256](https://github.com/renyouhao/heroes-storm-helper/releases/tag/v2.3) · [All versions](https://github.com/renyouhao/heroes-storm-helper/releases)
 
@@ -32,16 +34,18 @@ Read incoming chat above and write Chinese in the reply area below. Choose Engli
 
 ## Getting started
 
+The two-service choice and onboarding below apply to **v2.4 source/local builds**. The public **v2.3 download above does not yet include them**.
+
 1. Download and extract the complete Windows package above. Borderless windowed game mode is recommended.
-2. Enable **Aliyun Machine Translation General Edition** on your own account. Create a RAM user and AccessKey with the `alimt:TranslateGeneral` permission.
-3. Open **配置翻译服务** (“Configure translation service”) or **偏好设置 → 连接 → 配置账户** (Preferences → Connection → Configure account), enter your AccessKey ID and Secret, and click **连接并开始使用** (“Connect and start using”). The helper verifies identity, translates `你好` as a test, and saves the key with Windows DPAPI only after success.
+2. As a new user, click **选择翻译服务** (“Choose translation service”) on the main page. The account page first shows Aliyun and DeepSeek cards with neither selected. Choosing one reveals its credential form. You can also skip setup and read original chat text.
+3. Follow the [new-user or existing-user steps](#translation-service-configuration-and-switching) below, or open **偏好设置 → 连接 → 配置账户** (Preferences → Connection → Configure account). Verification must succeed before the helper activates the chosen account.
 4. Start the game. Select the desired chat channels in the helper and check incoming translations. For your first reply, press `Ctrl+T`, enter Chinese, choose English or Korean, and press Enter to translate and copy. Return to the game, paste the result, check it, and send it yourself.
 
-**Account setup — 个人翻译账户.** The image locates the connection form; its fields are deliberately blank and disabled in offline demo mode. Enter your own key only in your normal local application. Closing the dialog cancels unfinished operations; already completed saves or deletions keep their result.
+**Account setup — 个人翻译账户.** New users choose a service before seeing its credential fields. Existing users keep their current account and can switch after successful verification, as shown below.
 
-<img src="docs/images/v2.1/02-account.png" width="100%" alt="Personal translation account dialog with empty AccessKey ID and Secret fields, disabled in offline demo mode">
+<img src="docs/images/translation-service-choice.svg" width="100%" alt="Translation-service workflow: new users choose Aliyun or DeepSeek before entering credentials; existing users retain their account or activate another after verification">
 
-*v2.1 current React components, isolated offline sample data; not live gameplay/cloud results.* No key is entered or shown.
+*Workflow diagram, not a running-application screenshot.* It contains no real key and does not show a successful connection or verification. Use a new build containing these changes.
 
 **Native quick input — 快捷中文输入.** `Ctrl+T` opens a separate native Tk input bar. The diagram below explains the flow; it is not a screenshot of that window or the game.
 
@@ -49,11 +53,34 @@ Read incoming chat above and write Chinese in the reply area below. Choose Engli
 
 *Workflow diagram, not a gameplay or cloud-result screenshot.* If you have saved favorites, a few appear when the input is empty; entering Chinese finds matching local phrases. Press Tab to enter the candidate list, use arrow keys there, then Tab again or click to fill the text. Filling does not translate or send it. Enter translates and copies; `Ctrl+Tab` changes language and Esc closes the bar. Candidate shortcuts leave IME composition alone. A reviewed, exact, unambiguous saved translation for the current language can be reused; other input still needs translation.
 
-You can skip cloud configuration and use original-text display, loot assistance, and key repetition. Cloud translation requires an internet connection and is billed to your own Aliyun account. Identity verification alone does not establish that translation service access, permissions, and billing are ready; setup also runs a translation test.
+You can skip cloud configuration and use original-text display, loot assistance, and key repetition. Cloud translation requires an internet connection and is billed to your personal account with the active provider. Setup verifies service access and runs a translation test before saving and activating the account.
+
+### Translation service configuration and switching
+
+#### New users: choose a service, then connect
+
+1. Click **选择翻译服务** (“Choose translation service”) on the main page, or open **偏好设置 → 连接 → 配置账户** (Preferences → Connection → Configure account). With no saved account, neither service card is selected by default. Choose Aliyun Machine Translation or DeepSeek V4.1 Flash to reveal its credential form.
+2. **For Aliyun**, enable **Machine Translation General Edition** in the [Aliyun Machine Translation console](https://mt.console.aliyun.com/service), grant the RAM user `alimt:TranslateGeneral`, and fill the **two AccessKey ID / Secret fields** using the same key pair. **For DeepSeek**, create your own key on the official [API Key page](https://platform.deepseek.com/api_keys), then fill the **single API Key field** in the helper.
+3. Click **连接并开始使用** (“Connect and start using”). Verification and the `你好` translation test must succeed before encrypted saving and activation. Selecting a card or entering credentials alone sends no request and does not activate the service.
+4. You can skip setup, keep reading original chat text, and return through the main-page entry later.
+
+#### Existing users: retain or switch accounts
+
+1. Existing Aliyun accounts are reused automatically, including legacy DPAPI credentials. **No forced migration or key re-entry is required.** The account page initially selects the service actually in use.
+2. To switch, choose another card under **要配置或使用的翻译服务** (“Service to configure or use”). This changes the form and clears the current credential input; it **sends no cloud request and does not immediately switch services**. **当前服务** (“Current service”) continues to show the active provider.
+3. If that service has a saved account, click **使用已保存账户** (“Use saved account”); successful verification activates it without entering the key again. Otherwise, connect it using the new-user steps. The two accounts are encrypted separately and can be switched back at any time. Translation failures do not automatically fall back to the other provider. Deletion affects only the currently active account.
+4. **Canceling unfinished setup leaves cloud translation paused.** To continue, return to the account page, choose the original service, and click **使用已保存账户** (“Use saved account”); successful verification enables it again. Closing the page does not undo saves or deletions that have already completed.
+
+#### DeepSeek context settings
+
+DeepSeek uses **`deepseek-flash` (V4.1 Flash)** with thinking disabled and only the current sentence's translation returned. **发送同会话最近 3 条原文** (“Send the last three originals from the same conversation”) is enabled by default and can be disabled. When enabled, it includes up to the three most recent anonymous originals from the same channel or whisper contact, without attaching nicknames; an unknown sender or contact receives no stitched history. For an active DeepSeek account, click **保存上下文设置** (“Save context settings”) to apply a change. Manual replies in the main window and `Ctrl+T` use only the current input and do not attach game-chat history.
 
 There is **no local monthly usage ledger, monthly budget confirmation, or local monthly character cap**. Request queues, short-term automatic-translation rate limits, caching, deduplication, and pause controls remain in place.
 
-To check remaining quota, usage, or charges, click **查询剩余额度** (“Check remaining quota”) under **偏好设置 → 连接** (Preferences → Connection). This opens the [Aliyun Machine Translation console](https://mt.console.aliyun.com/service) in your default browser. Log in there to inspect your account; the helper provides a link and does not query account usage automatically.
+- **Aliyun active:** click **查询免费额度 / 用量** (“Check free quota / usage”) under **偏好设置 → 连接** or on the account page to open the [Aliyun Machine Translation console](https://mt.console.aliyun.com/service) in your default browser. Log in there to inspect character quota, usage and charges. The helper provides this link without automatically reading Aliyun usage or opening the browser at startup.
+- **DeepSeek active:** click **查询账户余额** (“Check account balance”) for a background query. The dialog shows the returned **total, granted and topped-up balances** for CNY / USD, plus the update time and loading feedback. These are actual account balances, not an estimate of remaining characters. Charges and free-credit deductions are determined by your DeepSeek account bill.
+
+The local repeated-result cache distinguishes providers, language directions and context; the same original with different history does not directly reuse one result. DeepSeek requests share a fixed prompt prefix, allowing the provider's automatic prefix cache to work on a best-effort basis. Cache hits, fixed per-request costs and unmeasured percentage savings are not guaranteed. Optional history also counts as input; actual cost depends on input, output, context and cached usage.
 
 For detailed setup instructions and troubleshooting, see the [Chinese getting-started guide](artifacts/风暴英雄助手新手指南.html). Download the HTML file to open it offline; the Windows package also includes it.
 
@@ -121,10 +148,10 @@ Choose `S` or alternating `Y+S`, set the interval, and click **保存配置**. R
 <details>
 <summary>Translation and optional helper capabilities</summary>
 
-- **Incoming chat translation.** Receive team, party, whisper, and all-player chat, with separate lobby and match capture. English and Korean messages can be translated into Chinese. Match-source filtering and bounded rediscovery help avoid staying attached to an old match.
+- **Incoming chat translation.** Receive team, party, whisper, and all-player chat, plus known-format draft-team chat (【征召团队】) during hero selection/bans. Lobby and display-history capture remain separate. English and Korean messages can be translated into Chinese. Source filtering and bounded rediscovery help avoid staying attached to an old match; live draft validation is described below.
 - **Quick replies with `Ctrl+T`.** Enter Chinese, choose English or Korean, translate, and copy the result. Empty input shows a few favorite phrases; typing Chinese finds matching local candidates. Press Tab to enter the candidate list, use arrow keys there, then Tab or a mouse click to fill the text. Enter translates and copies; you paste/send it yourself in the game.
-- **One-click setup with your own Aliyun key.** Enter your AccessKey ID and Secret, then connect once to verify the account, test translation, save encrypted credentials, and enable translation.
-- **Subtitles, a phrasebook, and one Soft Lavender theme.** Since v2.0, the helper uses Soft Lavender throughout the main window, settings and in-game overlays, with no theme selector. Existing theme preferences migrate automatically while preserving window positions, fonts and shortcuts. Transparent subtitles keep white text with a dark outline.
+- **Your own keys and explicit provider switching.** Aliyun Machine Translation uses an AccessKey ID and Secret; DeepSeek V4.1 Flash uses an API Key. After verification and a translation test, the accounts are saved separately with encryption, and you explicitly choose the active service. DeepSeek disables thinking and optionally includes up to three anonymous originals from the same conversation; manual replies do not attach game history. Query actual DeepSeek balances or open Aliyun's character-quota console.
+- **Subtitles and one Soft Lavender theme.** Choose the primary or another monitor for chat subtitles, save a position by dragging across screens, and recover to an available screen when the selected monitor disappears. Since v2.0, the helper uses Soft Lavender throughout the main window, settings and in-game overlays, with no theme selector. Existing theme preferences migrate automatically while preserving window positions, fonts and shortcuts. Transparent subtitles keep white text with a dark outline.
 - **Reusable local phrases.** Add, edit and favorite expressions in the main window. A reviewed, exact Chinese match can reuse its existing translation when the current language has one unambiguous result. Missing translations, unreviewed entries and conflicting results still need translation. Editing the text clears its reviewed status.
 - **Loot chest helper.** Prepare it in the helper, switch to the game's loot chest screen, and use Space to start, pause, or resume. Esc ends the session.
 - **Configurable key repetition.** Choose `S` or alternating `Y+S`; each mode has its own saved interval of 20–5000 ms, with 20 ms as the default for new settings. `F8` starts/stops repetition; its shortcut can be changed to another F1–F12 key.
@@ -147,6 +174,10 @@ The six main pages, preferences, update checks, personal-key configuration and p
 The main window follows the selected light-purple prototype, with a lavender sidebar, white content cards, and purple primary actions. Icon navigation opens chat, phrases, loot assistance, key repetition, talent assistance, and double-click callouts. Settings and update checks sit at the bottom of the sidebar. Soft Lavender is the only theme; older palette settings normalize automatically. The EXE, taskbar and window titles share the purple hexagonal swirl mark.
 
 Under **偏好设置 → 外观** (Preferences → Appearance), content font size applies to React message/input text, and always-on-top applies to the visible WebView window. Standard and compact layouts are available. Main-window opacity and position locking currently remain available only in `-Legacy`. Opening preferences does not open quick input; disabling its hotkey leaves the quick-input button available.
+
+**Move subtitles to the primary screen:** open **偏好设置 → 游戏内** (Preferences → In-game), select **主显示器** under **字幕显示器**, then click **移动到所选屏幕**. This moves subtitles to the selected screen's bottom preset and saves the choice. Other screens are selectable too; **保存并调整位置** and **保存并放到底部** also use the selected monitor. Editing on the same screen retains the custom position. The bottom preset estimates placement from that screen's work area and does not detect the game's HUD. In adjustment mode, drag across screens and release to save the position and monitor, then click **完成调整**. If a monitor is unplugged or its layout changes, subtitles recover to the nearest available work area; select a screen again if needed. This setting controls chat subtitles; the `Ctrl+T` input bar retains its independent placement. Synthetic-monitor and isolated-window checks cover the behavior; physical dual monitors and mixed DPI still require live validation.
+
+**Draft chat and channel filters:** 【征召团队】 is allied chat during hero selection/bans. **全部聊天** (all chat), **团队与所有玩家** (team and all players), and **仅团队** (team only) include both regular 【团队】 and 【征召团队】. **仅征召团队** includes draft-team chat only. 【队伍】 (party) and 【密语】 (whisper) stay separate and are excluded from team-only filtering. The message list follows the selected filter, which also controls subsequent reception. Switching back does not recover messages filtered out in the meantime or delete existing messages.
 
 Chat rows separate the nickname, channel, time, message, and translation. Circular avatars use local decorative illustrations; they do not identify the player's actual hero. Chinese input and translation preview appear side by side, with English/Korean pill choices for the target language. Translate, copy the result, and paste/send it yourself in the game. The separate `Ctrl+T` input remains available.
 
@@ -172,6 +203,8 @@ You can also double-click `打开悬浮窗对比.cmd` in the repository root: it
 </details>
 
 ## Using the optional game helpers
+
+On the **双击播报** page, choose **中文 / English** under **发给队友的播报语言**. The choice is saved for future launches and defaults to Chinese. English uses bundled offline names/effects for heroes, talents, base quests, heroics and stat labels, for example `[Ally] Player (Anduin) | Hero damage: 12,345`. Latin-script player names are retained. Other names, including localized computer labels, use `Player N` from the verified player slot alongside the English hero name; names are not guessed or machine-translated. No cloud translation is called. Changing language cancels unsent actions; the next double-click uses the selected language. Missing English records are rejected rather than replaced with Chinese text or internal IDs. This setting is independent of chat translation and does not establish live support for an English game client.
 
 <details>
 <summary>Detailed operating steps, safeguards, and live-validation limits</summary>
@@ -202,10 +235,10 @@ The lobby/match label at the bottom of the main window describes the chat captur
 
 User data lives in `%LOCALAPPDATA%\HotsChatHelper`. Existing preferences, phrasebook data, and encrypted credentials retain this location across upgrades.
 
-- Keys are encrypted with **Windows DPAPI**, bound to the current Windows user. Use your own key; credentials and user databases are not part of the public distribution. The shared UI snapshot contains only configured/state feedback and masked key information, never the full ID or Secret.
-- Normal startup does not read the project's `.env`. On the personal-account page, **导入本机旧 .env** (“Import a local legacy .env”) reads only a file you explicitly select, up to 16 KiB. It fills the two key fields for this interaction and does not connect automatically; closing clears the Secret.
+- Each provider's keys are saved in a separate **Windows DPAPI** profile bound to the current Windows user; existing Aliyun DPAPI credentials remain compatible. Use your own keys; credentials and user databases are not part of the public distribution. The shared UI snapshot contains provider/configuration state, masked keys, balances and safe feedback, never the full AccessKey ID/Secret or DeepSeek API Key.
+- Normal startup does not read the project's `.env` or use a shared key. Keys in `txt/` or other local test files are not automatically imported, and those files are not packaged or automatically uploaded. In the Aliyun form, **导入本机旧 .env** (“Import a local legacy .env”) reads only a file you explicitly select, up to 16 KiB. It fills the two fields without connecting automatically. Switching providers, submitting or closing clears entered credentials; saved keys are never prefilled.
 - Old `usage.sqlite3` and `usage.sqlite3.initialized` files are left untouched and no longer read or created. A missing or corrupt old ledger does not block setup or translation.
-- Translation text is sent to Aliyun; the sender's nickname is not included in that translation text. The visible chat history keeps the latest 500 messages for the current session and clears when the helper exits.
+- The current translation text is sent to the Aliyun or DeepSeek service you explicitly choose. With DeepSeek context enabled, up to three anonymous preceding originals from the same conversation are also included, without attaching sender nicknames; disabling it omits history. Manual replies send only the current input. Failures do not automatically switch providers. The visible chat history keeps the latest 500 messages for the current session and clears when the helper exits.
 - **Diagnostics are off by default:** no diagnostic writer thread or recording file is created until enabled. The single switch records chat originals, translations and replay inputs/states for translation, automatic talents and double-click broadcasts. There is no separate detailed mode or ten-minute expiry. Logs default to a total cap of 100 MiB, rotating the oldest files and retaining up to seven days. Configured full keys/secrets are recursively redacted; review chat privacy before sharing an export. Startup failures have a separate bounded `startup.log`, described below.
 
 In **偏好设置 → 诊断** (Preferences → Diagnostics), **导出诊断日志** runs in the background and displays the completed ZIP path for copying. Inspect the file and share it yourself; the helper does not upload it automatically.
@@ -224,6 +257,25 @@ Startup failures write `%LOCALAPPDATA%\HotsChatHelper\startup.log`, keeping only
 
 <details>
 <summary>Troubleshooting recordings, replay fields, and decoder validation</summary>
+
+**Lobby messages work, but match capture says “等待对局聊天，自动恢复” (“Waiting for match chat; recovering automatically”).** Lobby and match capture are independent. This status means match chat history has not been connected; it does not establish that the game process was not detected. During an active match, select the team channel and send `hello`. Confirm that it appears in the game's chat, then check whether the helper receives the original text. If the original is missing, investigate capture first; if only the translation is missing, check automatic translation, language support and provider configuration. Supported display-history structures use the Simplified Chinese labels “团队”, “征召团队”, and “所有玩家”; other client languages and unverified record structures require separate validation.
+
+The source fix rechecks changed snapshots when a history containing only lobby-channel messages gains a team message during the same scan, rather than skipping that root for the rest of the scan. The cursor cache remains bounded. This does not resolve every waiting state: a new message in an already-scanned area can still require another scan if no later candidate refers to that history. A new build containing the fix is required; existing executables do not change when source files are updated.
+
+**Chat without a displayed time was missed by the old capture entry.** That entry required a timestamp marker. v2.4 also recognizes the validated Simplified Chinese team/draft-team/all-player display-history structures without that marker, preserving node, history-link and channel checks. Players can keep their preferred in-game time-display setting. A message without a native time retains an empty time field; local wall-clock time is not substituted. Synthetic tests cover these structures, draft-to-match transitions and the offline translation flow; the affected player's actual format, live draft capture and cloud translation still require a new-build check. Unverified native record types are not read using guessed layouts. To test draft chat, send a marker in 【征召团队】 during selection/bans, confirm it is visible in the game, note the time and phase, and export diagnostics.
+
+With diagnostics enabled, match-capture summaries use `capture_schema=2` for the timestamp-optional capability; merge and queue stages can retain their own schemas. `capture.state`, `source=match`, `stage=initial/discovery/inventory` cover initial discovery, recovery and background inventory. Every scan has a `scan_id`, with start/progress and candidate-found, exhausted, timeout, failed or cancelled outcomes as applicable. Progress is limited to once every five seconds; terminal outcomes are immediate. `candidate_found` is distinct from reader attachment, which gets a `reader_id`. Bounded polling summaries continue without new messages; enabling diagnostics mid-run records current observations rather than inventing earlier events.
+
+Summaries include requested/read bytes, short reads, structural rejection and timestamp/channel/message-format checks. Fixed reasons do not copy rejected message bodies or senders. `timestamped_message_count`/`untimestamped_message_count` count successful full parses with/without a timestamp. These and other check counts include repeated polls; actual delivery uses `message_count` and `publish`. Scan `read_calls/read_bytes` cover scan blocks only; polling values cover that reader's cumulative reads, with `scan_id/reader_id` defining the boundary. `source_message_id` links a child source's message ID to its merged ID, queue and existing translation events. Synchronous handoffs can write these lines in a different order; correlate by ID. No prefix candidates only establishes a missing match in the scanned range, not that the game had no messages or a game setting was wrong.
+
+To collect a useful report from an affected player:
+
+1. Use a new build containing these logs and enable diagnostics before entering the match.
+2. Keep the original client language and match mode. In an active match's team channel, send `HOTS_CAPTURE_TEST hello`, confirm it appears in the game's chat, and note the local time.
+3. Keep the helper running for at least 90 seconds. If still waiting, reconnect once and retain about 30 more seconds of recovery logs. These durations expose logging stages; they do not guarantee connection within a fixed time.
+4. Export the diagnostic ZIP before closing the helper. Include client language, match mode, marker time and whether the helper displayed the original. Unified logs include chat originals/translations; review them before sharing and do not attach credentials.
+
+Repository `AGENTS.md` and the [hots-diagnostics skill](.agents/skills/hots-diagnostics/SKILL.md) require new features, behavior changes and fixes to include correlated diagnostics and real ZIP-export validation. Documentation-only and presentation-asset changes without behavioral effects do not need artificial business events; configuration or data that changes behavior still requires validation. This development/review requirement does not replace live acceptance.
 
 For automatic talents and Tab double-click broadcasts failing together, use a new build containing replay recording, keep the original client language/resolution/scaling, and enable diagnostics before entering a normal match. Enable both helpers, note when an automatic selection fails, double-click one selected talent and one statistic in Tab, then export the ZIP. For translation failures, reproduce incoming chat or manual translation while recording. Include approximate times, game build, match/window mode, Windows scaling and monitor count. An existing EXE does not gain these events from a source update.
 
@@ -286,12 +338,12 @@ To build a Windows package:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
-.\.venv\Scripts\python.exe -m tools.build_release --output "releases/v2.3"
+.\.venv\Scripts\python.exe -m tools.build_release --output "releases/v2.4"
 ```
 
 The build first runs `npm ci` and `npm run build`, checks the frontend output, then freezes Python with PyInstaller. It includes `frontend/dist`, the Windows WebView2 bridge, and pythonnet dynamic libraries; it does not bundle Node.js, a development server, or Qt/CEF browser backends. The target computer needs WebView2 Runtime.
 
-The command above writes `releases/v2.3/HotsHelper-2.3.0-Windows-x64.zip`. The ZIP’s directory and `风暴英雄助手.exe` retain their Chinese names. The internal version is `2.3.0`, the channel is `stable`, and the corresponding source tag is `v2.3`. Running the local build command alone does not create a Git tag or public Release. The build explicitly stages public seed data and bundled UI files and rejects local credentials, databases, preferences, logs and sampling files from the release bundle.
+The command above writes `releases/v2.4/HotsHelper-2.4.0-Windows-x64.zip`. The ZIP’s directory and `风暴英雄助手.exe` retain their Chinese names. The internal version is `2.4.0` and the channel is `stable`. Running the local build command alone does not create a Git tag or public Release; this document does not link an unpublished v2.4 asset. The build explicitly stages public seed data and bundled UI files and rejects local credentials, databases, preferences, logs and sampling files from the release bundle.
 
 Packaging runs `--check-installation` for native operations and seed data, `--check-desktop-installation` for desktop resources and dependencies, and `--check-desktop-rendering` to load the local WebView2 page and verify the React demo state and JavaScript bridge. All three must pass before creating the ZIP; the manifest records each result. The bundled “查看界面效果.cmd” starts an offline preview directly. These checks confirm loading and bridging; visual similarity, DPI behavior and in-game behavior still require separate validation.
 

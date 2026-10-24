@@ -3,6 +3,7 @@ import struct
 import threading
 from unittest.mock import patch
 from test_history import FakeMemory, chat_line
+from test_party_whisper_acquisition import party_out
 
 try:
     import hots_chat.acquisition.discovery as discovery
@@ -45,6 +46,20 @@ class DiscoveryTests(unittest.TestCase):
         result=discovery.discover(memory,threading.Event())
         self.assertEqual(result.root,memory.root)
 
+    def test_initial_scan_rechecks_lobby_root_when_team_message_arrives(self):
+        memory = FakeMemory()
+        party, team = party_out('party baseline'), chat_line('first team message')
+        node, = memory.set_nodes([party])
+
+        def regions():
+            yield node + 24, len(party.encode('utf-8')), 4
+            memory.set_nodes([party, team])
+            yield node + 0x10000 + 24, len(team.encode('utf-8')), 4
+
+        memory.regions = regions
+        result = discovery.discover(memory, threading.Event(), channels=('团队', '所有玩家'))
+        self.assertEqual(result.root, memory.root)
+
 
 class ScanMemory(FakeMemory):
     def __init__(self):
@@ -59,6 +74,36 @@ class ScanMemory(FakeMemory):
 
 
 class IncrementalDiscoveryTests(unittest.TestCase):
+    def test_scan_diagnostics_distinguish_no_prefix_invalid_and_unsupported_chat(self):
+        cases = ('no_prefix', 'invalid_candidate', 'unsupported_channel')
+        for case in cases:
+            with self.subTest(case=case):
+                memory = ScanMemory()
+                if case == 'no_prefix':
+                    memory.blocks = {0x80000: b'private text without chat markup'}
+                    memory.scan_regions = [(0x80000, len(memory.blocks[0x80000]), 4)]
+                elif case == 'invalid_candidate':
+                    memory.blocks = {0x80000: discovery.PREFIX + b'not a history node'}
+                    memory.scan_regions = [(0x80000, len(memory.blocks[0x80000]), 4)]
+                else:
+                    node, = memory.set_nodes([party_out('private party body')])
+                    memory.expose_node(node)
+                scanner = self.make_scanner(memory, channels=('团队', '所有玩家'))
+                self.assertIsNone(scanner.step(time_budget=60))
+                self.assertTrue(scanner.finished)
+                calls_before = list(memory.calls)
+                stats = scanner.diagnostic_snapshot()
+                self.assertEqual(memory.calls, calls_before, '诊断快照不得额外读取游戏内存')
+                self.assertTrue(all(type(value) in (int, float)
+                                    for key, value in stats.items() if key != 'last_rejection_reason'))
+                self.assertIn(stats['last_rejection_reason'], ('', 'invalid_address', 'read_unavailable',
+                    'invalid_links', 'invalid_layout', 'history_invalid'))
+                self.assertEqual(stats['read_calls'], 1)
+                self.assertGreater(stats['read_bytes'], 0)
+                self.assertEqual(stats['candidate_count'], 0 if case == 'no_prefix' else 1)
+                self.assertEqual(stats['invalid_candidate_count'], int(case == 'invalid_candidate'))
+                self.assertEqual(stats['empty_snapshot_count'], int(case == 'unsupported_channel'))
+
     def test_previous_chat_region_is_checked_before_unrelated_regions(self):
         import inspect
         self.assertIn('preferred_addresses',inspect.signature(discovery.IncrementalDiscovery).parameters)

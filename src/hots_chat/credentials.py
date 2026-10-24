@@ -21,8 +21,9 @@ _MAX_DOCUMENT = 16384
 
 @dataclass(frozen=True)
 class SavedCredentials:
-    credentials: Credentials = field(repr=False)
+    credentials: object = field(repr=False)
     account: str
+    provider_id: str = 'aliyun'
 
 
 def valid_account(account):
@@ -90,29 +91,40 @@ class _WindowsDPAPI:
 
 
 class CredentialStore:
+    _file_magic = _FILE_MAGIC
+    _document_magic = _DOCUMENT_MAGIC
+
     def __init__(self, path: Path, *, protector=None):
         self.path = Path(path)
         self._protector = protector if protector is not None else _WindowsDPAPI()
 
+    def _read_values(self):
+        try:
+            with self.path.open('rb') as stream:
+                encrypted = stream.read(_MAX_FILE + 1)
+        except FileNotFoundError:
+            return None
+        if len(encrypted) > _MAX_FILE or not encrypted.startswith(self._file_magic):
+            raise ValueError('invalid credential file')
+        document = self._protector.unprotect(encrypted[len(self._file_magic):])
+        prefix_size = len(self._document_magic) + 32
+        if (not isinstance(document, bytes) or len(document) > _MAX_DOCUMENT + prefix_size
+                or not document.startswith(self._document_magic) or len(document) <= prefix_size):
+            raise ValueError('invalid protected document')
+        digest = document[len(self._document_magic):prefix_size]
+        payload = document[prefix_size:]
+        if not hmac.compare_digest(digest, hashlib.sha256(payload).digest()):
+            raise ValueError('document integrity failure')
+        values = strict_json(payload)
+        if values is None:
+            raise ValueError('invalid protected document')
+        return values
+
     def load(self):
         try:
-            try:
-                with self.path.open('rb') as stream:
-                    encrypted = stream.read(_MAX_FILE + 1)
-            except FileNotFoundError:
+            values = self._read_values()
+            if values is None:
                 return None
-            if len(encrypted) > _MAX_FILE or not encrypted.startswith(_FILE_MAGIC):
-                raise ValueError('invalid credential file')
-            document = self._protector.unprotect(encrypted[len(_FILE_MAGIC):])
-            prefix_size = len(_DOCUMENT_MAGIC) + 32
-            if (not isinstance(document, bytes) or len(document) > _MAX_DOCUMENT + prefix_size
-                    or not document.startswith(_DOCUMENT_MAGIC) or len(document) <= prefix_size):
-                raise ValueError('invalid protected document')
-            digest = document[len(_DOCUMENT_MAGIC):prefix_size]
-            payload = document[prefix_size:]
-            if not hmac.compare_digest(digest, hashlib.sha256(payload).digest()):
-                raise ValueError('document integrity failure')
-            values = strict_json(payload)
             if (not isinstance(values, dict)
                     or set(values) != {'version', 'account', 'access_key_id', 'access_key_secret'}
                     or type(values['version']) is not int or values['version'] != 1
@@ -125,28 +137,33 @@ class CredentialStore:
             raise ConfigError('本机凭据无法安全读取或已损坏，请重新配置自己的密钥。') from None
 
     def save(self, credentials, account):
-        temporary = None
         try:
             validate_credentials(credentials)
             if not valid_account(account):
                 raise ValueError('invalid account')
-            payload = json.dumps({'version': 1, 'account': account,
-                                  'access_key_id': credentials.access_key_id,
-                                  'access_key_secret': credentials.access_key_secret},
-                                 separators=(',', ':')).encode('utf-8')
-            document = _DOCUMENT_MAGIC + hashlib.sha256(payload).digest() + payload
+            self._write_values({'version': 1, 'account': account,
+                                'access_key_id': credentials.access_key_id,
+                                'access_key_secret': credentials.access_key_secret})
+        except Exception:
+            raise ConfigError('本机凭据无法安全保存，请检查用户数据目录后重试。') from None
+
+    def _write_values(self, values):
+        temporary = None
+        try:
+            payload = json.dumps(values, separators=(',', ':')).encode('utf-8')
+            if len(payload) > _MAX_DOCUMENT:
+                raise ValueError('protected document too large')
+            document = self._document_magic + hashlib.sha256(payload).digest() + payload
             encrypted = self._protector.protect(document)
-            if not isinstance(encrypted, bytes) or not encrypted or len(encrypted) + len(_FILE_MAGIC) > _MAX_FILE:
+            if not isinstance(encrypted, bytes) or not encrypted or len(encrypted) + len(self._file_magic) > _MAX_FILE:
                 raise ValueError('invalid protected output')
             self.path.parent.mkdir(parents=True, exist_ok=True)
             fd, temporary = tempfile.mkstemp(prefix=self.path.name + '.', suffix='.tmp', dir=self.path.parent)
             with os.fdopen(fd, 'wb') as stream:
-                stream.write(_FILE_MAGIC + encrypted)
+                stream.write(self._file_magic + encrypted)
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary, self.path)
-        except Exception:
-            raise ConfigError('本机凭据无法安全保存，请检查用户数据目录后重试。') from None
         finally:
             if temporary is not None:
                 try:

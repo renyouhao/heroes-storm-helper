@@ -214,7 +214,7 @@ class DesktopRuntimeTests(unittest.TestCase):
         w = fake_window()
         runtime = TkRuntime(w)
         runtime.dispatch('set_channel', {'value': '仅团队'})
-        w.controller.set_channels.assert_called_once_with(frozenset({'团队'}))
+        w.controller.set_channels.assert_called_once_with(frozenset({'团队','征召团队'}))
         runtime.dispatch('set_auto', {'enabled': False})
         self.assertFalse(w.automatic.get())
         w.toggle_automatic.assert_called_once_with()

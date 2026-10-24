@@ -89,6 +89,12 @@ svg { display: inline-block; vertical-align: middle; }
 .toggle.is-on span { transform: translateX(25px); }
 .panel { border: 1px solid #eeebf7; border-radius: 17px; background: var(--surface); box-shadow: 0 2px 3px #8c76ba03; }
 .chat-feed { position: relative; flex: 1 1 0; min-height: 180px; display: flex; flex-direction: column; overflow: hidden; }
+.translation-welcome { display: flex; align-items: center; flex: 0 0 auto; flex-wrap: wrap; gap: 12px; margin: 0 5px 12px; padding: 14px 17px; border: 1px solid #dfd4f4; border-radius: 13px; background: #f0eafa; }
+.translation-welcome > svg { flex: 0 0 auto; color: #7040b8; }
+.translation-welcome > div { flex: 1 1 240px; min-width: 0; }
+.translation-welcome strong { font-size: 1em; }
+.translation-welcome p { margin-top: 5px; color: #625475; font-size: .9em; line-height: 1.5; overflow-wrap: anywhere; }
+.translation-welcome .button { min-height: 44px; padding: 10px 16px; white-space: normal; }
 .feed-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 17px 0 21px; flex: 0 0 56px; }
 .feed-context { font-size: 13px; color: var(--muted); }
 .button { border-radius: 12px; min-height: 45px; padding: 11px 20px; line-height: 1.3; font-size: 16px; white-space: nowrap; font-weight: 500; }
@@ -248,6 +254,10 @@ svg { display: inline-block; vertical-align: middle; }
 .broadcast-preview { padding: 18px 20px; border-radius: 12px; background: #f8f5fc; }
 .broadcast-preview > span { font-size: 12px; }
 .broadcast-preview p { font-size: 16px; line-height: 1.6; margin-top: 8px; color: #6d587d; }
+.broadcast-language { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 20px; }
+.broadcast-language select { min-height: 44px; min-width: 150px; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; background: var(--surface, #fff); color: inherit; font: inherit; }
+.broadcast-language > p, .broadcast-language > span { flex-basis: 100%; font-size: 14px; line-height: 1.6; }
+.broadcast-language > span:empty { display: none; }
 
 /* 保留较小桌面窗口的操作空间；主页面不会横向溢出。 */
 @media (max-width: 1360px) {
@@ -383,6 +393,8 @@ svg { display: inline-block; vertical-align: middle; }
 }
 @media (max-height: 640px) {
   .desktop { padding: 6px; }
+  .translation-welcome { margin-bottom: 8px; padding: 8px 12px; gap: 8px; }
+  .translation-welcome p { display: none; }
   .workspace-header { min-height: 83px; padding-top: 25px; padding-bottom: 9px; }
   .workspace-header h1 { font-size: 27px; }
   .brand { height: 83px; }

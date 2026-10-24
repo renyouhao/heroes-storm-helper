@@ -27,6 +27,7 @@ _TEXT = frozenset(('stage', 'outcome', 'source', 'target', 'message_id', 'job_id
     'quest_state', 'cooldown_state', 'progress_reason', 'cooldown_reason',
     'quest_read_stage', 'cooldown_read_stage', 'board_profile', 'board_code_field',
     'board_code_fingerprint', 'board_expected_fingerprint'))
+_TEXT = _TEXT | frozenset(('last_rejection_reason', 'source_message_id', 'target_language'))
 _NUMBERS = frozenset(('generation', 'characters', 'elapsed_ms', 'queue_depth', 'count',
     'winerror', 'retry_count', 'build', 'expected_build', 'read_calls', 'read_bytes',
     'client_width', 'client_height', 'origin_x', 'origin_y', 'render_width', 'render_height',
@@ -37,9 +38,19 @@ _NUMBERS = frozenset(('generation', 'characters', 'elapsed_ms', 'queue_depth', '
     'quest_node_checks', 'cooldown_node_checks', 'label_visible', 'label_numeric', 'label_matches',
     'board_code_verified', 'tier_id', 'quest_index',
     'hit_count', 'candidate_count', 'click_x', 'click_y', 'event_age_ms', 'attempt_id',
+    'valid_snapshot_count', 'invalid_candidate_count', 'empty_snapshot_count',
+    'retry_snapshot_count', 'ignored_snapshot_count',
     'schema', 'replay_schema', 'max_total_bytes', 'max_event_bytes',
     'decoder_mode', 'expected_decoder', 'api_active', 'talent_active', 'decoder_code_verified'))
+_NUMBERS = _NUMBERS | frozenset(('capture_schema', 'scan_id', 'reader_id', 'scan_region_count',
+    'requested_bytes', 'short_read_count', 'process_count', 'message_count', 'gap_count',
+    'published_count', 'child_generation', 'nodes_checked_count', 'prefix_rejected_count',
+    'timestamp_format_rejected_count', 'channel_unsupported_count', 'channel_filtered_count',
+    'message_format_rejected_count', 'parsed_message_count', 'candidate_read_failure_count',
+    'candidate_layout_rejected_count', 'candidate_link_rejected_count', 'candidate_budget_rejected_count',
+    'timestamped_message_count', 'untimestamped_message_count'))
 _ENUM_TEXT = {
+    'target_language': frozenset(('zh', 'en')),
     'quest_state': frozenset(('', 'known', 'complete', 'unknown', 'untracked')),
     'cooldown_state': frozenset(('', 'cooldown', 'ready', 'unknown', 'untracked')),
     'progress_reason': frozenset(('invalid_observations', 'changed_during_read', 'no_quest',

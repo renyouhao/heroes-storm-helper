@@ -48,6 +48,8 @@ class TeamChatSender:
                 try:
                     self.diagnostics.record('hotkey.state', stage='broadcast.'+phase, outcome=state,
                         error_code=error_code or code, source=getattr(action, 'kind', 'unknown'),
+                        target_language=getattr(action, 'language', 'zh'),
+                        request_ref=f'board-action-{getattr(action, "token", 0)}',
                         characters=len(text) if isinstance(text, str) else 0,
                         count=reads, elapsed_ms=round((self.clock()-started)*1000, 3))
                 except Exception:

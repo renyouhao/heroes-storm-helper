@@ -22,11 +22,20 @@ def screen_bounds():
     def collect(monitor,dc,rect,data):
         info=MonitorInfo();info.cb=ctypes.sizeof(info)
         if user.GetMonitorInfoW(monitor,ctypes.byref(info)):
-            r=info.work;bounds.append((r.left,r.top,r.right,r.bottom))
+            r=info.work;bounds.append((bool(info.flags & 1),(r.left,r.top,r.right,r.bottom)))
         return True
     user.EnumDisplayMonitors.argtypes=[wintypes.HDC,ctypes.POINTER(wintypes.RECT),callback_type,wintypes.LPARAM]
     user.EnumDisplayMonitors(None,None,collect,0)
-    return bounds or [(0,0,user.GetSystemMetrics(0),user.GetSystemMetrics(1))]
+    # EnumDisplayMonitors enumeration order is not the primary-monitor order.
+    return [area for primary,area in sorted(bounds,key=lambda item:not item[0])] or [(0,0,user.GetSystemMetrics(0),user.GetSystemMetrics(1))]
+
+
+def work_area_at(areas, x, y):
+    """Select a containing/nearest work area in virtual-desktop coordinates."""
+    if not areas:return None
+    return next((tuple(area) for area in areas if area[0]<=x<area[2] and area[1]<=y<area[3]),
+        tuple(min(areas,key=lambda area:max(area[0]-x,0,x-area[2])**2+
+                                       max(area[1]-y,0,y-area[3])**2)))
 
 
 @dataclass
@@ -55,6 +64,7 @@ class WindowSettings:
     overlay_placement: str='bottom'
     overlay_bottom_anchor: float | None=None
     overlay_style: str='subtitle'
+    overlay_monitor: tuple | None=None
     color_theme: str=DEFAULT_THEME
     repeat_hotkey: str='F8'
     repeat_action: str='S'
@@ -62,6 +72,7 @@ class WindowSettings:
     repeat_s_interval_ms: int=20
     talent_enabled: bool=False
     board_broadcast_enabled: bool=False
+    board_output_language: str='zh'
 
     def __post_init__(self):
         self.color_theme=normalize_theme(self.color_theme)
@@ -88,8 +99,9 @@ class WindowSettings:
         if not monitors:return
         # overlay_width保存96-DPI逻辑宽度，位置保持当前Tk坐标。
         from .layout import DisplayMetrics,overlay_layout
-        target=min(monitors,key=lambda r:max(r[0]-self.overlay_x,0,self.overlay_x-r[2])**2+
-                   max(r[1]-self.overlay_y,0,self.overlay_y-r[3])**2)
+        preferred=tuple(self.overlay_monitor) if self.overlay_monitor is not None else None
+        target=preferred if preferred in [tuple(area) for area in monitors] else work_area_at(monitors,self.overlay_x,self.overlay_y)
+        self.overlay_monitor=tuple(target)
         layout=overlay_layout(DisplayMetrics(tuple(target),scale),width=self.overlay_width,
                               x=self.overlay_x,y=self.overlay_y,
                               height=round(300*scale) if height is None else height)
@@ -136,9 +148,17 @@ class WindowSettings:
                 data['overlay_placement']=('custom' if any(
                     name in data for name in ('overlay_x','overlay_y','overlay_anchor')) else 'bottom')
             s=cls(**data)
+            monitor=s.overlay_monitor
+            if monitor is not None:
+                if (not isinstance(monitor,(tuple,list)) or len(monitor)!=4
+                        or any(type(value) is not int for value in monitor)
+                        or monitor[2]<=monitor[0] or monitor[3]<=monitor[1]):
+                    s.overlay_monitor=None
+                else:s.overlay_monitor=tuple(monitor)
             # 必须明确布尔同意；损坏的此项不丢弃其他外观偏好。
             if type(s.talent_enabled) is not bool:s.talent_enabled=False
             if type(s.board_broadcast_enabled) is not bool:s.board_broadcast_enabled=False
+            if s.board_output_language not in ('zh','en'):s.board_output_language='zh'
             from .hotkeys import parse_function_key
             try:
                 parse_function_key(s.repeat_hotkey)

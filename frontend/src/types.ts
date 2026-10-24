@@ -31,6 +31,7 @@ export interface HelperState {
   interval?: number
   hotkey?: string
   lastResult?: string
+  outputLanguage?: 'zh' | 'en'
 }
 
 export interface Snapshot {
@@ -87,8 +88,27 @@ export interface UpdateInfo {
   state: string; detail: string; version: string; notes: string; noteBlocks?: NoteBlock[]
   downloaded: number; total: number; busy: boolean; canInstall: boolean; archivePath: string
 }
+export type TranslationProvider = 'aliyun' | 'deepseek'
+export interface TranslationProviderProfile {
+  id: TranslationProvider
+  name: string
+  configured: boolean
+  maskedKey: string
+  contextEnabled?: boolean
+}
+export interface AccountBalanceInfo {
+  busy: boolean
+  available: boolean | null
+  balances: { currency: string; totalBalance: string | number; grantedBalance: string | number; toppedUpBalance: string | number }[]
+  updatedAt: string
+  message: string
+}
 export interface AccountInfo {
   configured: boolean; state: string; busy: boolean; maskedKey: string; account: string; message: string
+  provider?: TranslationProvider
+  providers?: TranslationProviderProfile[]
+  contextEnabled?: boolean
+  balance?: AccountBalanceInfo
 }
 export interface DiagnosticsInfo {
   enabled: boolean; busy?: boolean; exportPath?: string; message?: string
@@ -101,6 +121,7 @@ export interface ManagementState {
   account: AccountInfo
   diagnostics: DiagnosticsInfo
   processes: ProcessInfo[]
+  monitors?: { id: number; label: string; primary: boolean; selected: boolean; width: number; height: number }[]
 }
 
 export interface CommandResult {

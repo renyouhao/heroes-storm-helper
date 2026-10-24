@@ -19,6 +19,16 @@ describe('聊天工作区状态边界', () => {
     expect(visibleMessages(messages, 'team')).toEqual(messages.slice(1))
     expect(visibleMessages(messages, 'all')).toEqual(messages)
   })
+  it('征召团队在团队分组可见，也能独立筛选且不改变频道或顺序', () => {
+    const channels = ['密语', '征召团队', '队伍', '团队', '所有玩家']
+    const messages = channels.map((channel, index) => ({ ...previewSnapshot.messages[0], id: String(index), channel }))
+    expect(visibleMessages(messages, '仅团队')).toEqual([messages[1], messages[3]])
+    expect(visibleMessages(messages, '仅征召团队')).toEqual([messages[1]])
+    expect(visibleMessages(messages, '团队与所有玩家')).toEqual([messages[1], messages[3], messages[4]])
+    expect(visibleMessages(messages, '仅队伍')).toEqual([messages[2]])
+    expect(messages[1].channel).toBe('征召团队')
+    expect(normalizeSnapshot({}).channelOptions).toContain('仅征召团队')
+  })
   it('新草稿不能被较旧的轮询响应覆盖', () => {
     expect(selectDraft('正在输入的新草稿', '旧草稿', '正在输入的新草稿')).toBe('正在输入的新草稿')
     expect(selectDraft('新草稿', '新草稿', '新草稿')).toBe('新草稿')

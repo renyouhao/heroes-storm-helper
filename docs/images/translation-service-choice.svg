@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="850" viewBox="0 0 1320 850" role="img" aria-labelledby="service-title service-description">
+  <title id="service-title">选择翻译服务：新用户与已有账户的两条路线</title>
+  <desc id="service-description">流程示意，非运行截图。新用户先在未预选的阿里云与DeepSeek卡片中选择服务，再填写阿里云AccessKey ID和Secret或DeepSeek单个API Key，验证成功后保存启用，也可跳过看原文。老用户沿用已有账户，选择其他服务只改变表单，连接或使用已保存账户验证成功后才切换，可随时回切而无需重输已保存密钥。取消未完成配置后云翻译保持暂停，需要手动恢复。本流程适用于包含改动的新构建，公开v2.3尚未包含。</desc>
+  <style>
+    text { font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; fill: #26213D; }
+    .title { font-size: 30px; font-weight: 700; }
+    .lane-title { font-size: 24px; font-weight: 700; }
+    .card-title { font-size: 22px; font-weight: 700; }
+    .body { font-size: 20px; }
+    .detail { font-size: 18px; fill: #554B70; }
+    .caption { font-size: 17px; fill: #655A7C; }
+    .accent { fill: #6034C3; font-weight: 700; }
+    .action { fill: #FFFFFF; font-size: 22px; font-weight: 700; text-anchor: middle; }
+    .step { font-size: 18px; font-weight: 700; fill: #FFFFFF; text-anchor: middle; }
+    .arrow { fill: none; stroke: #9A85BF; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+  <rect width="1320" height="850" rx="20" fill="#F4F0FC"/>
+  <text class="title" x="36" y="52">选择翻译服务，按你的账户状态继续</text>
+  <rect x="1030" y="25" width="254" height="38" rx="19" fill="#E7DEF6"/>
+  <text class="caption" x="1157" y="50" text-anchor="middle">流程示意，非运行截图</text>
+  <text class="detail" x="36" y="91">适用于包含双服务入口的新构建；公开 v2.3 下载包尚未包含。</text>
+
+  <rect x="32" y="124" width="612" height="554" rx="16" fill="#FFFFFF" stroke="#DCD2EF"/>
+  <text class="lane-title" x="56" y="168">新用户 · 尚未保存账户</text>
+  <text class="body" x="56" y="210">主界面点击「选择翻译服务」</text>
+  <text class="detail accent" x="56" y="248">先选择服务 · 两张卡片默认均不选中</text>
+
+  <rect x="56" y="272" width="268" height="136" rx="12" fill="#FBF9FF" stroke="#DCD2EF"/>
+  <text class="card-title" x="76" y="307">阿里云机器翻译</text>
+  <text class="detail" x="76" y="342">AccessKey ID + Secret</text>
+  <text class="detail" x="76" y="376">开通通用版并配置权限</text>
+  <rect x="348" y="272" width="272" height="136" rx="12" fill="#FBF9FF" stroke="#DCD2EF"/>
+  <text class="card-title" x="368" y="307">DeepSeek</text>
+  <text class="detail" x="368" y="342">V4.1 Flash · 单个 API Key</text>
+  <text class="detail" x="368" y="376">使用自己的 DeepSeek 账户</text>
+  <path class="arrow" d="M190 418v16h294v-16M337 434v18m-7-7 7 7 7-7"/>
+  <text class="body" x="338" y="484" text-anchor="middle">选后才显示对应的凭据输入框</text>
+  <rect x="56" y="511" width="564" height="52" rx="12" fill="#7547D9"/>
+  <text class="action" x="338" y="546">连接并开始使用</text>
+  <text class="body" x="338" y="603" text-anchor="middle">验证与测试翻译成功 → 保存并启用</text>
+  <text class="detail" x="338" y="645" text-anchor="middle">也可跳过配置，继续查看原文。</text>
+
+  <rect x="676" y="124" width="612" height="554" rx="16" fill="#FFFFFF" stroke="#DCD2EF"/>
+  <text class="lane-title" x="700" y="168">老用户 · 已有翻译账户</text>
+  <text class="body" x="700" y="210">沿用当前服务，无需重新输入已保存密钥</text>
+  <rect x="700" y="242" width="564" height="95" rx="12" fill="#FBF9FF" stroke="#DCD2EF"/>
+  <circle cx="728" cy="272" r="14" fill="#8C73B5"/>
+  <text class="step" x="728" y="278">1</text>
+  <text class="card-title" x="752" y="280">选择另一个服务</text>
+  <text class="detail" x="720" y="314">只更换表单，不请求、不立即切换当前服务</text>
+  <path class="arrow" d="M982 347v14m-7-7 7 7 7-7"/>
+  <rect x="700" y="374" width="564" height="126" rx="12" fill="#FBF9FF" stroke="#DCD2EF"/>
+  <circle cx="728" cy="405" r="14" fill="#8C73B5"/>
+  <text class="step" x="728" y="411">2</text>
+  <text class="card-title" x="752" y="413">连接新账户 / 使用已保存账户</text>
+  <text class="detail" x="720" y="450">新账户填凭据；已保存账户无需重输</text>
+  <text class="detail accent" x="720" y="480">验证成功后才激活所选服务</text>
+  <path class="arrow" d="M982 510v14m-7-7 7 7 7-7"/>
+  <rect x="700" y="537" width="564" height="112" rx="12" fill="#FBF9FF" stroke="#DCD2EF"/>
+  <circle cx="728" cy="568" r="14" fill="#8C73B5"/>
+  <text class="step" x="728" y="574">3</text>
+  <text class="card-title" x="752" y="576">随时回切</text>
+  <text class="detail" x="720" y="613">旧阿里云配置兼容保留，两家账户分别保存</text>
+
+  <rect x="32" y="704" width="1256" height="94" rx="14" fill="#EDE5F8"/>
+  <text class="body accent" x="56" y="740">取消未完成配置后，云翻译保持暂停。</text>
+  <text class="body" x="56" y="775">继续翻译：回到账户页，点击「使用已保存账户」；已完成的保存或删除保持结果。</text>
+  <text class="caption" x="660" y="830" text-anchor="middle">示意图不含真实密钥，也不表示已经连接或验证成功。</text>
+</svg>

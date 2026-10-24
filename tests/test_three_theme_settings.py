@@ -257,7 +257,7 @@ class SettingsPageTests(unittest.TestCase):
         dialog = SettingsDialog(self.window)
         buttons = {str(w.cget('text')): w for w in self.widgets(dialog.dialog)
                    if isinstance(w, ttk.Button)}
-        for label in ('个人阿里云密钥', '查询剩余额度', '手动重新连接',
+        for label in ('选择服务 / 配置个人密钥', '查询当前服务额度 / 余额', '手动重新连接',
                       '停止采集', '恢复采集', '选择游戏进程'):
             buttons[label].invoke()
         self.assertEqual(self.actions, ['account', 'quota', 'reconnect', 'stop', 'start', 'process'])

@@ -20,6 +20,17 @@ class TranslationJob:
     source: str
     target: str
     kind: str
+    context: tuple[tuple[str, str], ...] = ()
+
+    def __post_init__(self):
+        if not isinstance(self.context, (tuple, list)) or len(self.context) > 3:
+            raise ValueError('翻译上下文格式无效。')
+        frozen = []
+        for pair in self.context:
+            if not isinstance(pair, (tuple, list)) or len(pair) != 2 or not all(isinstance(value, str) for value in pair):
+                raise ValueError('翻译上下文格式无效。')
+            frozen.append(tuple(pair))
+        object.__setattr__(self, 'context', tuple(frozen))
 
 
 @dataclass(frozen=True)

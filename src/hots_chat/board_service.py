@@ -1,5 +1,5 @@
 """Tab双击播报：hook只入有界队列，读取和发送在独立worker串行完成。"""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import queue
 import threading
 import time
@@ -79,7 +79,10 @@ def _closed_input_busy():
 
 class BoardHelper:
     def __init__(self, *, backend_factory=None, reader_factory=None, sender_factory=None,
-                 busy_provider=lambda:False, input_locks=(), clock=time.monotonic, diagnostics=None):
+                 busy_provider=lambda:False, input_locks=(), clock=time.monotonic, diagnostics=None,
+                 language='zh'):
+        TalentBroadcastConfig(language=language)
+        self._language = language
         self.backend_factory = backend_factory or self._new_backend
         self.reader_factory = reader_factory or self._new_reader
         self.sender_factory = sender_factory or self._new_sender
@@ -94,6 +97,8 @@ class BoardHelper:
         self._busy = threading.Event()
         self._enabled = self._closed = self._suspended = False
         self._generation = self._revision = 0
+        self._language_revision = 0
+        self._language_request = ''
         self._backend = None
         self._session = None
         self.thread = None
@@ -125,6 +130,27 @@ class BoardHelper:
     def busy(self):return self._busy.is_set()
 
     @property
+    def language(self):
+        with self._control:return self._language
+
+    def set_language(self, language, *, request_ref=''):
+        """立即关闭旧动作栅栏；会话配置始终由工作线程串行更新。"""
+        TalentBroadcastConfig(language=language)
+        with self._control:
+            if self._closed:return False
+            changed = language != self._language
+            if changed:
+                self._language = language
+                self._revision += 1
+                self._language_revision = self._revision
+                self._language_request = request_ref
+                self._enqueue('cancel')
+            self._record('ui.apply', stage='configuration', operation='language',
+                         outcome='applied', reason='language_changed' if changed else 'language_unchanged',
+                         request_ref=request_ref, target_language=language)
+            return True
+
+    @property
     def running(self):
         """只读运行意图与停止栅栏；不暴露线程、hook或进程对象。"""
         return self._enabled and not self._closed and not self._stop.is_set()
@@ -137,7 +163,7 @@ class BoardHelper:
             except queue.Empty:pass
             self._statuses.put_nowait(status)
             reason = detail if detail in _DIAGNOSTIC_REASONS else ''
-            signature = (self._generation,state,reason)
+            signature = (self._generation,state,reason,self._language)
             if signature != self._diagnostic_state and self._record('hotkey.state',
                     stage='broadcast', outcome=state, reason=reason):
                 self._diagnostic_state = signature
@@ -152,6 +178,7 @@ class BoardHelper:
     def _record(self, event, **fields):
         try:
             if not self._diagnostics_enabled():return False
+            fields.setdefault('target_language',self._language)
             return self.diagnostics.record(event, source='broadcast', generation=self._generation,
                 attempt_id=self._attempt_id, **fields) is not False
         except Exception:return False
@@ -223,8 +250,10 @@ class BoardHelper:
             if hasattr(reader, 'diagnostics'):reader.diagnostics = self.diagnostics
             sender = self.sender_factory(backend, reader)
             milliseconds, size = backend.double_click_settings()
+            with self._control:
+                language,applied_language_revision=self._language,self._language_revision
             configured = TalentBroadcastSession(double_click_ms=milliseconds, double_click_size=size,
-                                                 config=TalentBroadcastConfig(enabled=True),
+                                                 config=TalentBroadcastConfig(enabled=True,language=language),
                                                  diagnostics=self.diagnostics)
             if self._session is None:self._session = configured
             else:
@@ -314,6 +343,15 @@ class BoardHelper:
                         foreground_state=flag(context.foreground),elapsed_ms=round((self.clock()-started)*1000,3))
                     info.update(_hit_counts(snapshot.hits))
                     self._record('helper.read', **info)
+                    if hit is not None and session.config.language=='en':
+                        from .broadcast_text import localization_reason, player_name_policy
+                        if session._message(hit) is None:
+                            self._record('helper.read',stage='localization',outcome='rejected',
+                                reason='english_text_unavailable',hit_kind=_hit_kind(hit),target_language='en',
+                                error_code=localization_reason(hit,'en'))
+                        else:
+                            self._record('helper.read',stage='localization',outcome='applied',
+                                reason=player_name_policy(hit),hit_kind=_hit_kind(hit),target_language='en')
                     if stage == 'click':
                         count = sum(1 for item in snapshot.hits if item.rect[0] <= point[0] < item.rect[2]
                                     and item.rect[1] <= point[1] < item.rect[3])
@@ -327,6 +365,20 @@ class BoardHelper:
             while not stopped.is_set():
                 try:kind,args,event_at,event_revision = self._inputs.get(timeout=.05)
                 except queue.Empty:kind,args,event_at,event_revision = '',(),self.clock(),self._revision
+                with self._control:
+                    language, language_revision, language_request = (
+                        self._language,self._language_revision,self._language_request)
+                if language_revision != applied_language_revision:
+                    session.configure(replace(session.config,language=language))
+                    applied_language_revision=language_revision
+                    pending_revision = point = None
+                    self._record('ui.apply',stage='worker_configuration',operation='language',
+                        outcome='applied',reason='pending_actions_cancelled',target_language=language,
+                        request_ref=language_request)
+                    publish_status()
+                # Preserve both clicks in a queued gesture, but never reuse a click
+                # captured before the latest language change.
+                if event_revision < language_revision:continue
                 if kind == 'cancel':
                     if has_gesture():
                         session.cancel()
@@ -403,7 +455,12 @@ class BoardHelper:
                     hit, context = fresh()
                     action = session.tick(hit,context,self.clock())
                     if action is not None:
-                        session.dispatch(action,sender,hit,context,self.clock(),allowed=allowed)
+                        request_ref=f'board-action-{action.token}'
+                        self._record('helper.click',stage='dispatch',outcome='started',
+                            request_ref=request_ref,target_language=action.language,hit_kind=action.kind)
+                        status=session.dispatch(action,sender,hit,context,self.clock(),allowed=allowed)
+                        self._record('helper.click',stage='dispatch',outcome=status.state,
+                            request_ref=request_ref,target_language=action.language,hit_kind=action.kind)
                     publish_status()
                 finally:
                     self._busy.clear()

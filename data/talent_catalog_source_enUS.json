@@ -1,0 +1,588 @@
+{
+  "schema": 1,
+  "description": "Offline English callout names and short effects from extracted game localization and explicit XML bindings; no machine translation.",
+  "repository": "https://github.com/jamiephan/HeroesOfTheStorm_Gamedata",
+  "commit": "e3e57cb640f18002a4feebe3872cefe04072d814",
+  "build": 98348,
+  "locale": "enUS",
+  "heroes": 91,
+  "talents": 1941,
+  "quests": 16,
+  "abilities": 600,
+  "compiled_sha256": {
+    "talents_98348_enUS.json": "2e8e8e3674ef14d9a8792074bc7eebae35750214854a3c3f4caf6e67b667342d",
+    "quests_98348_enUS.json": "7deb4641f186d82c8d2d58c15b20f0532c12b312b9acea4d1767e8ffda26d520"
+  },
+  "inputs": [
+    {
+      "path": "mods/heroesdata.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "9822f98f0c087a909a30e49b4c3c0a7e59f4782d23f4bc45af355310af9ffa3b"
+    },
+    {
+      "path": "mods/heromods/alarak.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "01b380135311892fbfdf649f60f219c0aef13e9efa80865688d00bba8a58f5e1"
+    },
+    {
+      "path": "mods/heromods/alexstrasza.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "da05132e6d47e72b505fa4b70bd10570965d5f3ff2aa4eda31b5ca9565ed3d0a"
+    },
+    {
+      "path": "mods/heromods/amazon.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "d32a27237e26679676836c0d0d2c32717646ba25e66cd5e2c1492e77b916e7ac"
+    },
+    {
+      "path": "mods/heromods/ana.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "2619f48c95347f4b9a184e45997f311a0408cc4bf524382bdeaeca161a2637aa"
+    },
+    {
+      "path": "mods/heromods/anduin.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "12154971de1e564f9c8447dd2b7468a562cfc1bbdc4dcfbe5fd136e41915a67d"
+    },
+    {
+      "path": "mods/heromods/auriel.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "2f7ad70593b8bdef33053dbba45fecabcd11ecb3b215c64a5382ca759a09f55d"
+    },
+    {
+      "path": "mods/heromods/chogall.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "a8eb0ec34d33da544ae67ec68cd1b42e14e7ac153e15291bdb172ee132e01892"
+    },
+    {
+      "path": "mods/heromods/chromie.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "c4bed07497f7a324763b8ef93b27476785cd780c5d3dc9fcd4ef6d2c48326535"
+    },
+    {
+      "path": "mods/heromods/deathwing.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "beba8261e3e28d4e56c1feed1e7bb560865dd6abb7a9d86f4a5dcce77620caff"
+    },
+    {
+      "path": "mods/heromods/deckard.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "28b98b4635f3d66836e6c57093dd00220e5e8a02e30e82ae8a0860bb40928a31"
+    },
+    {
+      "path": "mods/heromods/dehaka.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "f170b34cb0892f281121a70b6dfa0c362ae2f55d6e24af785ae01ea10c5ead75"
+    },
+    {
+      "path": "mods/heromods/dva.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "9591b7deb5f0e77f36d3bcd0d8e53319d6a0f7eacc6ac96d5ac6c00f9f6ad916"
+    },
+    {
+      "path": "mods/heromods/fenix.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "364bdad2ec67ca72feb35361a8ee31f2ee991580b7f3227a5959ecb3f2534197"
+    },
+    {
+      "path": "mods/heromods/firebat.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "810d8dc72f3ab96f2c6201d657249b9e81c0c8325a9d3ed17b4f02bc2cc52e23"
+    },
+    {
+      "path": "mods/heromods/garrosh.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "2c6a883038ed0325b3f81165f6cae50a5e675f182e31fe5958dd583577728306"
+    },
+    {
+      "path": "mods/heromods/genji.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "41915ad06d2dfcef194fc015d03b7e756f1eee9ffc2349686217a607d594d7ef"
+    },
+    {
+      "path": "mods/heromods/guldan.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "61d192d5ba969d11f26f6bad0ddd13ee066e24d36c57d49109560709fabb866d"
+    },
+    {
+      "path": "mods/heromods/hanzo.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "3b407f17199d7d5b42c7b663fd8366a5f081d7a60b327c14f68d89e9c7f22fdd"
+    },
+    {
+      "path": "mods/heromods/herointeractions.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "af88c334e75201365da9ae80d44109d91c0708e7224ad5dc3aea149d2f3aee3c"
+    },
+    {
+      "path": "mods/heromods/hogger.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "3332b43d996ce7272542df03b07b6304e610bf2a79bd248522727bbff7dfd631"
+    },
+    {
+      "path": "mods/heromods/imperius.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "dbded1afa45c487a5a244bcb1c2f2c397e6db749ee33aef2d653403e86aad27d"
+    },
+    {
+      "path": "mods/heromods/junkrat.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "824e337caee67af7a60a17f4d091fbbf0933f370d9ce536987ec8e902d49e223"
+    },
+    {
+      "path": "mods/heromods/kelthuzad.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "c41bc93e573357fadb820f93f17f0296c025b490c4e0e3b84eb5d097cc850261"
+    },
+    {
+      "path": "mods/heromods/lucio.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "6335584347479633c518d9bd4eed32c6d56e5bb134a218d205f233c454caad2f"
+    },
+    {
+      "path": "mods/heromods/maiev.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "d0083403c627ea6bf6622dd01b69b9c53e8d128483cded10514794df83378757"
+    },
+    {
+      "path": "mods/heromods/malganis.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "4b7d51084e3cad88e42f830f0618f297283d3805299c0cb7114f142578084b50"
+    },
+    {
+      "path": "mods/heromods/malthael.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "693ffc9b1ff9ca532c9f6f5435013c0779bd71ff36965370d31a9617583a2744"
+    },
+    {
+      "path": "mods/heromods/medivh.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "3f9dfd1880f349a0c02d44a5a19f50bfa5dd80638d5dc8c9ec983e387d59d607"
+    },
+    {
+      "path": "mods/heromods/meiow.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "7d6db76fc3e4e89a276cd858f948278615f0d0fdd3a8ab21ce00d78dc504478e"
+    },
+    {
+      "path": "mods/heromods/mephisto.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "1a8eeeac1e93b878bcb1c40ee5917f21165c4e13d079f271793393eed2451ab8"
+    },
+    {
+      "path": "mods/heromods/nexushunter.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "b963ffe61473cad17fe239bf1303cfa64475fe275cd16ebb10154de15a75274c"
+    },
+    {
+      "path": "mods/heromods/orphea.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "72424fec1b8bcf18dccbd8fd17c23aaec84832fdcfbfaa51f6ecb170ad1b2833"
+    },
+    {
+      "path": "mods/heromods/probius.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "e22529d17675ad3f13a57a410153ee945def3c4ddb800cfdfc8d6f492968b906"
+    },
+    {
+      "path": "mods/heromods/samuro.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "fa3bb6e365953232ef91a5301bc5daec216037ef9097835b5858e2e9629cbeb1"
+    },
+    {
+      "path": "mods/heromods/stukov.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "6433fba9b2bbf44822bd41abcecd913521b13dab2e106a71bd8c10df25f6d6ff"
+    },
+    {
+      "path": "mods/heromods/thefirelords.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "1eca9ff0e6d6bb99e79fd2f6d3ed759cde89dc34cdb5f58ab4cad14e59d69df8"
+    },
+    {
+      "path": "mods/heromods/tracer.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "97695da46625f07d76c4450b6b86d0297baa1808a868e0064d4cd577fe8b2111"
+    },
+    {
+      "path": "mods/heromods/valeera.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "79cd778fdf4d47cde13e323492b337d742f53af6ffa9b2c2118e3eb77ce44db0"
+    },
+    {
+      "path": "mods/heromods/varian.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "a2acb6721239013791822eec0d73656c45d087d12c160360c117df38def62b9c"
+    },
+    {
+      "path": "mods/heromods/whitemane.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "cb25665d61cf096b7282a5bc9a939d8bfcc709fa39e031ce6f488c4cf157f5e7"
+    },
+    {
+      "path": "mods/heromods/xalatath.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "0b08b8fc06fd5a146d6f1766ba8f6cfdeb7b28f7a6f00c1ac48061a40515bee5"
+    },
+    {
+      "path": "mods/heromods/yrel.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "ec2170ceb641d2ddf098793c5b7e89d80888d47afb618fd0961286dab59b0cc6"
+    },
+    {
+      "path": "mods/heromods/zarya.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "65d3a7d542e9d718e7b4bff0bb5bf39c3bc7eb5087e744a769fd38fb65af4b6c"
+    },
+    {
+      "path": "mods/heromods/zuljin.stormmod/enus.stormdata/localizeddata/gamestrings.txt",
+      "sha256": "2e99f8aaa07e02492b0834cfd571ae1c441dacd48bd570b3a13def58b7fd3f37"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/abathurdata/abathurdata.xml",
+      "sha256": "b2ecee56c24e3a6e62c904f066f858dd5fb9fa144c2e17af423320efaf9c69e1"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/anubarakdata/anubarakdata.xml",
+      "sha256": "6e575d1c7e852274480b88e89e06ce993a9b8dd6f7988ccdc57e173c337eb799"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/artanisdata/artanisdata.xml",
+      "sha256": "6ced78ae90dd282fe417b895bed0c50bfdc4ce328e72291746e15fc30ae6d1ca"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/arthasdata/arthasdata.xml",
+      "sha256": "da5a739ab048e52cf070e4cfccb637646ff78f1f620f772f072dbbb6fc1648ad"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/azmodandata/azmodandata.xml",
+      "sha256": "fe22a09fee3a9eb40976e3414f79b5bc1a98e6ad324a64d1e3404364ba9e3048"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/barbariandata/barbariandata.xml",
+      "sha256": "1e4bc827d905d70772f6e3cd06707b147fa2e8349e94ae9c659b6aa91a79444f"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/brightwingdata/brightwingdata.xml",
+      "sha256": "0331a785983525abcbd58d95159ce4b12d8652c8a7294967e1231b30f5053064"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/butcherdata/butcherdata.xml",
+      "sha256": "ea334ed011dd475d786e5f9a7b5d58806ae9716715ba55d4cf913801f9275c88"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/chendata/chendata.xml",
+      "sha256": "043c4bd5def5733d2f5545f94f946e10eb15f667986327f284839af58a973335"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/crusaderdata/crusaderdata.xml",
+      "sha256": "8c0cc2e0df200ca64b6d91b9916434ea0654d28401470b01ea0563d75fd73c2a"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/demonhunterdata/demonhunterdata.xml",
+      "sha256": "e54d7ef4ce9f3ca44b135cc20ab64b05741d3c7112afc34fd1dd7f26533f1ab4"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/diablodata/diablodata.xml",
+      "sha256": "d915e17184a5c32fb6ed6952132126fc249052a3733a54b533823ece475d8062"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/dryaddata/dryaddata.xml",
+      "sha256": "5d8239b9b01dab13acaf8af6f01aabb2421a697d2755399730a52d8cabd4856a"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/falstaddata/falstaddata.xml",
+      "sha256": "0e72825e47446249beb1552bdc39577125007e0bec19d96395bcb7d6ccf34391"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/genndata/genndata.xml",
+      "sha256": "78a564ee1334eeaee26c4b6c57a7dd5d5b3c048cba63a9b7131440d778b98cff"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/illidandata/illidandata.xml",
+      "sha256": "a50dfb02820f616f595112cde9c0af47fc3d2a5fac6d15e1bebc2ea84c0302bf"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/jainadata/jainadata.xml",
+      "sha256": "8c77e3225ae4e659166cae572ba83906a7a850a3a104b454e497d9fd3959fa4f"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/kaelthasdata/kaelthasdata.xml",
+      "sha256": "39cf6954288e32edd73dfed13f82e45ab5f944a54f9f3fa9adaf2aacc7ffc13b"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/kerrigandata/kerrigandata.xml",
+      "sha256": "209396980e9180b8b595d991c0d1ce721b0797d2e6292bbad65c56e3e31735c7"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/l90etcdata/l90etcdata.xml",
+      "sha256": "ea68ae752fcd8924a4cc77cf4535ef05dcb4f88157fc26774f0fb96c0e83c6d3"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/leoricdata/leoricdata.xml",
+      "sha256": "87dcd45cc74418876d651613196acb0a1feef64d2bb6b91d0cdec67bc2b6ac5b"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/lilidata/lilidata.xml",
+      "sha256": "6f09b23f817b8bf9163990a07b2f082a72c2c721f60ac05cd38184e170d050e6"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/lostvikingsdata/lostvikingsdata.xml",
+      "sha256": "2f5aff9d582aa9d121466b3e097bc3c332c42cff477602b1aaeb5aa1db3d52d7"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/malfuriondata/malfuriondata.xml",
+      "sha256": "6bd9c771092a5b881e8c21e43c75d9ccfb5d82ca9be82360e72bb7beb27fadd8"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/medicdata/medicdata.xml",
+      "sha256": "e3eca8b9f2aafaff4b21465d64624c5dc618331575dffbf06d76b5b40eea67a7"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/monkdata/monkdata.xml",
+      "sha256": "93af72b3d9363a798561f1afa3d47e93d76ce67bc92d42b2f7ed3e12b97d5183"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/muradindata/muradindata.xml",
+      "sha256": "1ac0bbc2dc1b24253cb0abdf8fc50e96a91295f11f7ba57c02f7ae194ecb95ec"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/murkydata/murkydata.xml",
+      "sha256": "125a4640d7ab425ce5222514295d9b5b3f36910f324217dd3919e991f6600a09"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/necromancerdata/necromancerdata.xml",
+      "sha256": "9fa558d0e941fdbee82ac0c706c7c06adda28bbd2c53bcd588907b0a08252b95"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/novadata/novadata.xml",
+      "sha256": "721086138a01ff65659616556ea617c85f968d8bd28ec888fa6397bde0ce113a"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/raynordata/raynordata.xml",
+      "sha256": "fcd532ab13a6d6dd31a97cf7fc6717b430b05940c43a0e71b3e628f80e682c55"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/rehgardata/rehgardata.xml",
+      "sha256": "78f9dc5058fe886ac45b4659a7feb51f8724413159972578e95ec0340e3e9922"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/rexxardata/rexxardata.xml",
+      "sha256": "c14c4b84da31fc43d1e8d8ffaa5e066d9b44ded8dd3d4d9883de724595e8de64"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/sgthammerdata/sgthammerdata.xml",
+      "sha256": "40a0281d64334f2e224d06ee67fa5b0796523012f0167b67e75139a606451c12"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/stitchesdata/stitchesdata.xml",
+      "sha256": "5fd67c416837811c92c6e120569b76bb3fe22ce878939b27e0951c94c9764e87"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/sylvanasdata/sylvanasdata.xml",
+      "sha256": "5f663a71f2823d419c758558b4e37e8d24770308110537ef49d22dee0d6933ef"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/tassadardata/tassadardata.xml",
+      "sha256": "7c9b40e053b9831b259acd1629850964047ecc46e5f02f0b03d8af4b2e55bbb0"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/thralldata/thralldata.xml",
+      "sha256": "6dfa475acaa636e0c3e16b8b639c26f02dfc7ccbf3218ad54f0e8ffe15f873c6"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/tinkerdata/tinkerdata.xml",
+      "sha256": "6c15fa6833a30d1b9ff325ac64c4039c5290eba8de8bca423d161f8b46ea3f47"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/tychusdata/tychusdata.xml",
+      "sha256": "f764da18ced114a41a8d12a322ae6a1a318bca0b965fe33e0e48d046365f4a98"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/tyraeldata/tyraeldata.xml",
+      "sha256": "5d32be00ffddef7c6a4a1d686f26732856250b8d646676fe0a8cf76d1f4395f5"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/tyrandedata/tyrandedata.xml",
+      "sha256": "8dc1f32eca0299e4007a99ac487bf816ff3a7f8a24e0f3301ea050e3f7b8fd29"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/utherdata/utherdata.xml",
+      "sha256": "398c545d49a1942bc861c905cf04362cf3aa8aa0e30c5bbe351d31ea155832ee"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/witchdoctordata/witchdoctordata.xml",
+      "sha256": "a7d619ec2af6cff5a083fce60368226824778d3152ee45e1611e56c0c3378efa"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/wizarddata/wizarddata.xml",
+      "sha256": "5653efefc9fff74da43d22a022a4bdfdcd19b4eab0ae58632bb5f8ec45c22687"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/zagaradata/zagaradata.xml",
+      "sha256": "84f3b0ddef9fde89a305dd44d78a4687fce6309be4a56633f17d72eb627783d3"
+    },
+    {
+      "path": "mods/heroesdata.stormmod/base.stormdata/gamedata/heroes/zeratuldata/zeratuldata.xml",
+      "sha256": "fa06e5ab585ffb2ddbf79076dc1caa1ae24f82b8a9282b7bbefac8fe71080fe9"
+    },
+    {
+      "path": "mods/heromods/alarak.stormmod/base.stormdata/gamedata/alarakdata.xml",
+      "sha256": "ef35c7088ba7558bd46aa03463218e3d47763271856b398f73045882e2fc70e7"
+    },
+    {
+      "path": "mods/heromods/alexstrasza.stormmod/base.stormdata/gamedata/alexstraszadata.xml",
+      "sha256": "9017798e3e94df90e11bedba463ff2b17000c390c09a39ced1bfe89eff56b40b"
+    },
+    {
+      "path": "mods/heromods/amazon.stormmod/base.stormdata/gamedata/amazondata.xml",
+      "sha256": "5e8cc39ca9b079c76bc8e54a39c25a73f2c502313b859c695b7125416362538b"
+    },
+    {
+      "path": "mods/heromods/ana.stormmod/base.stormdata/gamedata/anadata.xml",
+      "sha256": "45d123c8f202e27825c85d0324c8c2c433c726cfd028914011188da44829abf7"
+    },
+    {
+      "path": "mods/heromods/anduin.stormmod/base.stormdata/gamedata/anduindata.xml",
+      "sha256": "02f8a38bddbf46f479a6b3678667c923fa0cf245d51336dee3ab3192d078353c"
+    },
+    {
+      "path": "mods/heromods/auriel.stormmod/base.stormdata/gamedata/aurieldata.xml",
+      "sha256": "3fc680547212303f5bb6a87e11081f0b79fa484ad01c0797cd89b4a4a5beae91"
+    },
+    {
+      "path": "mods/heromods/chogall.stormmod/base.stormdata/gamedata/chogalldata.xml",
+      "sha256": "72310b4d5a6cacdd2a8ecf77a604d04a9397679ebfa0c1f2f83592c7cbdd99f5"
+    },
+    {
+      "path": "mods/heromods/chromie.stormmod/base.stormdata/gamedata/chromiedata.xml",
+      "sha256": "3c7bcda97c87fefa510f4656a7bb722dc8d340fd168ad618649b661b6719ca97"
+    },
+    {
+      "path": "mods/heromods/deathwing.stormmod/base.stormdata/gamedata/deathwingdata.xml",
+      "sha256": "8cefb9685e22f243287abd97626d8c34541fd6be67f365234d82f5f91941f208"
+    },
+    {
+      "path": "mods/heromods/deckard.stormmod/base.stormdata/gamedata/deckarddata.xml",
+      "sha256": "cb4a51b1973fc923fa4a2ad9a0fff10c4d79c75e9172d9a4aae4bd460125fc50"
+    },
+    {
+      "path": "mods/heromods/dehaka.stormmod/base.stormdata/gamedata/dehakadata.xml",
+      "sha256": "b53ad2319404c110c5e6631206720dd615da7c937e482a5c9414768a6e913b96"
+    },
+    {
+      "path": "mods/heromods/dva.stormmod/base.stormdata/gamedata/dvadata.xml",
+      "sha256": "70cd7698e4a3d648e1e4c175b37c1dd5ea57a74b7882ac3015102821ac1091f0"
+    },
+    {
+      "path": "mods/heromods/fenix.stormmod/base.stormdata/gamedata/fenixdata.xml",
+      "sha256": "15f4fd9299b434e8ead94c8d8ddfdbae116d747ea64de6f717dca0d7fe3721bc"
+    },
+    {
+      "path": "mods/heromods/firebat.stormmod/base.stormdata/gamedata/firebatdata.xml",
+      "sha256": "e3c0378adbbbfdd3d73a93281d71a38cc7bbcfe425229e93b7aa84447ff951c7"
+    },
+    {
+      "path": "mods/heromods/garrosh.stormmod/base.stormdata/gamedata/buttondata.xml",
+      "sha256": "5e8e4d282e75d9e23a037e93c426d89e722778345c61c2bb3f88e65bfe7a6bbb"
+    },
+    {
+      "path": "mods/heromods/garrosh.stormmod/base.stormdata/gamedata/garrosh.xml",
+      "sha256": "8c471e2c16274f1c02f60ae2c1110cb0a135c1b837d6c632ae45ceb60d0a3cf8"
+    },
+    {
+      "path": "mods/heromods/genji.stormmod/base.stormdata/gamedata/genjidata.xml",
+      "sha256": "af3e5f75cf576efe50477039e5363dc4956f242bd056a31108b64eea039bba82"
+    },
+    {
+      "path": "mods/heromods/guldan.stormmod/base.stormdata/gamedata/guldandata.xml",
+      "sha256": "ab80d7ce348af484633a7c8a528ba7da9e69859d41f79a6366fff705dab1924a"
+    },
+    {
+      "path": "mods/heromods/hanzo.stormmod/base.stormdata/gamedata/hanzodata.xml",
+      "sha256": "477990ee4af9940546ffc4416e8f3b12239965d0410ddc1b00c2851010cb0902"
+    },
+    {
+      "path": "mods/heromods/hogger.stormmod/base.stormdata/gamedata/hoggerdata.xml",
+      "sha256": "9e88e5d1c41ea4625126947d58cdbaf901333a925f8aaf43b6ad29898166ac26"
+    },
+    {
+      "path": "mods/heromods/imperius.stormmod/base.stormdata/gamedata/imperiusdata.xml",
+      "sha256": "2129be7e2c26feba7f33e60ec4d390d4b6f9d119531882213e015cb4e3bd8221"
+    },
+    {
+      "path": "mods/heromods/junkrat.stormmod/base.stormdata/gamedata/junkratdata.xml",
+      "sha256": "67a2ea3a9a8d618d2637353c9a9d1cae6f1da2c77a818b12b4ca93df707a57fc"
+    },
+    {
+      "path": "mods/heromods/kelthuzad.stormmod/base.stormdata/gamedata/kelthuzad.xml",
+      "sha256": "677d0a9786f2236a5877930717df64cc6aad85ddeca784a590d387cf81708bb1"
+    },
+    {
+      "path": "mods/heromods/lucio.stormmod/base.stormdata/gamedata/luciodata.xml",
+      "sha256": "b9f141580c5bb3cb14cfcf4fa051f604e9a62e8ccbdf2870933a0bcda1deda98"
+    },
+    {
+      "path": "mods/heromods/maiev.stormmod/base.stormdata/gamedata/maievdata.xml",
+      "sha256": "9721f19a1f64ea4a40505178d397582fa92038085f729fe2133105c94466c3b1"
+    },
+    {
+      "path": "mods/heromods/malganis.stormmod/base.stormdata/gamedata/malganisdata.xml",
+      "sha256": "62c66e1533de40fb3ea6831f52d48815e821aa99bc91d7dd07a0a3c6498f3a53"
+    },
+    {
+      "path": "mods/heromods/malthael.stormmod/base.stormdata/gamedata/malthaeldata.xml",
+      "sha256": "12a8691936a82670cd6a68f10d510dcc7beeed223dd63e532f481a12400f089a"
+    },
+    {
+      "path": "mods/heromods/medivh.stormmod/base.stormdata/gamedata/medivhdata.xml",
+      "sha256": "beb9d149ba05af9a31c840152e1f83503470a99ff018c5a7da0734e5c72eb923"
+    },
+    {
+      "path": "mods/heromods/meiow.stormmod/base.stormdata/gamedata/meiowdata.xml",
+      "sha256": "e1116bff3ee9e81f697bece8614a34e229f161b30026537cd0355ecaa18c5abe"
+    },
+    {
+      "path": "mods/heromods/mephisto.stormmod/base.stormdata/gamedata/mephistodata.xml",
+      "sha256": "b59bf1b7d8afcfc979c5dd7174e5f3a47bb39e3b7e6d257179c6cb4f0b6d239c"
+    },
+    {
+      "path": "mods/heromods/nexushunter.stormmod/base.stormdata/gamedata/nexushunterdata.xml",
+      "sha256": "299392abcc729e0c151556d47b3eca830a6169a93f633faec07651e5f13128f8"
+    },
+    {
+      "path": "mods/heromods/orphea.stormmod/base.stormdata/gamedata/orpheadata.xml",
+      "sha256": "9b8b7fc45f16b85015d5d3045631c980d2e9236a65d1b3d6b225c75b960b2e18"
+    },
+    {
+      "path": "mods/heromods/probius.stormmod/base.stormdata/gamedata/probiusdata.xml",
+      "sha256": "f760ce78927d899a7d883971cce2d0ed26f721dba5006ca3c42a93c8248d83f8"
+    },
+    {
+      "path": "mods/heromods/samuro.stormmod/base.stormdata/gamedata/samurodata.xml",
+      "sha256": "0206afce01e484fed1884425c375ac4359e27cc84f8bfd9504ebec1c1a5a31d8"
+    },
+    {
+      "path": "mods/heromods/stukov.stormmod/base.stormdata/gamedata/stukovdata.xml",
+      "sha256": "ea36e7cdd7afc909de151923a314f55696d346fe28d1194c01e82ff563adc9a4"
+    },
+    {
+      "path": "mods/heromods/thefirelords.stormmod/base.stormdata/gamedata/thefirelordsdata.xml",
+      "sha256": "256a384ba1e0023f6c1f26ea6fcf7c9aedc629f02ce55f7119daa555f4533add"
+    },
+    {
+      "path": "mods/heromods/tracer.stormmod/base.stormdata/gamedata/tracerdata.xml",
+      "sha256": "fb7dcfe7fe9adf0f8439e0eaf1d13ff29a4726436bd2fcb0683b91af89f1aa0c"
+    },
+    {
+      "path": "mods/heromods/valeera.stormmod/base.stormdata/gamedata/valeeradata.xml",
+      "sha256": "efa7e3a30ede8e894fdaf13bef9b1073106608d06c4a39e8d4def20bbb9a78db"
+    },
+    {
+      "path": "mods/heromods/varian.stormmod/base.stormdata/gamedata/variandata.xml",
+      "sha256": "5a472e1247daa59626f458a04beff5f03a2569edfaa13e62348486288cc36dae"
+    },
+    {
+      "path": "mods/heromods/whitemane.stormmod/base.stormdata/gamedata/whitemanedata.xml",
+      "sha256": "c35641f280ac370209cc5304eb814074cc1307abb439bbff2daafabe0bc16a1c"
+    },
+    {
+      "path": "mods/heromods/xalatath.stormmod/base.stormdata/gamedata/xalatathdata.xml",
+      "sha256": "1dada9326e5be7c6c52fc1afd3fd56cebc156c876be3ec80d4682e9582d3fef8"
+    },
+    {
+      "path": "mods/heromods/yrel.stormmod/base.stormdata/gamedata/yreldata.xml",
+      "sha256": "8976eb174d7ebb316608f5fbba4eaf1542ad6276f0e363908e527cee40d5a31d"
+    },
+    {
+      "path": "mods/heromods/zarya.stormmod/base.stormdata/gamedata/zaryadata.xml",
+      "sha256": "34a870c413078305c5fb28986ff87115864a1d1e14717fac988ed3dab2f0e92d"
+    },
+    {
+      "path": "mods/heromods/zuljin.stormmod/base.stormdata/gamedata/zuljindata.xml",
+      "sha256": "275f639eca75ec83607be2a0869a8ae7c93348871cf4fa576641ebe397dc7a47"
+    }
+  ],
+  "metadata_inputs": [
+    {
+      "path": "data/talents_98348_zhCN.json",
+      "sha256": "e73a3ab07a38d22550f5e5bc28e219d33e1a478698c6153882775b4c9025485d"
+    },
+    {
+      "path": "data/quests_98348_zhCN.json",
+      "sha256": "609bd3594c63aa7ed2b752182aa1478c3924ab48a0283d8a0f7dfda8d4776266"
+    }
+  ],
+  "derivation": [
+    "Keep the exact validated zhCN hero/talent/quest IDs, levels, tiers and face IDs for build 98348.",
+    "Use Hero/Name/{hero_id} for English hero names. Resolve each button Name and SimpleDisplayText through explicit CButton XML fields and inherited fields, otherwise the native Button/{field}/{face_id} key.",
+    "Remove presentation tags and normalize whitespace only. Reject dynamic d/stringref tags, missing texts, non-Latin letters and out-of-bounds values; do not translate, invent values or shorten text.",
+    "Use only unambiguous CHero HeroAbilArray Abil-to-Button bindings for English ability names. Unknown or ambiguous bindings remain unsupported."
+  ],
+  "explicit_talent_key_overrides": 35,
+  "unsupported_ability_bindings": [
+    {
+      "hero_id": "Stitches",
+      "ability_id": "StitchesBlight",
+      "face_id": "StitchesBlight"
+    }
+  ],
+  "ambiguous_ability_bindings": [],
+  "attribution": "Heroes of the Storm game names and texts belong to their respective rights holders. This project is not affiliated with Blizzard. The upstream repository extracts native game data; it is not Blizzard-hosted. This attribution does not relicense game texts as project-original or MIT content."
+}

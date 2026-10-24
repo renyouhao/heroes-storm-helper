@@ -14,13 +14,17 @@ _TITLES = {
     'cancelled': '本次播报已取消', 'limited': '短时间内不重复播报',
     'error': '本次播报未完整确认，请核对聊天记录',
 }
+_LANGUAGES={'zh':'中文','en':'English'}
+_PREVIEWS={'zh':'【我方】玩家（安度因）｜英雄伤害：12,345',
+           'en':'[Ally] Player (Anduin) | Hero damage: 12,345'}
 
 
 class BoardPanel(ttk.Frame):
-    def __init__(self, parent, *, settings, metrics, on_toggle, on_retry=None):
+    def __init__(self, parent, *, settings, metrics, on_toggle, on_retry=None,on_language=None):
         super().__init__(parent,padding=14)
         self.settings,self.metrics,self.on_toggle=settings,metrics,on_toggle
         self._on_retry=on_retry
+        self._on_language=on_language
         self._running=None
         self._state,self._detail='waiting',''
         self._last_render=None
@@ -30,13 +34,25 @@ class BoardPanel(ttk.Frame):
         ttk.Checkbutton(self,text='开启 Tab 双击播报，自动发送到己方团队',
                         variable=self.enabled,command=self._toggle).pack(anchor='w',pady=(0,10))
         self._label(self,'点哪项，就说哪项。自己、队友和对手的已选天赋、统计数据都可以播报。').pack(fill='x',pady=(0,14))
+        language_row=ttk.Frame(self)
+        language_row.pack(fill='x',pady=(0,14))
+        self._label(language_row,'发给队友的播报语言').pack(anchor='w',pady=(0,6))
+        self.language=tk.StringVar(self,value=_LANGUAGES[settings.board_output_language])
+        self.language_choice=ttk.Combobox(language_row,textvariable=self.language,
+            values=tuple(_LANGUAGES.values()),state='readonly' if on_language is not None else 'disabled',width=16)
+        self.language_choice.pack(anchor='w')
+        self.language_choice.bind('<<ComboboxSelected>>',self._change_language)
+        self.language_feedback=tk.StringVar(self)
+        self._label(language_row,variable=self.language_feedback).pack(fill='x',pady=(6,0))
+        self._label(language_row,'选择后立即保存；英文播报保留英文昵称，其他昵称以 Player 加槽位序号显示。').pack(fill='x',pady=(6,0))
         self.card=RoundedPanel(self,settings=settings,padding=14,fit_height=True)
         self.card.pack(fill='x')
         self._label(self.card.body,'Tab → 双击具体的一格',surface=True,heading=True).pack(fill='x')
         for line in ('天赋：玩家、英雄、天赋等级、名称和一句关键效果。',
-                     '统计：只发送点中的击杀、助攻、死亡、伤害或治疗等单项数据。',
-                     '例如：【我方】玩家（安度因）｜英雄伤害：12,345'):
+                     '统计：只发送点中的击杀、助攻、死亡、伤害或治疗等单项数据。'):
             self._label(self.card.body,line,surface=True).pack(fill='x',pady=(7,0))
+        self.preview=tk.StringVar(self,value=_PREVIEWS[settings.board_output_language])
+        self._label(self.card.body,variable=self.preview,surface=True).pack(fill='x',pady=(7,0))
         self.title=tk.StringVar(self)
         self.detail=tk.StringVar(self)
         self.last_result=tk.StringVar(self)
@@ -66,6 +82,19 @@ class BoardPanel(ttk.Frame):
         except (OSError,ValueError) as failure:
             self.enabled.set(self.settings.board_broadcast_enabled)
             self.detail.set(str(failure))
+
+    def _change_language(self,event=None):
+        if self._closed or self._on_language is None:return
+        language=next((key for key,label in _LANGUAGES.items() if label==self.language.get()),None)
+        try:
+            self._on_language(language)
+        except (OSError,ValueError):
+            self.language.set(_LANGUAGES[self.settings.board_output_language])
+            self.language_feedback.set('播报语言切换未完成，已保留原选择；请稍后重试。')
+            return
+        self.language.set(_LANGUAGES[self.settings.board_output_language])
+        self.preview.set(_PREVIEWS[self.settings.board_output_language])
+        self.language_feedback.set('播报语言已保存为 '+_LANGUAGES[self.settings.board_output_language]+'。')
 
     def update_status(self,state,detail=''):
         if self._closed:return
@@ -111,6 +140,8 @@ class BoardPanel(ttk.Frame):
         self.settings=settings
         if metrics is not None:self.metrics=metrics
         self.enabled.set(settings.board_broadcast_enabled)
+        self.language.set(_LANGUAGES[settings.board_output_language])
+        self.preview.set(_PREVIEWS[settings.board_output_language])
         colors=theme_colors(settings)
         for label,surface,heading in self._labels:
             label.configure(background=colors['surface' if surface else 'background'],
@@ -124,7 +155,7 @@ class BoardPanel(ttk.Frame):
     def close(self):
         if self._closed:return
         self._closed=True
-        self.on_toggle=self._on_retry=None
+        self.on_toggle=self._on_retry=self._on_language=None
         if self.retry_button.winfo_exists():self.retry_button.configure(command='')
 
     def destroy(self):
@@ -142,3 +173,6 @@ class BoardPanel(ttk.Frame):
         self._labels.clear()
         for child in descendants:child.master=None
         self.master=None
+        # 这些变量属于已销毁的页面，及时在 UI 线程释放 Tcl 引用。
+        for name in ('enabled','language','language_feedback','preview','title','detail','last_result'):
+            setattr(self,name,None)

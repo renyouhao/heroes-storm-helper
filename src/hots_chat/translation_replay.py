@@ -9,6 +9,7 @@ from functools import wraps
 import inspect
 import math
 import queue
+import re
 import threading
 
 from .cache import BoundedTranslationCache
@@ -57,10 +58,12 @@ class _Budget:
                 value = AppEvent(value.kind, value.generation, None)
             if isinstance(value, ChatEvent):
                 sender = value.sender
-                if not (sender.startswith('sender:') and len(sender) == 71):
+                if not re.fullmatch(r'sender:[0-9a-fA-F]{64}',sender):
                     sender = 'sender:' + AutomaticGuard._identity(value.channel, sender).hex()
                 value = ChatEvent(value.message_id, value.generation, value.channel, sender, value.timestamp, value.text)
+            empty_context=isinstance(value,TranslationJob) and not value.context
             value = {field.name: getattr(value, field.name) for field in fields(value)}
+            if empty_context:value.pop('context',None)
         if isinstance(value, dict):
             return {str(key): self.copy('<translation-error>' if key == 'error' and isinstance(item, str) else item, depth + 1)
                     for key, item in value.items()}
@@ -73,12 +76,14 @@ class _Budget:
 
 def _scope(controller, args, operation):
     texts, ids, senders = set(), set(), set()
+    conversation_keys={}
 
     def visit(value):
         if isinstance(value, ChatEvent):
             texts.update((value.text, normalize_chat_text(value.text)))
             ids.add(value.message_id)
-            senders.add(AutomaticGuard._identity(value.channel, value.sender).hex())
+            senders.add(controller._sender_digest(value))
+            conversation_keys[value.message_id]=controller._conversation_key(value)
         elif isinstance(value, TranslationJob):
             texts.add(value.text)
         elif isinstance(value, AppEvent):
@@ -104,13 +109,16 @@ def _scope(controller, args, operation):
     if event is not None:
         from .controller import incoming_source_language
         text = normalize_chat_text(event.text)
-        cache_key = [controller.engine.provider_id, controller.engine.config_version,
-                     text, incoming_source_language(text), 'zh']
+        for previous in controller._context_events(event):visit(previous)
+        job=TranslationJob('scope',event.message_id,event.generation,text,incoming_source_language(text),'zh','auto',
+                           controller._job_context(event))
+        cache_key=list(controller._cache_key(job))
     elif operation == 'submit_manual':
-        cache_key = [controller.engine.provider_id, controller.engine.config_version, args[0], 'zh', args[1]]
+        cache_key=list(controller._cache_key(TranslationJob('scope',None,controller.generation,args[0],'zh',args[1],'manual')))
     elif operation == 'cloud_complete':
         cache_key = list(args[0][1:])
-    return {'texts': sorted(texts), 'message_ids': sorted(ids), 'senders': sorted(senders), 'cache_key': cache_key}
+    return {'texts': sorted(texts), 'message_ids': sorted(ids), 'senders': sorted(senders), 'cache_key': cache_key,
+            'conversation_keys':conversation_keys}
 
 
 def snapshot_state(controller, scope, budget=None):
@@ -127,6 +135,8 @@ def snapshot_state(controller, scope, budget=None):
         'cloud_configured': getattr(controller, 'cloud_configured', True),
         'allowed_channels': sorted(controller.allowed_channels),
         'provider_id': controller.engine.provider_id, 'config_version': controller.engine.config_version,
+        'context_enabled':getattr(controller.engine,'context_enabled',False) is True,
+        'conversation_keys':dict(scope.get('conversation_keys',{})),
         'active': controller.active,
         'messages': [event for key, event in controller.messages.items() if key in scope['message_ids']],
         'pending': {'capacity': controller.pending.capacity, 'automatic_capacity': controller.pending.automatic_capacity,
@@ -224,8 +234,9 @@ def capture_event(controller, event):
 
 
 class _OfflineEngine:
-    def __init__(self, provider_id, config_version):
+    def __init__(self, provider_id, config_version, context_enabled=False):
         self.provider_id, self.config_version = provider_id, config_version
+        self.context_enabled=context_enabled
 
     def translate(self, job):
         raise RuntimeError('offline_replay_cannot_translate')
@@ -237,7 +248,8 @@ def _restore(state, external):
     controller.diagnostics = None
     controller._replay_capture = None
     controller.condition = threading.Condition(threading.RLock())
-    controller.engine = _OfflineEngine(state['provider_id'], state['config_version'])
+    controller.engine = _OfflineEngine(state['provider_id'], state['config_version'],state.get('context_enabled',False))
+    controller._replay_conversation_keys=dict(state.get('conversation_keys',{}))
     controller.account = None
     for field in ('generation', 'paused', 'automatic_paused', 'stopped', 'configuration_held', 'cloud_configured'):
         setattr(controller, field, state[field])
@@ -345,6 +357,9 @@ def replay_translation_frame(payload):
                 error = {'type': type(failure).__name__, 'message': '<exception-message>'}
         actual = {'events': observed_events, 'after': snapshot_state(controller, payload['scope']), 'error': error,
                   'return': _Budget().copy(result)}
+        for field in ('context_enabled','conversation_keys'):
+            if field not in payload['before'] and field not in payload['expected']['after']:
+                actual['after'].pop(field,None)
         matches = actual == payload['expected']
         differences = [key for key in actual if actual[key] != payload['expected'].get(key)]
         return dict(report, status='matched' if matches else 'mismatch', differences=differences,

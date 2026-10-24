@@ -19,7 +19,7 @@ _FIELDS = {
     'open_settings': (), 'check_updates': (), 'open_cloud': (),
     'loot_prepare': (), 'loot_cancel': (), 'repeat_prepare': (),
     'repeat_config': ('action', 'interval'), 'repeat_cancel': (),
-    'talent_toggle': ('enabled',), 'board_toggle': ('enabled',),
+    'talent_toggle': ('enabled',), 'board_toggle': ('enabled',), 'board_language': ('language',),
     'helper_retry': ('source',), 'phrase_use': ('id',),
     'phrase_favorite': ('id',), 'phrase_edit': ('id',),
     'phrase_delete': ('id',), 'phrase_import': (), 'phrase_export': ('id',),
@@ -66,6 +66,8 @@ def validate_command(command, payload=None):
             raise ProtocolError(str(error)) from error
     if command == 'helper_retry' and result['source'] not in ('talent', 'board'):
         raise ProtocolError('辅助功能选择无效。')
+    if command == 'board_language' and result['language'] not in ('zh','en'):
+        raise ProtocolError('播报语言只能选择中文或 English。')
     if 'id' in result and not (command == 'phrase_edit' and result['id'] is None):
         if not isinstance(result['id'], str) or not 1 <= len(result['id']) <= 1000:
             raise ProtocolError('记录编号无效。')

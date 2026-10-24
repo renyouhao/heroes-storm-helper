@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
-import { accountNeedsCancel, cancelAccountAfterRequest, editablePreferences, editPhraseText, ManagementDialog, modalFocusTarget, overlayPreferencesAfterAction, parseLegacyEnv, preparePhrase, ReleaseNotes, updateCapabilities, validatePreferences, withAccountRequest } from './ManagementDialog'
+import { AccountBalance, accountNeedsCancel, accountProviderProfile, cancelAccountAfterRequest, editablePreferences, editPhraseText, ManagementDialog, modalFocusTarget, OverlayMonitorControls, overlayPreferencesAfterAction, parseLegacyEnv, pendingOverlayMonitor, prepareAccountConnection, preparePhrase, ProviderChoices, ReleaseNotes, safeAccountFeedback, updateCapabilities, validatePreferences, withAccountRequest } from './ManagementDialog'
 import { previewSnapshot } from './model'
+import { hasConfiguredTranslationProfile, initialTranslationProvider } from './translationProviders'
 import type { DesktopPreferences, Phrase, Snapshot, UpdateInfo } from './types'
 
 const preferences: DesktopPreferences = {
@@ -21,6 +22,62 @@ const snapshot: Snapshot = {
 }
 
 describe('React 管理窗口的保存与信任边界', () => {
+  it('字幕提供带标签的主副屏选择与按钮，不要求用户拖拽才能跨屏', () => {
+    const monitors = [{ id: 0, label: '主显示器', primary: true, selected: false, width: 1920, height: 1040 }, { id: 1, label: '显示器 2', primary: false, selected: true, width: 2560, height: 1400 }]
+    const markup = renderToStaticMarkup(<OverlayMonitorControls monitors={monitors} selected="0" onChange={vi.fn()} onMove={vi.fn()}/> )
+    expect(markup).toContain('字幕显示器')
+    expect(markup).toContain('<select')
+    expect(markup).toContain('主显示器 · 1920 × 1040')
+    expect(markup).toContain('显示器 2 · 2560 × 1400')
+    expect(markup).toContain('移动到所选屏幕')
+    expect(markup).not.toContain('disabled')
+    expect(pendingOverlayMonitor(monitors, '0')).toBe(0)
+    expect(pendingOverlayMonitor(monitors, '1')).toBeNull()
+    expect(pendingOverlayMonitor(monitors, '99')).toBeNull()
+  })
+
+  it('没有可用显示器时禁用选择与移动并解释原因', () => {
+    const markup = renderToStaticMarkup(<OverlayMonitorControls monitors={[]} selected="0" onChange={vi.fn()} onMove={vi.fn()}/> )
+    expect(markup.match(/disabled=""/g)).toHaveLength(2)
+    expect(markup).toContain('显示器列表暂不可用')
+  })
+
+  it('双服务分别发送允许的连接字段，不把另一家凭据或额外参数带入请求', () => {
+    expect(prepareAccountConnection(null, 'test-id', 'test-secret', true)).toEqual({ error: '请先选择阿里云机器翻译或 DeepSeek。' })
+    expect(prepareAccountConnection('aliyun', '  test-id  ', '  test-secret  ', true)).toEqual({ name: 'account_connect', payload: { accessKeyId: 'test-id', accessKeySecret: 'test-secret' } })
+    expect(prepareAccountConnection('deepseek', 'unrelated-aliyun-id', '  synthetic-ds-key  ', false)).toEqual({ name: 'account_connect_deepseek', payload: { apiKey: 'synthetic-ds-key', contextEnabled: false } })
+    expect(prepareAccountConnection('deepseek', '', 'synthetic-ds-key', true)).toEqual({ name: 'account_connect_deepseek', payload: { apiKey: 'synthetic-ds-key', contextEnabled: true } })
+    expect(prepareAccountConnection('deepseek', 'test-id', ' ', true)).toEqual({ error: '请填写 DeepSeek API Key。' })
+    expect(prepareAccountConnection('aliyun', ' ', 'test-secret', false)).toEqual({ error: '请填写同一把 Key 的 ID 和 Secret。' })
+  })
+
+  it('旧快照仍默认阿里云；未配置的DS默认开启上下文，已存设置不会被默认值覆盖', () => {
+    const oldAccount = { ...snapshot.management.account, configured: true, maskedKey: 'LTAI…1234' }
+    expect(accountProviderProfile(oldAccount, 'aliyun')).toMatchObject({ configured: true, maskedKey: 'LTAI…1234' })
+    expect(accountProviderProfile(oldAccount, 'deepseek')).toMatchObject({ configured: false, maskedKey: '', contextEnabled: true })
+    const saved = { id: 'deepseek' as const, name: 'DeepSeek V4.1 Flash', configured: true, maskedKey: 'sk-…test', contextEnabled: false }
+    expect(accountProviderProfile({ ...oldAccount, providers: [saved] }, 'deepseek')).toEqual(saved)
+    expect(accountProviderProfile({ ...oldAccount, providers: [{ ...saved, configured: false }] }, 'deepseek').contextEnabled).toBe(true)
+  })
+
+  it('首次未配置账户不预选服务，已有任一家profile则保留当前选择，兼容旧阿里云快照', () => {
+    const fresh = { ...snapshot.management.account, state: 'unconfigured', provider: 'aliyun' as const }
+    expect(hasConfiguredTranslationProfile(fresh)).toBe(false)
+    expect(initialTranslationProvider(fresh)).toBeNull()
+    expect(initialTranslationProvider({ ...fresh, configured: true })).toBe('aliyun')
+    expect(initialTranslationProvider({ ...snapshot.management.account, configured: true })).toBe('aliyun')
+    const existing = { ...fresh, provider: 'deepseek' as const, providers: [{ id: 'deepseek' as const, name: 'DeepSeek', configured: true, maskedKey: '••••test', contextEnabled: false }] }
+    expect(hasConfiguredTranslationProfile(existing)).toBe(true)
+    expect(initialTranslationProvider(existing)).toBe('deepseek')
+  })
+
+  it('账户回执即使反射提交值，提示也隐藏本次API Key和阿里云凭据', () => {
+    expect(safeAccountFeedback('API Key synthetic-ds-key 无效', { apiKey: 'synthetic-ds-key' })).toBe('API Key [密钥已隐藏] 无效')
+    expect(safeAccountFeedback('test-id / test-secret 权限不足', { accessKeyId: 'test-id', accessKeySecret: 'test-secret' })).toBe('[密钥已隐藏] / [密钥已隐藏] 权限不足')
+    expect(safeAccountFeedback('synthetic-key-long / synthetic-key', { accessKeyId: 'synthetic-key', accessKeySecret: 'synthetic-key-long' })).toBe('[密钥已隐藏] / [密钥已隐藏]')
+    expect(safeAccountFeedback('请检查账户余额。')).toBe('请检查账户余额。')
+  })
+
   it('Tab 在首尾循环，没有可用控件时留在对话框，中间控件保留原生顺序', () => {
     const container = {}, first = {}, middle = {}, last = {}, outside = {}
     const items = [first, middle, last]
@@ -59,7 +116,7 @@ describe('React 管理窗口的保存与信任边界', () => {
     }
   })
 
-  it.each([['account_connect', 'unconfigured'], ['account_delete', 'ready']])('关闭在途 %s 时，取消排在请求之后且不遗漏', async (action, state) => {
+  it.each([['account_connect', 'unconfigured'], ['account_connect_deepseek', 'unconfigured'], ['account_select_provider', 'ready'], ['account_delete', 'ready']])('关闭在途 %s 时，取消排在请求之后且不遗漏', async (action, state) => {
     const pending = { current: false }
     const trace: string[] = []
     let finish!: () => void
@@ -179,6 +236,43 @@ describe('React 管理窗口的保存与信任边界', () => {
 })
 
 describe('更新状态与安全呈现', () => {
+  it('新用户先看两张未选中的原生单选卡，不展示默认密钥表单，可跳过先看原文', () => {
+    const command = vi.fn()
+    const value = { ...snapshot, isDemo: false, management: { ...snapshot.management, account: { ...snapshot.management.account, state: 'unconfigured', provider: 'aliyun' as const } } }
+    const html = renderToStaticMarkup(<ManagementDialog panel="account" snapshot={value} command={command} onClose={vi.fn()}/>)
+    const radios = Array.from(html.matchAll(/<input\b[^>]*type="radio"[^>]*>/g), match => match[0])
+    expect(radios).toHaveLength(2)
+    expect(radios.every(radio => !radio.includes('checked=""'))).toBe(true)
+    expect(html).toContain('阿里云机器翻译')
+    expect(html).toContain('DeepSeek V4.1 Flash')
+    expect(html).toContain('按字符计费')
+    expect(html).toContain('按 token 计费')
+    expect(html).toContain('尚未连接翻译服务')
+    expect(html).not.toContain('当前服务：阿里云')
+    expect(html).not.toContain('type="password"')
+    expect(html).not.toContain('type="file"')
+    expect(html).not.toContain('连接并开始使用')
+    expect(html).toContain('暂时跳过，先看原文')
+    expect(html).toContain('打开阿里云官方入口')
+    expect(html).toContain('打开 DeepSeek 官方入口')
+    expect(command).not.toHaveBeenCalled()
+  })
+
+  it('服务卡用同组原生radio表达单选，官方入口是独立button，不在渲染时触发选择或外部请求', () => {
+    const onChange = vi.fn(), onOpenPortal = vi.fn()
+    const html = renderToStaticMarkup(<ProviderChoices account={snapshot.management.account} selected="deepseek" onChange={onChange} onOpenPortal={onOpenPortal}/>)
+    const radios = Array.from(html.matchAll(/<input\b[^>]*type="radio"[^>]*>/g), match => match[0])
+    expect(radios).toHaveLength(2)
+    expect(radios[0].match(/name="([^"]+)"/)?.[1]).toBe(radios[1].match(/name="([^"]+)"/)?.[1])
+    expect(radios[0]).not.toContain('checked=""')
+    expect(radios[1]).toContain('checked=""')
+    expect(radios[1]).toContain('value="deepseek"')
+    expect(html.match(/type="button"/g)).toHaveLength(2)
+    expect(html).not.toContain('href=')
+    expect(onChange).not.toHaveBeenCalled()
+    expect(onOpenPortal).not.toHaveBeenCalled()
+  })
+
   it('安装须已经下载且当前运行方式允许；检查/下载进行中只能取消，准备重启时不可重入', () => {
     expect(updateCapabilities({ ...update, state: 'available' })).toMatchObject({ download: true, install: false })
     expect(updateCapabilities({ ...update, state: 'downloaded' }).install).toBe(false)
@@ -231,5 +325,56 @@ describe('更新状态与安全呈现', () => {
     expect(html).toContain('请检查 RAM 权限')
     expect(html).not.toContain('private-secret-marker')
     expect(html).not.toContain('should-never-render')
+  })
+
+  it('DS账户只显示单个空密码字段和已存上下文设置，展示真实币种余额且不自动查询', () => {
+    const command = vi.fn()
+    const value = { ...snapshot, management: { ...snapshot.management, account: {
+      ...snapshot.management.account, configured: true, state: 'ready', provider: 'deepseek' as const, maskedKey: 'sk-…test', contextEnabled: false,
+      providers: [{ id: 'deepseek' as const, name: 'DeepSeek V4.1 Flash', configured: true, maskedKey: 'sk-…test', contextEnabled: false }],
+      apiKey: 'private-ds-key-marker', accessKeySecret: 'private-aliyun-marker',
+      balance: { busy: false, available: true, updatedAt: '2026-10-24T10:00:00+08:00', message: '余额已更新。', balances: [
+        { currency: 'CNY', totalBalance: '12.50', grantedBalance: '2.00', toppedUpBalance: '10.50' },
+        { currency: 'USD', totalBalance: '0.00', grantedBalance: '0.00', toppedUpBalance: '0.00' },
+      ] },
+    } } }
+    const html = renderToStaticMarkup(<ManagementDialog panel="account" snapshot={value} command={command} onClose={vi.fn()}/>)
+    expect(html).toContain('当前服务：DeepSeek V4.1 Flash')
+    expect(html).toContain('DeepSeek API Key')
+    expect(html.match(/type="password"/g)).toHaveLength(1)
+    expect(html).not.toContain('mg-field-label">AccessKey ID')
+    expect(html).not.toContain('mg-field-label">AccessKey Secret')
+    expect(html.match(/<input\b[^>]*type="checkbox"[^>]*>/)?.[0]).not.toContain('checked=""')
+    expect(html).toContain('使用已保存账户')
+    expect(html).toContain('人民币 CNY')
+    expect(html).toContain('美元 USD')
+    expect(html).toContain('总余额')
+    expect(html).toContain('赠送余额')
+    expect(html).toContain('充值余额')
+    expect(html).toContain('12.50')
+    expect(html).toContain('0.00')
+    expect(html).toContain('更新时间')
+    expect(html).not.toContain('剩余字符')
+    expect(html).not.toContain('private-ds-key-marker')
+    expect(html).not.toContain('private-aliyun-marker')
+    expect(command).not.toHaveBeenCalled()
+    for (const busy of [true, false]) {
+      const current = { ...value, isDemo: false, management: { ...value.management, account: { ...value.management.account, balance: { ...value.management.account.balance, busy } } } }
+      const markup = renderToStaticMarkup(<ManagementDialog panel="account" snapshot={current} command={command} onClose={vi.fn()}/>)
+      const query = Array.from(markup.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g), match => match[0]).find(button => button.includes(busy ? '正在查询余额' : '查询账户余额'))
+      expect(query).toBeDefined()
+      expect(query?.includes('disabled=""')).toBe(busy)
+    }
+  })
+
+  it('余额请求有读屏加载反馈，失败说明与服务端文本按文本转义', () => {
+    const busy = renderToStaticMarkup(<AccountBalance balance={{ busy: true, available: null, balances: [], updatedAt: '', message: '' }}/>)
+    expect(busy).toContain('aria-busy="true"')
+    expect(busy).toContain('aria-live="polite"')
+    expect(busy).toContain('正在查询账户余额')
+    const failed = renderToStaticMarkup(<AccountBalance balance={{ busy: false, available: null, balances: [], updatedAt: '', message: '<script>synthetic()</script>，请重试。' }}/>)
+    expect(failed).toContain('&lt;script&gt;')
+    expect(failed).not.toContain('<script>')
+    expect(failed).toContain('请重试')
   })
 })

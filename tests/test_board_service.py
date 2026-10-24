@@ -482,7 +482,8 @@ class BoardServiceTests(unittest.TestCase):
         self.assertEqual([fields['outcome'] for event,fields in events],['disabled','sent'])
         for event,fields in events:
             self.assertEqual(event,'hotkey.state')
-            self.assertEqual(set(fields),{'stage','outcome','generation','reason','source','attempt_id'})
+            self.assertEqual(set(fields),{'stage','outcome','generation','reason','source','attempt_id','target_language'})
+            self.assertEqual(fields['target_language'],'zh')
             self.assertEqual(fields['stage'],'broadcast')
             self.assertNotIn('PRIVATE',str(fields))
 

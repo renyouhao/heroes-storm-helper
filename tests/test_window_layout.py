@@ -66,7 +66,7 @@ class WindowLayoutTests(unittest.TestCase):
                     widgets=[root.nametowidget(connection)];buttons=[]
                     while widgets:
                         widget=widgets.pop()
-                        if isinstance(widget,ttk.Button) and widget.cget('text')=='查询剩余额度':
+                        if isinstance(widget,ttk.Button) and widget.cget('text')=='查询当前服务额度 / 余额':
                             buttons.append(widget)
                         widgets.extend(widget.winfo_children())
                     quota,=buttons

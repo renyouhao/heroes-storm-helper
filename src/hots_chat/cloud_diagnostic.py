@@ -137,11 +137,9 @@ def _close_controller(controller):
     # Cancellation blocks late saving; join before removing the backing directory.
     setup = controller.account_setup
     setup.close()
-    worker = setup._thread
-    if worker is not None:
-        # Its identity/SDK operations have explicit network timeouts. Do not remove
-        # files underneath a late completion, even after the diagnostic deadline.
-        worker.join()
+    # Its identity/SDK operations have explicit network timeouts. Do not remove
+    # files underneath a late completion, even after the diagnostic deadline.
+    setup.join()
     controller.close()
     if controller.thread.is_alive():
         raise _CheckFailure('shutdown_failed', 'cleanup')

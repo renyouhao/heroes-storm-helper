@@ -1,5 +1,7 @@
 from collections import OrderedDict
 from dataclasses import replace
+import hashlib
+import json
 import queue
 import threading
 import re
@@ -36,6 +38,7 @@ class ChatController:
         self.events=queue.Queue(1000); self.source_events=queue.Queue(1000)
         self.overflow=False
         self.messages=OrderedDict()
+        self._replay_conversation_keys={}
         self.context=LocalContext()
         self.local_resolver=lambda text,target:None
         self.allowed_channels=set(SUPPORTED_CHANNELS)
@@ -81,6 +84,10 @@ class ChatController:
         except queue.Full:
             self.overflow=True
             self._queue_overflow('source',self.source_events)
+        else:
+            if event.kind=='chat':
+                self._trace('capture.state',stage='queue',outcome='queued',capture_schema=1,
+                            message_id=event.payload.message_id,generation=event.generation)
 
     def _queue_overflow(self,name,event_queue):
         # Lost events cannot be reconstructed from decision snapshots.
@@ -118,6 +125,7 @@ class ChatController:
                 self.pending.clear(); self.subscribers.clear()
                 # 重连/重新定位也会换代；本机防护窗口必须按单调时间自然过期。
                 self.messages.clear()
+                self._replay_conversation_keys.clear()
                 self.context.clear(self.generation)
             elif event.kind=='chat':
                 self.on_chat(event.payload); return
@@ -126,8 +134,14 @@ class ChatController:
     @record_operation('on_chat')
     def on_chat(self,event):
         with self.condition:
-            if event.generation != self.generation: return
-            if event.channel not in self.allowed_channels:return
+            if event.generation != self.generation:
+                self._trace('capture.state',stage='controller',outcome='discarded',capture_schema=1,
+                            message_id=event.message_id,reason='generation_mismatch',generation=event.generation)
+                return
+            if event.channel not in self.allowed_channels:
+                self._trace('capture.state',stage='controller',outcome='discarded',capture_schema=1,
+                            message_id=event.message_id,reason='channel_filtered',generation=event.generation)
+                return
             text=normalize_chat_text(event.text)
             if text != event.text:event=replace(event,text=text)
             self.messages[event.message_id]=event
@@ -240,7 +254,52 @@ class ChatController:
             if source is None: raise ValueError('目前仅支持英文和韩文，原文已保留。')
             return self._submit(event.text,source,'zh','auto',message_id,explicit=True)
 
-    def _result(self,job,result,provenance='阿里云'):
+    def _context_enabled(self):
+        return self.engine.provider_id=='deepseek' and getattr(self.engine,'context_enabled',False) is True
+
+    @staticmethod
+    def _sender_digest(event):
+        alias=re.fullmatch(r'sender:([0-9a-fA-F]{64})',event.sender)
+        return alias.group(1).lower() if alias else AutomaticGuard._identity(event.channel,event.sender).hex()
+
+    def _conversation_key(self,event):
+        replay_keys=getattr(self,'_replay_conversation_keys',{})
+        if event.message_id in replay_keys:return replay_keys[event.message_id]
+        sender=event.sender.strip()
+        if event.channel=='密语':
+            outgoing=re.fullmatch(r'我\s*→\s*(.*)',sender)
+            if outgoing:sender=outgoing.group(1).strip()
+        if sender.casefold() in ('','我','发送者未知','发言者未知','联系人未知','未知',
+                                 'unknown','unknown sender','unknown contact'):
+            return None
+        if event.channel=='密语':
+            return 'whisper:'+AutomaticGuard._identity(event.channel,sender).hex()
+        return 'channel:'+hashlib.sha256(event.channel.encode('utf-8')).hexdigest()
+
+    def _context_events(self,event):
+        if not self._context_enabled() or event.generation!=self.generation:return []
+        conversation=self._conversation_key(event)
+        if conversation is None:return []
+        previous=[]
+        for candidate in self.messages.values():
+            if candidate.message_id==event.message_id:break
+            if (candidate.generation==event.generation and self._conversation_key(candidate)==conversation
+                    and len(candidate.text.encode('utf-8'))<=4096):
+                previous.append(candidate)
+        return previous[-3:]
+
+    def _job_context(self,event):
+        return tuple((self._sender_digest(previous)[:8],previous.text) for previous in self._context_events(event))
+
+    def _cache_key(self,job):
+        key=(self.engine.provider_id,self.engine.config_version,job.text,job.source,job.target)
+        if job.context:
+            digest=hashlib.sha256(json.dumps(job.context,ensure_ascii=False,separators=(',',':')).encode('utf-8')).hexdigest()
+            key+=(digest,)
+        return key
+
+    def _result(self,job,result,provenance=None):
+        if provenance is None:provenance='DeepSeek' if self.engine.provider_id=='deepseek' else '阿里云'
         request_id=result.request_id
         self._trace('translation.result',job_id=job.job_id,message_id=job.message_id,
                     request_ref=result.job_id,
@@ -259,7 +318,9 @@ class ChatController:
 
     def _submit(self,text,source,target,kind,message_id,explicit=False):
         if self.stopped: raise ValueError('助手已关闭。')
-        job=TranslationJob(self._new_job_id(),message_id,self.generation,text,source,target,kind)
+        event=self.messages.get(message_id) if kind=='auto' else None
+        context=self._job_context(event) if event is not None else ()
+        job=TranslationJob(self._new_job_id(),message_id,self.generation,text,source,target,kind,context)
         self._trace('translation.submitted',job_id=job.job_id,message_id=message_id,
                     source=source,target=target,characters=len(text),original=text,stage=kind)
         if kind=='auto' and self.automatic_paused:
@@ -273,7 +334,7 @@ class ChatController:
             if local is not None:
                 self._result(job,TranslationResult(job.job_id,local,None,None,0),'已校对本机短句')
                 return job.job_id
-        cache_key=(self.engine.provider_id,self.engine.config_version,text,source,target)
+        cache_key=self._cache_key(job)
         key=(self.generation,)+cache_key
         cached=self.cache.get(cache_key)
         if cached is not None:

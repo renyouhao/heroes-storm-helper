@@ -22,11 +22,15 @@ ACTION_FIELDS = {
     'settings_save': ('values',),
     'update_check': (), 'update_download': (), 'update_cancel': (), 'update_install': (),
     'account_connect': ('accessKeyId', 'accessKeySecret'),
+    'account_connect_deepseek': ('apiKey', 'contextEnabled'),
+    'account_select_provider': ('provider',),
+    'account_open_provider_portal': ('provider',),
+    'account_refresh_balance': (),
     'account_cancel': (), 'account_delete': (),
     'capture_reconnect': (), 'capture_stop': (), 'capture_start': (),
     'capture_processes': (), 'capture_select': ('pid',),
     'diagnostics_set': ('enabled',), 'diagnostics_export': (),
-    'cloud_quota': (), 'overlay_action': ('action',),
+    'cloud_quota': (), 'overlay_action': ('action',), 'overlay_move': ('monitor',),
     'phrase_save': ('phrase',), 'phrase_remove': ('id',),
 }
 ACTION_COMMANDS = frozenset(ACTION_FIELDS)
@@ -95,7 +99,10 @@ def validate_action(name, payload=None):
     if not isinstance(name, str) or name not in ACTION_COMMANDS:
         raise DesktopActionError('不支持的管理操作。')
     payload = {} if payload is None else payload
-    if not isinstance(payload, dict) or set(payload) != set(ACTION_FIELDS[name]):
+    valid_fields=(isinstance(payload,dict) and
+                  (set(payload) in ({'provider'},{'provider','contextEnabled'})
+                   if name=='account_select_provider' else set(payload)==set(ACTION_FIELDS[name])))
+    if not valid_fields:
         raise DesktopActionError('管理操作参数无效或不完整。')
     result = dict(payload)
     if name == 'settings_save':
@@ -110,6 +117,20 @@ def validate_action(name, payload=None):
         except ValueError:
             raise DesktopActionError('请填写有效的 AccessKey ID 与 Secret。') from None
         result = {'accessKeyId': credentials.access_key_id, 'accessKeySecret': credentials.access_key_secret}
+    elif name == 'account_connect_deepseek':
+        from .translation.deepseek import validate_api_key
+        if not isinstance(result['apiKey'],str) or type(result['contextEnabled']) is not bool:
+            raise DesktopActionError('请填写有效的 DeepSeek API Key，并确认上下文设置。')
+        try:
+            result['apiKey']=validate_api_key(result['apiKey'].strip())
+        except ValueError:
+            raise DesktopActionError('请填写有效的 DeepSeek API Key。') from None
+    elif name in ('account_select_provider','account_open_provider_portal'):
+        if result['provider'] not in ('aliyun','deepseek'):
+            raise DesktopActionError('请选择阿里云机器翻译或 DeepSeek。')
+        if 'contextEnabled' in result:
+            if type(result['contextEnabled']) is not bool or (result['provider']=='aliyun' and result['contextEnabled']):
+                raise DesktopActionError('上下文设置无效。')
     elif name == 'capture_select':
         if type(result['pid']) is not int or not 1 <= result['pid'] <= 0xffffffff:
             raise DesktopActionError('请选择有效的游戏进程。')
@@ -117,6 +138,8 @@ def validate_action(name, payload=None):
         raise DesktopActionError('诊断开关必须为布尔值。')
     elif name == 'overlay_action' and result['action'] not in ('edit', 'bottom', 'finish'):
         raise DesktopActionError('浮窗操作无效。')
+    elif name == 'overlay_move' and (type(result['monitor']) is not int or not 0<=result['monitor']<32):
+        raise DesktopActionError('请选择有效的字幕显示器。')
     elif name == 'phrase_save':
         try:
             result['phrase'] = deepcopy(validate_phrase(result['phrase']))
@@ -185,9 +208,11 @@ class DesktopActions:
         w = self.window
         preferences = {key: deepcopy(getattr(w.settings, key)) for key in PREFERENCE_FIELDS}
         preferences['overlay_editing'] = bool(getattr(getattr(w, 'overlay', None), '_editing', False))
+        monitors=getattr(getattr(w,'overlay',None),'monitor_choices',None)
         return {'preferences': preferences, 'update': self._update_snapshot(),
                 'account': self._account_snapshot(), 'diagnostics': self._diagnostic_snapshot(),
-                'processes': deepcopy(self._processes)}
+                'processes': deepcopy(self._processes),
+                'monitors':monitors() if callable(monitors) else []}
 
     def _update_snapshot(self):
         service = getattr(self.window, 'update_service', None)
@@ -218,7 +243,7 @@ class DesktopActions:
         service = getattr(controller, 'account_setup', None)
         current = getattr(service, 'current', None)
         credentials = getattr(current, 'credentials', None)
-        key_id = getattr(credentials, 'access_key_id', '')
+        key_id = getattr(credentials, 'api_key', getattr(credentials, 'access_key_id', ''))
         account = getattr(current, 'account', '')
         if not valid_account(account):
             account = ''
@@ -227,10 +252,36 @@ class DesktopActions:
         if not message:
             message = ('个人密钥已加密保存，翻译服务已配置。' if current is not None
                        else '填写个人密钥后连接；未配置时仍可接收原文。')
+        provider=getattr(service,'selected_provider',getattr(getattr(controller,'engine',None),'provider_id','aliyun'))
+        if provider not in ('aliyun','deepseek'):provider='aliyun'
+        profiles_method=getattr(service,'profiles_snapshot',None)
+        profile_state=profiles_method() if callable(profiles_method) else {}
+        profiles=profile_state.get('profiles',{})
+        providers=[]
+        for name,label in (('aliyun','阿里云机器翻译'),('deepseek','DeepSeek V4.1 Flash')):
+            profile=profiles.get(name,{})
+            providers.append({'id':name,'name':label,
+                'configured':bool(profile.get('configured',current is not None and name==provider)),
+                'maskedKey':profile.get('maskedKey',''),
+                'contextEnabled':(bool(profile.get('context_enabled',True)) if profile.get('configured')
+                                  else name=='deepseek')})
+        balance_method=getattr(service,'balance_snapshot',None)
+        raw_balance=balance_method() if callable(balance_method) else {}
+        balance={'busy':bool(raw_balance.get('busy',False)),
+                 'available':raw_balance.get('is_available'),
+                 'balances':[{'currency':row.get('currency',''),
+                              'totalBalance':row.get('total_balance',''),
+                              'grantedBalance':row.get('granted_balance',''),
+                              'toppedUpBalance':row.get('topped_up_balance','')}
+                             for row in raw_balance.get('balance_infos',[])],
+                 'updatedAt':raw_balance.get('as_of','') or '',
+                 'message':raw_balance.get('error','') or ''}
         return {'state': state, 'busy': bool(getattr(service, 'busy', False)),
                 'configured': bool(getattr(controller, 'cloud_configured', False)),
                 'maskedKey': ('••••' + key_id[-4:] if len(key_id) > 4 else '••••') if key_id else '',
-                'account': account, 'message': message}
+                'account': account, 'message': message,'provider':provider,'providers':providers,
+                'contextEnabled':bool(getattr(credentials,'context_enabled',provider=='deepseek')),
+                'balance':balance}
 
     def _diagnostic_snapshot(self):
         recorder = getattr(self.window.controller, 'diagnostics', None)
@@ -323,6 +374,21 @@ class DesktopActions:
                                 'update_cancel': '更新任务已取消。', 'update_install': '正在准备重启并更新…'}[name]}
         if name.startswith('account_'):
             service = self._account_service()
+            if name=='account_open_provider_portal':
+                import webbrowser
+                url={'aliyun':'https://mt.console.aliyun.com/service',
+                     'deepseek':'https://platform.deepseek.com/api_keys'}[p['provider']]
+                try:opened=webbrowser.open(url)
+                except (OSError,webbrowser.Error):opened=False
+                if not opened:
+                    raise DesktopActionError('无法打开默认浏览器，请手动访问：'+url)
+                return {'message':'已请求在默认浏览器打开'+('DeepSeek API Key 页面。' if p['provider']=='deepseek' else '阿里云机器翻译控制台。')}
+            if name=='account_refresh_balance':
+                if getattr(service,'selected_provider','aliyun')!='deepseek':
+                    raise DesktopActionError('机器翻译的免费额度与用量请在阿里云控制台查询。')
+                if not service.refresh_balance() and not service.balance_snapshot().get('busy'):
+                    raise DesktopActionError('余额查询未启动，请确认当前 DeepSeek 账户已连接且配置任务已结束。')
+                return {'message':'正在查询 DeepSeek 账户余额…'}
             if name != 'account_cancel' and service.busy:
                 raise DesktopActionError('配置任务仍在处理，请等待完成或取消。')
             if name == 'account_connect':
@@ -330,6 +396,17 @@ class DesktopActions:
                 w.quick_input.cancel()
                 service.connect(Credentials(p['accessKeyId'], p['accessKeySecret']))
                 message = '正在连接，验证、测试并加密保存；期间暂停其他云请求…'
+            elif name=='account_connect_deepseek':
+                w.clear_draft()
+                w.quick_input.cancel()
+                service.connect_deepseek(p['apiKey'],context_enabled=p['contextEnabled'])
+                message='正在验证 DeepSeek API Key、测试翻译并加密保存…'
+            elif name=='account_select_provider':
+                w.clear_draft()
+                w.quick_input.cancel()
+                options=({'context_enabled':p['contextEnabled']} if 'contextEnabled' in p else {})
+                service.select_provider(p['provider'],**options)
+                message='正在应用已保存的翻译服务，验证成功后启用…'
             elif name == 'account_delete':
                 w.clear_draft()
                 w.quick_input.cancel()
@@ -382,8 +459,27 @@ class DesktopActions:
             return {'message': '正在后台导出诊断日志…'}
         if name == 'cloud_quota':
             if not w.open_cloud_quota():
-                raise DesktopActionError('无法打开默认浏览器，请手动访问阿里云控制台。')
-            return {'message': '已请求打开阿里云控制台，请在浏览器中查看用量。'}
+                raise DesktopActionError('额度查询未启动，请检查账户配置后重试。')
+            provider=getattr(getattr(w.controller,'account_setup',None),'selected_provider','aliyun')
+            return {'message': '正在查询 DeepSeek 账户余额…' if provider=='deepseek'
+                    else '已请求打开阿里云控制台，请在浏览器中查看用量。'}
+        if name == 'overlay_move':
+            moved=False
+            def move():
+                nonlocal moved
+                w.overlay.move_to_monitor(p['monitor'])
+                moved=True
+            try:
+                self._commit_settings({'overlay_enabled':True},move)
+            except DesktopActionError:
+                trace=getattr(w.overlay,'_trace_monitor',None)
+                if callable(trace):
+                    if moved:trace('error',reason='save_failed')
+                    trace('recovered',reason='settings_rollback')
+                raise
+            trace=getattr(w.overlay,'_trace_monitor',None)
+            if callable(trace):trace('saved',reason='position_saved')
+            return {'message':'字幕已移动到所选显示器并保存；可继续调整位置。'}
         if name == 'overlay_action':
             if p['action'] == 'finish':
                 w.overlay.set_editing(False)

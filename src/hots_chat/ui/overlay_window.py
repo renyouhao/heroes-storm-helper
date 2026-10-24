@@ -3,6 +3,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 import math
 import logging
+import uuid
 from time import monotonic
 import tkinter as tk
 from tkinter import font as tkfont
@@ -10,7 +11,8 @@ from tkinter import font as tkfont
 from .native_windows import Win32Window
 from .theme import overlay_colors
 from .subtitle_text import draw_outlined_text
-from ..layout import display_metrics,overlay_layout,bottom_overlay_layout
+from ..layout import DisplayMetrics,display_metrics,overlay_layout,bottom_overlay_layout
+from ..window_settings import work_area_at
 
 
 logger=logging.getLogger(__name__)
@@ -203,7 +205,8 @@ class OverlayWindow:
     FOREGROUND=overlay_colors()['text']
     MUTED=overlay_colors()['muted']
 
-    def __init__(self,root,settings,*,clock=monotonic,native=None,metrics=None):
+    def __init__(self,root,settings,*,clock=monotonic,native=None,metrics=None,
+                 work_areas=None,dpi_reader=None,diagnostics=None,on_position_changed=None):
         self.root=root
         self.settings=settings
         self._clock=clock
@@ -221,6 +224,11 @@ class OverlayWindow:
         self._rendered=None
         self._rounded_size=None
         self._metrics=metrics if metrics is not None else display_metrics(root)
+        self._work_areas=work_areas
+        self._dpi_reader=dpi_reader
+        self._diagnostics=diagnostics
+        self._on_position_changed=on_position_changed
+        self._monitor_request=None
         self._reanchor=settings.overlay_anchor is not None
         self.window=tk.Toplevel(root)
         self.window._hots_theme_scope='overlay'
@@ -270,6 +278,85 @@ class OverlayWindow:
             widget.bind('<ButtonRelease-1>',self._end_drag)
         self.apply_settings()
 
+    def _trace_monitor(self,outcome,*,reason='',request_ref=None,**values):
+        if self._diagnostics is None:return
+        try:
+            self._diagnostics.record('ui.apply',source='overlay',operation='monitor',
+                stage='placement',outcome=outcome,reason=reason,
+                request_ref=request_ref or self._monitor_request or '',**values)
+        except Exception:pass
+
+    def monitor_areas(self):
+        if self._work_areas is None:return [self._metrics.work_area]
+        try:
+            areas=[tuple(area) for area in self._work_areas()
+                   if len(area)==4 and area[2]>area[0] and area[3]>area[1]]
+            return areas or [self._metrics.work_area]
+        except (TypeError,ValueError,OSError,tk.TclError):return [self._metrics.work_area]
+
+    def monitor_choices(self):
+        areas=self.monitor_areas()
+        preferred=getattr(self.settings,'overlay_monitor',None)
+        selected=tuple(preferred) if preferred is not None else self._metrics.work_area
+        return [dict(id=index,label=('主显示器' if index==0 else f'显示器 {index+1}'),
+                     primary=index==0,selected=area==selected,
+                     width=area[2]-area[0],height=area[3]-area[1])
+                for index,area in enumerate(areas)]
+
+    def _selected_metrics(self,point=None,*,fallback_scale=None):
+        if self._work_areas is None:return self._metrics
+        areas=self.monitor_areas()
+        preferred=getattr(self.settings,'overlay_monitor',None)
+        preferred=tuple(preferred) if preferred is not None else None
+        target=(work_area_at(areas,*point) if point is not None else
+                preferred if preferred in areas else
+                work_area_at(areas,self.settings.overlay_x,self.settings.overlay_y))
+        if preferred is not None and preferred not in areas:
+            self._trace_monitor('recovered',reason='monitor_unavailable',count=len(areas))
+        self.settings.overlay_monitor=tuple(target)
+        scale=self._metrics.scale if fallback_scale is None else fallback_scale
+        if self._dpi_reader is not None:
+            try:
+                dpi=float(self._dpi_reader(self.window))
+                if math.isfinite(dpi) and dpi>0:scale=dpi/96
+            except (AttributeError,TypeError,ValueError,OSError,tk.TclError):pass
+        return DisplayMetrics(tuple(target),scale)
+
+    def move_to_monitor(self,index):
+        request_ref=uuid.uuid4().hex
+        areas=self.monitor_areas()
+        self._trace_monitor('started',request_ref=request_ref,count=len(areas))
+        if type(index) is not int or not 0<=index<len(areas):
+            self._trace_monitor('rejected',request_ref=request_ref,reason='monitor_unavailable')
+            raise ValueError('所选显示器已不可用，请刷新后重新选择。')
+        self._monitor_request=request_ref
+        try:
+            self.settings.overlay_monitor=areas[index]
+            self._metrics=DisplayMetrics(areas[index],self._metrics.scale)
+            # Move first so GetDpiForWindow can observe the target monitor's DPI.
+            layout=bottom_overlay_layout(self._metrics,width=self.settings.overlay_width,height=1)
+            self.window.geometry(layout.geometry)
+            self.window.update_idletasks()
+            self._metrics=self._selected_metrics()
+            self.use_bottom_preset()
+            self._apply_layout_style()
+            self._rendered=None
+            self._refresh(force_place=True)
+        except Exception:
+            self._trace_monitor('error',reason='placement_failed')
+            raise
+        area=self._metrics.work_area
+        self._trace_monitor('applied',request_ref=request_ref,reason='selected_monitor',
+            origin_x=area[0],origin_y=area[1],client_width=area[2]-area[0],client_height=area[3]-area[1])
+
+    def _persist_position(self):
+        if self._on_position_changed is None:return
+        try:
+            self._on_position_changed()
+            self._trace_monitor('saved',reason='position_saved')
+        except Exception:
+            self._trace_monitor('error',reason='save_failed')
+
     def sync(self,messages,generation):
         if self._closed:return
         self.history.sync(messages,generation,now=self._clock(),
@@ -288,6 +375,9 @@ class OverlayWindow:
 
     def apply_settings(self,metrics=None):
         if self._closed:return
+        if self._work_areas is not None:
+            metrics=self._selected_metrics(fallback_scale=(metrics.scale
+                if self._dpi_reader is None and metrics is not None else None))
         if metrics is not None:
             if metrics!=self._metrics:self._reanchor=True
             self._metrics=metrics
@@ -359,7 +449,9 @@ class OverlayWindow:
     def refresh_layout(self,metrics=None):
         """供主窗口低频显示变化检测调用；相同指标不重排。"""
         if self._closed:return False
-        metrics=metrics if metrics is not None else display_metrics(self.root)
+        metrics=(self._selected_metrics(fallback_scale=(metrics.scale
+                    if self._dpi_reader is None and metrics is not None else None)) if self._work_areas is not None else
+                 metrics if metrics is not None else display_metrics(self.root))
         if metrics==self._metrics:return False
         self._metrics=metrics
         self._reanchor=True
@@ -370,6 +462,11 @@ class OverlayWindow:
 
     def _apply_layout_style(self):
         metrics=self._metrics
+        try:root_scale=float(self.root.tk.call('tk','scaling'))*72/96
+        except (AttributeError,TypeError,ValueError,tk.TclError):root_scale=metrics.scale
+        ratio=metrics.scale/root_scale if root_scale>0 else 1.
+        font_size=max(1,round(self.settings.overlay_font_size*ratio))
+        self._header_font.configure(size=max(1,round(10*ratio)))
         if getattr(self.settings,'overlay_placement','custom')=='bottom':
             self._layout=bottom_overlay_layout(metrics,width=self.settings.overlay_width,height=1)
         else:
@@ -383,9 +480,9 @@ class OverlayWindow:
         self.done.configure(font=self._header_font,padx=metrics.px(8),pady=metrics.px(4))
         self.done.pack_configure(padx=metrics.px(5))
         wrap=max(1,self._layout.width-metrics.px(24))
-        if self._translation_font.cget('size')!=self.settings.overlay_font_size:
-            self._translation_font.configure(size=self.settings.overlay_font_size)
-        original_size=max(10,self.settings.overlay_font_size-2)
+        if self._translation_font.cget('size')!=font_size:
+            self._translation_font.configure(size=font_size)
+        original_size=max(1,round(max(10,self.settings.overlay_font_size-2)*ratio))
         if self._original_font.cget('size')!=original_size:
             self._original_font.configure(size=original_size)
         for row in self.rows:
@@ -410,6 +507,7 @@ class OverlayWindow:
 
     def set_editing(self,editing):
         if self._closed:return
+        was_editing=self._editing
         self._editing=bool(editing and self.settings.overlay_enabled)
         self._drag_origin=None
         if self._editing:self.header.pack(fill='x',before=self.body)
@@ -420,6 +518,7 @@ class OverlayWindow:
         self._rendered=None
         self.history.expire(self._clock())
         self._refresh()
+        if was_editing and not self._editing:self._persist_position()
 
     def set_input_active(self,active):
         """输入条打开时避让；截止时间与历史不变，关闭后不复活过期消息。"""
@@ -651,6 +750,8 @@ class OverlayWindow:
 
     def _start_drag(self,event):
         if self._editing:
+            self._monitor_request=uuid.uuid4().hex
+            self._trace_monitor('started',reason='drag')
             self._drag_origin=(event.x_root,event.y_root,self.settings.overlay_x,self.settings.overlay_y)
 
     def _drag(self,event):
@@ -658,6 +759,7 @@ class OverlayWindow:
         start_x,start_y,x,y=self._drag_origin
         self.settings.overlay_x=int(x+event.x_root-start_x)
         self.settings.overlay_y=int(y+event.y_root-start_y)
+        self._metrics=self._selected_metrics((event.x_root,event.y_root))
         layout=overlay_layout(self._metrics,width=self.settings.overlay_width,
                               height=self.window.winfo_height(),x=self.settings.overlay_x,y=self.settings.overlay_y)
         self.settings.overlay_x,self.settings.overlay_y=layout.x,layout.y
@@ -671,6 +773,15 @@ class OverlayWindow:
         if self._drag_origin is not None:
             self.settings.overlay_placement='custom'
             self._record_position(self.window.winfo_width(),self.window.winfo_height())
+            # A dragged window may now have a different DPI from the main window.
+            self._metrics=self._selected_metrics()
+            self._apply_layout_style()
+            self._rendered=None
+            self._refresh(force_place=True)
+            area=self._metrics.work_area
+            self._trace_monitor('applied',reason='drag',origin_x=area[0],origin_y=area[1],
+                client_width=area[2]-area[0],client_height=area[3]-area[1])
+            self._persist_position()
         self._drag_origin=None
 
     def close(self):

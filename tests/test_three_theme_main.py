@@ -1,6 +1,7 @@
 """仅创建屏幕外离线窗口，验证聊天阅读区和三主题切换的真实状态。"""
 from tkinter import ttk
 import unittest
+from unittest.mock import patch
 
 from hots_chat.models import AppEvent, ChatEvent
 from hots_chat.ui.theme import theme_colors
@@ -23,9 +24,15 @@ class ThreeThemeMainTests(unittest.TestCase):
         self.root.update_idletasks()
 
     def add_scrolling_messages(self,start,count):
-        self.emit(*(AppEvent('chat',0,ChatEvent(f'scroll{index}',0,'团队',f'user{index:03}',
-                    '00:01',f'row{index:03} original message'))
-                    for index in range(start,start+count)))
+        # A chat also emits translation state/results; pump bounded batches so
+        # this selection fixture does not accidentally test queue overflow.
+        controller=self.window.controller
+        with patch.object(controller,'_queue_overflow',wraps=controller._queue_overflow) as overflow:
+            for offset in range(start,start+count,50):
+                self.emit(*(AppEvent('chat',0,ChatEvent(f'scroll{index}',0,'团队',f'user{index:03}',
+                            '00:01',f'row{index:03} original message'))
+                            for index in range(offset,min(offset+50,start+count))))
+            self.assertFalse(overflow.called,'阅读区回归必须完整交付消息，不能混入队列溢出')
 
     def top_text(self):
         body=self.window.tree.body

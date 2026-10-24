@@ -12,6 +12,7 @@ import { canCopyPreview, selectDraft, visibleMessages } from './model'
 import { useAssistant } from './useAssistant'
 import type { Command, HelperState, Message, Phrase, Snapshot } from './types'
 import { ManagementDialog } from './ManagementDialog'
+import { hasConfiguredTranslationProfile } from './translationProviders'
 import './management.css'
 
 type Page = 'chat' | 'phrases' | 'loot' | 'repeat' | 'talent' | 'board'
@@ -197,13 +198,18 @@ function App() {
               <span className="connection service-connection" title={snapshot.serviceState}><Languages size={24}/><i className={connectionTone(snapshot.serviceState, isPreview || !connected)}/><span>{bridgeState === 'disconnected' ? '状态已过期' : isPreview ? (connected ? '演示翻译' : '示例翻译') : compactState(snapshot.serviceState, '翻译服务')}</span></span>
             </div>
             {page === 'chat' && <div className="chat-tools">
-              <label className="select-wrap"><span className="sr-only">聊天频道</span><select value={channel} onChange={event => { setChannel(event.target.value); void command('set_channel', { value: event.target.value }) }}>{(snapshot.channelOptions || ['全部聊天', '仅团队', '仅队伍']).map(option => <option key={option} value={option}>{option}</option>)}</select><ChevronDown size={18}/></label>
+              <label className="select-wrap"><span className="sr-only">聊天频道</span><select value={channel} onChange={event => { setChannel(event.target.value); void command('set_channel', { value: event.target.value }) }}>{(snapshot.channelOptions || ['全部聊天', '仅团队', '仅征召团队', '仅队伍']).map(option => <option key={option} value={option}>{option}</option>)}</select><ChevronDown size={18}/></label>
               <label className="auto-label"><Toggle checked={snapshot.autoTranslate} onChange={enabled => void command('set_auto', { enabled })} label="自动翻译"/><span>自动翻译</span></label>
             </div>}
           </div>
         </header>
         {bridgeError && <div className="connection-error" role="alert"><Info size={16}/>{bridgeError}</div>}
         {page === 'chat' ? <>
+          {connected && !snapshot.isDemo && !snapshot.cloudConfigured && !hasConfiguredTranslationProfile(snapshot.management.account) && <div className="translation-welcome">
+            <Languages size={23} aria-hidden="true"/>
+            <div><strong>先选择自己的翻译服务</strong><p>阿里云机器翻译或 DeepSeek，由你选择。也可先接收原文，稍后配置。</p></div>
+            <button className="button secondary" onClick={() => void command('open_cloud')}>选择翻译服务</button>
+          </div>}
           <ChatFeed snapshot={snapshot} selectedId={selectedId} setSelectedId={setSelectedId} channel={channel} quickInput={quickInput} command={command}/>
           <section className="composer panel" aria-label="回复与翻译">
             <div className="compose-source">
@@ -332,13 +338,17 @@ function HelperStatus({ helper, idleTitle }: { helper: HelperState; idleTitle?: 
   return <div className={`helper-status-card ${helper.state === 'error' ? 'has-error' : ''}`}><span className="helper-status-symbol">{helper.state === 'error' ? <Info size={26}/> : active ? <Check size={28}/> : <LoaderCircle size={27} className={helper.state === 'preparing' ? 'spin' : ''}/>}</span><div><h3>{stopped ? '运行已停止，开启偏好已保留' : helper.state === 'idle' && idleTitle ? idleTitle : helperTitles[helper.state] || '等待状态更新'}</h3><p>{stopped ? '点击“重新连接”恢复监听。' : helper.detail || '状态更新后会显示在这里。'}</p>{helper.lastResult && <small>{helper.lastResult}</small>}</div><span className={`state-pill ${active ? 'ready' : ''}`}>{stopped ? '已停止' : pills[helper.state] || '等待中'}</span></div>
 }
 
-function HelperPage({ page, snapshot, command }: { page: Exclude<Page, 'chat' | 'phrases'>; snapshot: Snapshot; command: Command }) {
+export function HelperPage({ page, snapshot, command }: { page: Exclude<Page, 'chat' | 'phrases'>; snapshot: Snapshot; command: Command }) {
   const helper = snapshot.helpers[page]
   const [action, setAction] = useState(helper.action || 'S')
   const [interval, setIntervalValue] = useState(String(helper.interval || 20))
   const [saving, setSaving] = useState(false)
   const [configChanged, setConfigChanged] = useState(false)
   const [configError, setConfigError] = useState('')
+  const [boardLanguage, setBoardLanguage] = useState(helper.outputLanguage || 'zh')
+  const [languageFeedback, setLanguageFeedback] = useState('')
+  const languageRequest = useRef(false)
+  useEffect(() => { setBoardLanguage(helper.outputLanguage || 'zh') }, [page, helper.outputLanguage])
   useEffect(() => { setAction(helper.action || 'S'); setIntervalValue(String(helper.interval || 20)); setConfigChanged(false) }, [page, helper.action, helper.interval])
   const saveRepeat = async () => {
     const value = Number(interval)
@@ -346,6 +356,19 @@ function HelperPage({ page, snapshot, command }: { page: Exclude<Page, 'chat' | 
     setConfigError(''); setSaving(true)
     try { const result = await command('repeat_config', { action, interval: value }); if (result.ok) setConfigChanged(false) }
     finally { setSaving(false) }
+  }
+  const changeBoardLanguage = async (language: string) => {
+    if (languageRequest.current || !['zh', 'en'].includes(language)) return
+    languageRequest.current = true
+    const previous = helper.outputLanguage || 'zh'
+    setBoardLanguage(language as 'zh' | 'en'); setSaving(true); setConfigError(''); setLanguageFeedback('正在保存播报语言…')
+    try {
+      const result = await command('board_language', { language })
+      if (!result.ok) { setBoardLanguage(previous); setConfigError(result.error || '播报语言未保存，已保留原选择；请重试。'); setLanguageFeedback(''); return }
+      setLanguageFeedback(`播报语言已保存为 ${language === 'en' ? 'English' : '中文'}。`)
+    } catch {
+      setBoardLanguage(previous); setConfigError('播报语言未保存，已保留原选择；请检查助手连接后重试。'); setLanguageFeedback('')
+    } finally { languageRequest.current = false; setSaving(false) }
   }
   const titles = { loot: '开箱的重复操作，交给助手', repeat: '动作连按，按键掌控', talent: '心仪天赋，及时选中', board: '双击一格，让队友看见' }
   const descriptions = { loot: '在游戏中打开补给箱页面，准备后用空格键开始或暂停。', repeat: '设置连按动作和间隔，在游戏中按快捷键开始，再按一次结束。', talent: '先在游戏中为天赋标记爱心，助手会在待选时触发首选快捷键。', board: '在游戏 Tab 面板双击天赋或统计项目，自动播报给己方团队。' }
@@ -374,8 +397,9 @@ function HelperPage({ page, snapshot, command }: { page: Exclude<Page, 'chat' | 
     </>}
     {page === 'board' && <>
       <div className="feature-toggle-row"><span className="feature-toggle-icon"><Volume2 size={26}/></span><div><h3>开启 Tab 双击播报</h3><p>点哪项，就说哪项；自动发送到己方团队。</p></div><Toggle checked={Boolean(helper.enabled)} label="Tab双击播报" onChange={enabled => void command('board_toggle', { enabled })}/></div>
+      <div className="broadcast-language"><label htmlFor="board-output-language" className="field-title">发给队友的播报语言</label><select id="board-output-language" value={boardLanguage} disabled={saving} onChange={event => void changeBoardLanguage(event.target.value)}><option value="zh">中文</option><option value="en">English</option></select><p className="muted">选择后立即保存；英文播报保留英文昵称，其他昵称以 Player 加槽位序号显示。</p><span role="status" aria-live="polite">{languageFeedback}</span>{configError && <p className="error-text" role="alert">{configError}</p>}</div>
       <div className="broadcast-examples"><div><span><Workflow size={21}/>天赋</span><p>播报玩家、英雄、天赋等级、名称与关键效果。</p></div><div><span><MousePointer2 size={21}/>单项统计</span><p>双击击杀、助攻、死亡、伤害或治疗中的具体一格。</p></div></div>
-      <div className="broadcast-preview"><span className="muted">播报示例</span><p>【我方】玩家（安度因）｜英雄伤害：12,345</p></div>
+      <div className="broadcast-preview"><span className="muted">播报示例 · {boardLanguage === 'en' ? 'English' : '中文'}</span><p>{boardLanguage === 'en' ? '[Ally] Player (Anduin) | Hero damage: 12,345' : '【我方】玩家（安度因）｜英雄伤害：12,345'}</p></div>
       <div className="helper-action-row"><button className="button secondary" onClick={() => void command('helper_retry', { source: 'board' })}><RefreshCw size={19}/>重新连接</button></div>
       <div className="helper-note"><Info size={19}/><p>保留 Ctrl+Enter 团队聊天快捷键。双击后松开按键与鼠标，助手核对频道后发送；聊天或菜单打开时暂停，同一项短时间内不重复播报。</p></div>
     </>}

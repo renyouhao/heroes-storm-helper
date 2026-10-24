@@ -1,4 +1,5 @@
 """用户主动配置云服务；后台验证、测试后加密保存并启用。"""
+from contextlib import nullcontext
 import queue
 import re
 import threading
@@ -41,11 +42,19 @@ class UnconfiguredEngine:
 
 
 class AccountSetup:
-    def __init__(self, controller, store, identity, engine_factory, saved=None):
+    def __init__(self, controller, store, identity, engine_factory, saved=None, *,
+                 credential_validator=None, diagnostic_secrets=None, provider_id='aliyun',
+                 activate=None, unconfigured_factory=None, transaction=None):
         self.controller=controller
         self.store=store
         self.identity=identity
         self.engine_factory=engine_factory
+        self.provider_id=provider_id
+        self._credential_validator=credential_validator
+        self._diagnostic_secrets=diagnostic_secrets
+        self._activate=activate
+        self._unconfigured_factory=unconfigured_factory or UnconfiguredEngine
+        self._transaction=transaction or nullcontext
         self.current=saved
         self.state='ready' if saved else 'unconfigured'
         self._candidate=None
@@ -58,23 +67,48 @@ class AccountSetup:
         self._resume_paused=True
         self._session_active=False
         self._stage='waiting'
-        if saved:self._register_diagnostic_secrets(saved.credentials)
+        self._request_ref=uuid.uuid4().hex
+        self._diagnostic_pending=False
+        self._diagnostic_terminal=False
+        if saved:self._register_diagnostic_secrets(saved.credentials,_diagnostic=False)
 
-    def _register_diagnostic_secrets(self,credentials):
+    def _trace(self, outcome, *, stage=None, **fields):
+        recorder=getattr(self.controller,'diagnostics',None)
+        if recorder is None:return
+        try:
+            recorder.record('configuration.progress',source=self.provider_id,
+                operation='configuration',request_ref=self._request_ref,
+                stage=stage or self._stage,outcome=outcome,
+                generation=getattr(self.controller,'generation',0),**fields)
+        except Exception:
+            pass
+
+    def _register_diagnostic_secrets(self,credentials,*,_diagnostic=True):
         recorder=getattr(self.controller,'diagnostics',None)
         if recorder is not None:
-            recorder.register_secrets(credentials.access_key_id,credentials.access_key_secret)
-            recorder.record('configuration.progress',stage='credentials',outcome='provided',
-                            key_id_last4=credentials.access_key_id[-4:])
+            try:
+                secrets=(self._diagnostic_secrets(credentials) if self._diagnostic_secrets is not None
+                         else (credentials.access_key_id,credentials.access_key_secret))
+                recorder.register_secrets(*secrets)
+            except Exception:
+                # No credential-derived fields are emitted when redaction registration fails.
+                if _diagnostic:self._trace('degraded',stage='credentials',reason='secret_registration_failed')
+                return
+            if _diagnostic:self._trace('provided',stage='credentials',
+                key_id_last4=(credentials.access_key_id[-4:]
+                              if hasattr(credentials,'access_key_id') else ''))
 
     @property
     def busy(self):
         return bool(self._thread and self._thread.is_alive())
 
-    def _emit(self, kind, **values):
-        recorder=getattr(self.controller,'diagnostics',None)
-        if recorder is not None:
-            recorder.record('configuration.progress',stage=values.get('stage',self._stage),outcome=kind)
+    def _emit(self, kind, *, _diagnostic=True, **values):
+        terminal=kind in ('ready','removed','selected','error','cancelled')
+        if _diagnostic and not (terminal and self._diagnostic_terminal):
+            self._trace(kind,stage=values.get('stage',self._stage),
+                        reason='closed' if kind=='cancelled' and self._closed else
+                               'requested' if kind=='cancelled' else '')
+        if terminal:self._diagnostic_terminal=True
         try:self._events.put_nowait({'kind':kind,**values})
         except queue.Full:pass
 
@@ -86,30 +120,44 @@ class AccountSetup:
 
     def _start(self, work):
         with self._lock:
-            if self.busy or self._closed:raise ValueError('配置任务仍在处理，请稍后重试。')
+            if self.busy or self._closed:
+                self._trace('rejected',reason='closed' if self._closed else 'busy')
+                raise ValueError('配置任务仍在处理，请稍后重试。')
+            if not self._diagnostic_pending:self._request_ref=uuid.uuid4().hex
+            self._diagnostic_pending=False
+            self._diagnostic_terminal=False
+            self._trace('accepted')
             self.poll()
             self._token=threading.Event()
             token=self._token
             self._thread=threading.Thread(target=self._run,args=(work,token),name='account-setup',daemon=True)
-            self._thread.start()
+            try:self._thread.start()
+            except Exception:
+                self._trace('error',reason='thread_start_failed')
+                self._diagnostic_terminal=True
+                self._thread=None
+                raise
 
     def _run(self, work, token):
+        self._trace('start')
         try:
             work(token)
         except Exception as failure:
-            recorder=getattr(self.controller,'diagnostics',None)
-            if recorder is not None:
-                code=getattr(failure,'provider_code',None)
-                recorder.record('configuration.progress',stage=self._stage,outcome='error',
-                                error_type=type(failure).__name__,
-                                provider_code=code if isinstance(code,str) and code in _KNOWN_CODES else '')
+            code=getattr(failure,'provider_code',None)
+            if not token.is_set():
+                self._trace('error',reason='configuration_failed',error_type=type(failure).__name__,
+                    provider_code=code if isinstance(code,str) and (code in _KNOWN_CODES
+                        or re.fullmatch(r'HTTP_[1-5][0-9]{2}',code)) else '')
             # Never expose provider errors, SDK request headers, or credentials.
             with self._lock:
                 if not token.is_set():
                     self.state='identified' if self._candidate and self._account else 'error'
-                    self._emit('error',stage=self._stage,message=self._failure_message(failure))
+                    self._emit('error',_diagnostic=False,stage=self._stage,message=self._failure_message(failure))
         finally:
             if token.is_set():self._emit('cancelled')
+            elif not self._diagnostic_terminal:
+                self._trace('completed',reason='identified' if self.state=='identified' else 'work_completed')
+                self._diagnostic_terminal=True
 
     def _progress(self, stage):
         self._stage=stage
@@ -128,7 +176,25 @@ class AccountSetup:
             'activate':'配置尚未启用，请关闭配置窗口后重试。',
             'remove':'本机密钥无法删除，请检查用户数据目录权限后重试。',
         }[self._stage]
-        if isinstance(failure, TranslationError):
+        if self.provider_id=='deepseek':
+            details={
+                'waiting':'旧请求尚未结束，请稍后重试。',
+                'identity':'DeepSeek 密钥验证失败，请检查 API Key、账户状态和网络。',
+                'client':'DeepSeek 翻译组件初始化失败，请检查安装文件。',
+                'translation':'DeepSeek 翻译测试未完成，请检查余额、密钥状态和网络。',
+                'save':'翻译测试已完成，但本机加密保存失败，请检查用户数据目录权限。',
+                'activate':'DeepSeek 尚未启用，请关闭配置窗口后重试。',
+                'remove':'本机 DeepSeek 密钥无法删除，请检查用户数据目录权限。',
+            }[self._stage]
+            if isinstance(failure,TranslationError):
+                details={
+                    'authentication':'DeepSeek API Key 无效或已失效，请重新填写。',
+                    'billing':'DeepSeek 账户余额不足或服务不可用，请检查官方控制台。',
+                    'rate_limit':'DeepSeek 请求受到限流，请稍后手动重试。',
+                    'timeout':'DeepSeek 请求超时，请检查网络后重试。',
+                    'network':'无法连接 DeepSeek，请检查网络后重试。',
+                }.get(failure.kind,details)
+        elif isinstance(failure, TranslationError):
             details=_TRANSLATION_ERRORS.get(failure.kind,details)
         code=getattr(failure,'provider_code',None)
         suffix=f'（错误码：{code}）' if isinstance(code,str) and code in _KNOWN_CODES else ''
@@ -142,10 +208,17 @@ class AccountSetup:
         return not token.is_set()
 
     def _begin(self, credentials):
-        if not all(isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9_./+\-=]{1,256}',value)
-                   for value in (credentials.access_key_id,credentials.access_key_secret)):
+        if self._credential_validator is not None:
+            self._credential_validator(credentials)
+        elif not all(isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9_./+\-=]{1,256}',value)
+                     for value in (credentials.access_key_id,credentials.access_key_secret)):
             raise ValueError('请填写有效的 AccessKey ID 与 Secret。')
-        if self.busy or self._closed:raise ValueError('配置任务仍在处理或已关闭，请稍后重试。')
+        if self.busy or self._closed:
+            self._trace('rejected',reason='closed' if self._closed else 'busy')
+            raise ValueError('配置任务仍在处理或已关闭，请稍后重试。')
+        self._request_ref=uuid.uuid4().hex
+        self._diagnostic_pending=True
+        self._diagnostic_terminal=False
         self._register_diagnostic_secrets(credentials)
         if not self._session_active:self._resume_paused=self.controller.paused
         self._session_active=True
@@ -211,12 +284,14 @@ class AccountSetup:
                     if self.controller.stopped or not self.controller.idle:
                         raise ValueError('配置切换尚未就绪。')
                     self._progress('save')
-                    self.store.save(credentials,account)
-                    self._progress('activate')
-                    self.controller.replace_engine(engine,account)
+                    with self._transaction():
+                        self.store.save(credentials,account)
+                        self._progress('activate')
+                        if self._activate is not None:self._activate(engine,account)
+                        else:self.controller.replace_engine(engine,account)
                 self.controller.cloud_configured=True
                 from .credentials import SavedCredentials
-                self.current=SavedCredentials(credentials,account)
+                self.current=SavedCredentials(credentials,account,self.provider_id)
                 self.state='ready'
                 self._session_active=False
                 self.controller.hold_configuration(False)
@@ -232,6 +307,8 @@ class AccountSetup:
     def cancel(self):
         with self._lock:
             restore=self._session_active
+            if restore or self.busy:
+                self._trace('cancellation_requested',reason='closed' if self._closed else 'requested')
             self._token.set()
             self.poll()
             self._candidate=self._account=None
@@ -253,8 +330,12 @@ class AccountSetup:
             if not self._wait_idle(token):return
             with self._lock:
                 if token.is_set():return
-                self.store.delete()
-                self.controller.replace_engine(UnconfiguredEngine(),'unconfigured')
+                with self.controller.condition:
+                    with self._transaction():
+                        self.store.delete()
+                        engine=self._unconfigured_factory()
+                        if self._activate is not None:self._activate(engine,'unconfigured')
+                        else:self.controller.replace_engine(engine,'unconfigured')
                 self.controller.cloud_configured=False
                 self.current=None
                 self._candidate=self._account=None
@@ -268,3 +349,9 @@ class AccountSetup:
         with self._lock:
             self._closed=True
             self.cancel()
+
+    def join(self, timeout=None):
+        """Explicit shutdown wait for diagnostics/tests; UI close stays nonblocking."""
+        worker=self._thread
+        if worker is not None and worker is not threading.current_thread():
+            worker.join(timeout)

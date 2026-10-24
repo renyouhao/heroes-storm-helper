@@ -229,6 +229,7 @@ class TkRuntime:
                                  hotkey=settings.repeat_hotkey)
         helpers['talent']['enabled'] = settings.talent_enabled
         helpers['board']['enabled'] = settings.board_broadcast_enabled
+        helpers['board']['outputLanguage'] = settings.board_output_language
         book = getattr(w.controller, 'phrases', None)
         update_service = getattr(w, 'update_service', None)
         update = getattr(update_service, 'latest', None)
@@ -335,6 +336,9 @@ class TkRuntime:
             w.apply_talent_config(p['enabled'])
         elif command == 'board_toggle':
             w.apply_board_config(p['enabled'])
+        elif command == 'board_language':
+            w.apply_board_language(p['language'])
+            return {'message':'播报语言已保存为 '+('English' if p['language']=='en' else '中文')+'。'}
         elif command == 'helper_retry':
             if p['source'] == 'talent':
                 w.retry_talent()

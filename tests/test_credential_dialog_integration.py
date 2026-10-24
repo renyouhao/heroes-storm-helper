@@ -139,8 +139,7 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
             engine.release.set()
         if self.next_engine:
             self.next_engine.release.set()
-        if self.service._thread:
-            self.service._thread.join(4)
+        self.service.join(4)
         self.window.close()
 
     def spin_until(self, predicate):
@@ -221,6 +220,14 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         message_id = self.raw_message()
         self.spin_until(lambda: bool(self.window.vm.messages[message_id].engine_translation))
 
+    def assert_paused_until_explicit_resume(self):
+        self.assertTrue(self.controller.paused)
+        self.assertFalse(self.controller.configuration_held)
+        self.window.cloud.set(True)
+        self.window.toggle_cloud()
+        self.assertFalse(self.controller.paused)
+        self.assert_translates()
+
 
     def test_skip_fresh_configuration_keeps_raw_messages_without_network_or_credentials(self):
         dialog = self.open_dialog()
@@ -238,19 +245,20 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         dialog = self.open_dialog()
         self.fill_credentials(dialog, Credentials('invalid key with spaces', 'placeholder'))
         dialog.connect_button.invoke()
-        self.assertIn('有效', dialog.status.get())
+        self.assertIn('格式无效', dialog.status.get())
         self.assertEqual(self.identity.calls, [])
         self.assertFalse(self.controller.configuration_held)
         self.assertEqual(str(dialog.connect_button['state']), 'normal')
 
-    def test_wrong_key_response_is_redacted_and_filled_key_can_be_retried(self):
+    def test_wrong_key_response_is_redacted_and_new_input_can_be_retried(self):
         dialog = self.open_dialog()
         self.identity.failure = ConfigError('provider echo: ' + KEYS.access_key_secret)
         self.fill_credentials(dialog)
         with patch.object(dialog, 'handle', wraps=dialog.handle) as received:
             dialog.connect_button.invoke()
             self.spin_until(lambda: not self.service.busy and '配置未完成' in dialog.status.get())
-        self.assertEqual(dialog.secret.get(), KEYS.access_key_secret)
+        self.assertEqual(dialog.key.get(), '')
+        self.assertEqual(dialog.secret.get(), '')
         self.assertEqual(dialog.secret_entry['show'], '●')
         self.assertNotIn(KEYS.access_key_secret, str(received.call_args_list))
         self.assertIn('身份验证', dialog.status.get())
@@ -276,7 +284,7 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         dialog.cancel()
         self.assertEqual(self.paths.credentials_file.read_bytes(), encrypted)
         self.assertIs(self.controller.engine, previous)
-        self.assert_translates()
+        self.assert_paused_until_explicit_resume()
 
     def test_cancel_during_identity_preserves_old_key_and_rejects_late_success(self):
         previous = self.configured()
@@ -296,8 +304,7 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.assertEqual(self.controller.account, ACCOUNT)
         self.assertEqual(self.paths.credentials_file.read_bytes(), encrypted)
         self.assertFalse(self.controller.configuration_held)
-        self.assertFalse(self.controller.paused)
-        self.assert_translates()
+        self.assert_paused_until_explicit_resume()
 
 
     def test_translation_network_failure_keeps_old_key(self):
@@ -317,7 +324,7 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.assertEqual(self.paths.credentials_file.read_bytes(), encrypted)
         dialog.cancel()
         self.assertIs(self.controller.engine, previous)
-        self.assert_translates()
+        self.assert_paused_until_explicit_resume()
 
     def test_cancel_during_translation_discards_late_success(self):
         previous = self.configured()
@@ -333,8 +340,7 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.assertTrue(candidate.closed)
         self.assertEqual(self.paths.credentials_file.read_bytes(), encrypted)
         self.assertIs(self.controller.engine, previous)
-        self.assertFalse(self.controller.paused)
-        self.assert_translates()
+        self.assert_paused_until_explicit_resume()
 
     def test_success_saves_real_dpapi_and_survives_a_fresh_controller_load(self):
         dialog = self.open_dialog(); self.save(dialog)
@@ -380,8 +386,7 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.assertTrue(candidate.closed)
         self.assertIs(self.controller.engine, previous)
         self.assertEqual(self.paths.credentials_file.read_bytes(), encrypted)
-        self.assertFalse(self.controller.paused)
-        self.assert_translates()
+        self.assert_paused_until_explicit_resume()
 
     def test_replacement_same_account_tests_and_saves_latest_credentials(self):
         previous = self.configured()
@@ -487,7 +492,7 @@ class CredentialDialogIntegrationTests(unittest.TestCase):
         self.assertEqual(self.paths.credentials_file.read_bytes(), encrypted)
         self.assertEqual(list(self.paths.credentials_file.parent.glob('credentials.dpapi.*.tmp')), [])
         dialog.cancel()
-        self.assert_translates()
+        self.assert_paused_until_explicit_resume()
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@ from .config import ConfigError
 from .controller import ChatController
 from .acquisition.persistent import PersistentChatSource
 from .translation.aliyun import AliyunEngine
+from .translation.deepseek import DeepSeekCredentials,DeepSeekEngine
 from .models import TranslationResult,ChatEvent,AppEvent
 from .instance import SingleInstance
 from .phrases import PhraseBook,validate_phrase
@@ -40,13 +41,19 @@ def build_controller(paths,demo=False,diagnostics=None):
     else:
         from .credentials import CredentialStore
         from .identity import IdentityClient
-        from .account_setup import AccountSetup,UnconfiguredEngine
-        store=CredentialStore(paths.credentials_file)
-        try:saved=store.load()
+        from .account_setup import UnconfiguredEngine
+        from .provider_accounts import ProviderCredentialStore,TranslationAccounts
+        store=ProviderCredentialStore(paths.credentials_file,
+                                      legacy_store=CredentialStore(paths.credentials_file))
+        try:saved=store.load_active()
         except ConfigError:notice='本机加密凭据无法读取，请在设置中重新配置自己的密钥。'
         if saved and diagnostics is not None:
-            diagnostics.register_secrets(saved.credentials.access_key_id,saved.credentials.access_key_secret)
-        engine=AliyunEngine(saved.credentials) if saved else UnconfiguredEngine()
+            if isinstance(saved.credentials,DeepSeekCredentials):
+                diagnostics.register_secrets(saved.credentials.api_key)
+            else:
+                diagnostics.register_secrets(saved.credentials.access_key_id,saved.credentials.access_key_secret)
+        engine=(DeepSeekEngine(saved.credentials) if isinstance(saved.credentials,DeepSeekCredentials)
+                else AliyunEngine(saved.credentials)) if saved else UnconfiguredEngine()
         source=PersistentChatSource(**({'diagnostics':diagnostics} if diagnostics is not None else {}))
         account=saved.account if saved else 'unconfigured'
     controller=ChatController(source,engine,account,diagnostics=diagnostics)
@@ -54,7 +61,8 @@ def build_controller(paths,demo=False,diagnostics=None):
     controller.cloud_configured=bool(demo or saved)
     controller.startup_notice=notice
     if not demo:
-        controller.account_setup=AccountSetup(controller,store,IdentityClient(),AliyunEngine,saved)
+        controller.account_setup=TranslationAccounts(controller,store,IdentityClient(),
+                                                     AliyunEngine,DeepSeekEngine,saved)
         if not saved:controller.pause_translation(True)
     controller.preferences_path=paths.preferences_file
     try:

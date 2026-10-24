@@ -8,6 +8,7 @@ import unicodedata
 
 
 CATALOG_FILE = 'quests_98348_zhCN.json'
+CATALOG_LOCALES = frozenset(('zhCN', 'enUS'))
 MAX_CATALOG_BYTES = 128 * 1024
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_'.-]{0,159}\Z")
 
@@ -30,9 +31,12 @@ def _name(value):
 
 
 class QuestCatalog:
-    def __init__(self, path=None):
+    def __init__(self, path=None, *, locale='zhCN'):
+        if locale not in CATALOG_LOCALES:
+            raise ValueError('不支持的基础任务资料语言。')
         root = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parents[2]))
-        self.path = Path(path) if path is not None else root / 'data' / CATALOG_FILE
+        self.locale = locale
+        self.path = Path(path) if path is not None else root / 'data' / f'quests_98348_{locale}.json'
         self._records = None
 
     def _load(self):
@@ -47,7 +51,7 @@ class QuestCatalog:
             data = json.loads(raw)
             if (not isinstance(data, dict) or type(data.get('schema')) is not int
                     or data['schema'] != 1 or type(data.get('build')) is not int
-                    or data['build'] != 98348 or data.get('locale') != 'zhCN'):
+                    or data['build'] != 98348 or data.get('locale') != self.locale):
                 return
             heroes = data.get('heroes')
             if not isinstance(heroes, dict) or len(heroes) > 128:

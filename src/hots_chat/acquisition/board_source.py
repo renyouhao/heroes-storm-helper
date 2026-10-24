@@ -83,8 +83,8 @@ class _MappedTalent:
 def _capture_identity(capture):
     root, path, render_size, talents, inputs, stats, quests, cooldowns = capture
     # 战斗数值可以正常变化；行、指标、名称、矩形和原生格/标签仍必须逐一相同。
-    stat_targets = tuple((slot, relation, names, metric, rect, cell, label)
-        for slot, relation, names, metric, _value, rect, cell, label in stats)
+    stat_targets = tuple((slot, relation, names, metric, rect, cell, label, hero_id)
+        for slot, relation, names, metric, _value, rect, cell, label, hero_id in stats)
     talent_targets = tuple(record[:10] + (record[10][2],) for record in talents)
     quest_targets = tuple(record[:9] + (record[9][2],) for record in quests)
     return (root, path, render_size, talent_targets, inputs, stat_targets, quest_targets,
@@ -529,13 +529,21 @@ class BoardReader:
                 if memory.read(tree + 0x130, 1)[0] != slot:
                     raise _Unknown('天赋子树玩家归属不一致')
                 tree_visible = _visible(memory, tree)
-                stat_records.extend(self._row_contents(memory, base, row, slot, relation, names,
-                    scales, render_size, tree if tree_visible else None))
+                row_stats = self._row_contents(memory, base, row, slot, relation, names,
+                    scales, render_size, tree if tree_visible else None)
+                hero_id, index = '', None
+                if tree_visible or row_stats:
+                    try:
+                        model = _model(memory, base, slot)
+                        handle = memory.u64(model + 0x50)
+                        hero_id, index = _link(memory, handle)
+                    except (OSError, ValueError, RuntimeError, TypeError, UnicodeError, struct.error):
+                        # 中文统计原先无需英雄目录。可见天赋保持原校验；统计独立页
+                        # 缺少精确英雄 ID 时仍保留原统计，只拒绝需要该 ID 的英文输出。
+                        if tree_visible:raise
+                stat_records.extend(record + (hero_id,) for record in row_stats)
                 if not tree_visible:
                     continue
-                model = _model(memory, base, slot)
-                handle = memory.u64(model + 0x50)
-                hero_id, index = _link(memory, handle)
                 catalog = _catalog(memory, base, index)
                 quest_records.extend(self._baseline_quests(memory, base, tree, slot, relation,
                     hero_id, names, scales, render_size))
@@ -664,7 +672,8 @@ class BoardReader:
                     hit = HitSnapshot(pid, hwnd, token, slot, relation, level, talent_id,
                                       name, effect, screen, float(now), float(now) + .75,
                                       True, True, True, names[0], names[1],
-                                      quest_progress=progress[1], quest_state=progress[0])
+                                      quest_progress=progress[1], quest_state=progress[0],
+                                      hero_id=hero_id)
                     hits.append(hit)
                     face_id = get('face_id')
                     catalog_bound = (type(catalog_level) is int and catalog_level == level
@@ -693,7 +702,7 @@ class BoardReader:
                         player_slot=slot, team_relation=relation, quest_id=quest_id, quest_name=name,
                         progress=progress[1], state=progress[0], rect=screen, observed_at=float(now),
                         valid_until=float(now) + .75, panel_visible=True, mapping_trusted=True,
-                        player_name=names[0], hero_name=names[1]))
+                        player_name=names[0], hero_name=names[1], hero_id=hero_id))
             if self.viewport_converter is not None:
                 for record, names, hero_id in second[7]:
                     if record.state not in ('cooldown', 'ready'):
@@ -720,7 +729,7 @@ class BoardReader:
                         remaining_seconds=record.remaining_seconds, state=record.state,
                         rect=screen, observed_at=float(now), valid_until=float(now) + .75,
                         panel_visible=True, mapping_trusted=True,
-                        player_name=names[0], hero_name=names[1]))
+                        player_name=names[0], hero_name=names[1], hero_id=hero_id))
                     if alias is not None:
                         cooldown_aliases.add(id(alias.hit))
             if cooldown_aliases:
@@ -728,7 +737,7 @@ class BoardReader:
                 hits = [hit for hit in hits if id(hit) not in cooldown_aliases]
                 self.last_diagnostic['cooldown_alias_count'] = len(cooldown_aliases)
             if self.viewport_converter is not None:
-                for slot, relation, names, metric, value, rect, _, _ in second[5]:
+                for slot, relation, names, metric, value, rect, _, _, hero_id in second[5]:
                     screen = self.viewport_converter(hwnd, rect, second[2])
                     if (not isinstance(screen, tuple) or len(screen) != 4
                             or any(type(v) is not int for v in screen)
@@ -737,7 +746,7 @@ class BoardReader:
                         continue
                     hits.append(StatHitSnapshot(pid, hwnd, token, slot, relation, metric, value,
                                                screen, float(now), float(now) + .75,
-                                               True, True, names[0], names[1]))
+                                               True, True, names[0], names[1], hero_id=hero_id))
             state = 'available' if hits else 'idle'
             reason = '' if hits else '当前没有可验证且可转换坐标的天赋或统计格'
             if not hits:

@@ -18,6 +18,11 @@ _STAT_METRICS = {
     'hero_damage': ('英雄伤害', ''), 'siege_damage': ('攻城伤害', ''),
     'healing': ('治疗', ''), 'self_healing': ('自我治疗', ''), 'experience': ('经验贡献', ''),
 }
+_EN_STAT_METRICS = {
+    'solo_kills': 'Kills', 'assists': 'Assists', 'deaths': 'Deaths',
+    'hero_damage': 'Hero damage', 'siege_damage': 'Siege damage',
+    'healing': 'Healing', 'self_healing': 'Self-healing', 'experience': 'XP contribution',
+}
 
 
 @dataclass(frozen=True)
@@ -43,6 +48,7 @@ class HitSnapshot:
     advice_verified: bool = False
     quest_progress: int | None = None
     quest_state: str = ''
+    hero_id: str = ''
 
 
 @dataclass(frozen=True)
@@ -61,6 +67,7 @@ class StatHitSnapshot:
     mapping_trusted: bool = False
     player_name: str = ''
     hero_name: str = ''
+    hero_id: str = ''
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -81,6 +88,7 @@ class QuestHitSnapshot:
     mapping_trusted: bool = False
     player_name: str = ''
     hero_name: str = ''
+    hero_id: str = ''
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -101,6 +109,7 @@ class CooldownHitSnapshot:
     mapping_trusted: bool = False
     player_name: str = ''
     hero_name: str = ''
+    hero_id: str = ''
 
 
 @dataclass(frozen=True)
@@ -125,12 +134,14 @@ class TalentBroadcastConfig:
     enabled: bool = False
     include_advice: bool = False
     max_chars: int = 150
+    language: str = 'zh'
 
     def __post_init__(self):
         if type(self.enabled) is not bool or type(self.include_advice) is not bool:
             raise ValueError('天赋播报开关必须为布尔值。')
         if type(self.max_chars) is not int or not 100 <= self.max_chars <= 240:
             raise ValueError('天赋播报长度必须为100–240个字符。')
+        _validate_language(self.language)
 
 
 @dataclass(frozen=True)
@@ -158,6 +169,7 @@ class DispatchAction:
     channel: str = 'team'
     kind: str = 'talent'
     metric_id: str = ''
+    language: str = 'zh'
 
 
 @dataclass
@@ -195,7 +207,20 @@ def _known(value):
     return value.casefold() not in _UNKNOWN
 
 
-def _speaker(hit):
+def _validate_language(language):
+    if language not in ('zh', 'en'):
+        raise ValueError('播报语言必须为中文或英文。')
+
+
+def _localized(hit, language):
+    _validate_language(language)
+    if language == 'zh':
+        return hit
+    from .broadcast_text import localize_hit
+    return localize_hit(hit, language)
+
+
+def _speaker(hit, language='zh'):
     if hit.team_relation not in ('ally', 'enemy'):
         return None
     player, hero = map(_clean, (hit.player_name, hit.hero_name))
@@ -203,38 +228,58 @@ def _speaker(hit):
     hero = _bounded(hero, 18) if _known(hero) else ''
     if not (player or hero):
         return None
+    if language == 'en':
+        identity = f'{player} ({hero})' if player and hero else (player or f'Hero: {hero}')
+        relation = 'Ally' if hit.team_relation == 'ally' else 'Enemy'
+        return f'[{relation}] {identity}'
     identity = f'{player}（{hero}）' if player and hero else (player or f'英雄：{hero}')
     relation = '我方' if hit.team_relation == 'ally' else '敌方'
     return f'【{relation}】{identity}'
 
 
-def _quest_detail(progress, state, *, allow_static=False):
+def _quest_detail(progress, state, *, allow_static=False, language='zh'):
     if state == '' and allow_static and progress is None:
         return ''
     valid_progress = type(progress) is int and 0 <= progress < 2**32
     if state == 'known' and valid_progress:
+        if language == 'en':return f'Quest stacks: {progress:,}'
         return f'任务层数：{progress:,}'
     if state == 'complete' and (progress is None or valid_progress):
+        if language == 'en':return 'Quest complete' + (f' ({progress:,} stacks)' if progress is not None else '')
         return '任务已完成' + (f'（{progress:,}层）' if progress is not None else '')
     return None
 
 
-def format_talent_message(hit, *, include_advice=False, max_chars=150):
+def format_talent_message(hit, *, include_advice=False, max_chars=150, language='zh'):
     """只格式化可信已选天赋的已知摘要；不联网、不现场生成效果或战术建议。"""
     if type(max_chars) is not int or not 100 <= max_chars <= 240:
         raise ValueError('天赋播报长度必须为100–240个字符。')
+    _validate_language(language)
     if (not isinstance(hit, HitSnapshot) or hit.selected is not True
             or hit.mapping_trusted is not True or hit.team_relation not in ('ally', 'enemy')
             or type(hit.tier_level) is not int or not 1 <= hit.tier_level <= 100
             or not isinstance(hit.talent_id, str) or not _known(hit.talent_id.strip())):
         return None
-    speaker = _speaker(hit)
+    hit = _localized(hit, language)
+    if hit is None:return None
+    speaker = _speaker(hit, language)
     talent, effect = map(_clean, (hit.talent_name, hit.effect_summary))
     if speaker is None or not _known(talent) or not _known(effect):
         return None
-    quest = _quest_detail(hit.quest_progress, hit.quest_state, allow_static=True)
+    quest = _quest_detail(hit.quest_progress, hit.quest_state, allow_static=True, language=language)
     if quest is None:
         return None
+    if language == 'en':
+        suffix = '; ' + quest if quest else ''
+        fixed = f'Watch {speaker} | L{hit.tier_level} "": '
+        budget = max_chars - len(fixed) - len(suffix)
+        if budget < 3:return None
+        talent = _bounded(talent, min(40, budget - 2))
+        prefix = f'Watch {speaker} | L{hit.tier_level} "{talent}": '
+        sentence_end = re.search(r'[。！？!?；;]|(?<!\d)\.(?!\d)', effect)
+        effect = effect[:sentence_end.end()] if sentence_end else effect
+        effect = _bounded(effect.strip(), min(100, max_chars - len(prefix) - len(suffix)))
+        return prefix + effect + suffix
     suffix = '；' + quest if quest else ''
     fixed = f'注意{speaker}｜{hit.tier_level}级天赋「」：'
     talent = _bounded(talent, min(28, max_chars - len(fixed) - len(suffix) - 1))
@@ -252,56 +297,74 @@ def format_talent_message(hit, *, include_advice=False, max_chars=150):
     return message
 
 
-def _format_item_message(hit, noun, name, detail, max_chars):
-    speaker, name = _speaker(hit), _clean(name)
+def _format_item_message(hit, noun, name, detail, max_chars, language='zh'):
+    speaker, name = _speaker(hit, language), _clean(name)
     if speaker is None or not _known(name):
         return None
+    if language == 'en':
+        fixed = f'Watch {speaker} | {noun} "" | {detail}'
+        budget = max_chars - len(fixed)
+        if budget < 1:return None
+        return f'Watch {speaker} | {noun} "{_bounded(name, min(40, budget))}" | {detail}'
     fixed = f'注意{speaker}｜{noun}「」｜{detail}'
     name = _bounded(name, min(28, max_chars - len(fixed)))
     return f'注意{speaker}｜{noun}「{name}」｜{detail}'
 
 
-def format_quest_message(hit, *, max_chars=150):
+def format_quest_message(hit, *, max_chars=150, language='zh'):
     """基础任务独立于天赋目录；只使用映射器确认的当前值或完成状态。"""
     if type(max_chars) is not int or not 100 <= max_chars <= 240:
         raise ValueError('播报长度必须为100–240个字符。')
+    _validate_language(language)
     if (not isinstance(hit, QuestHitSnapshot) or hit.mapping_trusted is not True
             or not isinstance(hit.quest_id, str) or not _known(hit.quest_id.strip())):
         return None
-    detail = _quest_detail(hit.progress, hit.state)
+    hit = _localized(hit, language)
+    if hit is None:return None
+    detail = _quest_detail(hit.progress, hit.state, language=language)
     if detail is None:
         return None
-    return _format_item_message(hit, '基础任务', hit.quest_name, detail, max_chars)
+    return _format_item_message(hit, 'Quest' if language=='en' else '基础任务',
+                                hit.quest_name, detail, max_chars, language)
 
 
-def format_cooldown_message(hit, *, max_chars=150):
+def format_cooldown_message(hit, *, max_chars=150, language='zh'):
     """忠实播报我方大招冷却显示；不据计时推断可用充能或是否可释放。"""
     if type(max_chars) is not int or not 100 <= max_chars <= 240:
         raise ValueError('播报长度必须为100–240个字符。')
+    _validate_language(language)
     if (not isinstance(hit, CooldownHitSnapshot) or hit.mapping_trusted is not True
             or hit.team_relation != 'ally' or not isinstance(hit.ability_id, str)
             or not _known(hit.ability_id.strip()) or not _finite(hit.remaining_seconds)):
         return None
+    hit = _localized(hit, language)
+    if hit is None:return None
     if hit.state == 'ready' and hit.remaining_seconds == 0:
-        detail = '已就绪'
+        detail = 'Ready' if language=='en' else '已就绪'
     elif hit.state == 'cooldown' and hit.remaining_seconds > 0:
-        detail = f'冷却显示：{hit.remaining_seconds:.12g}秒'
+        detail = (f'Cooldown shown: {hit.remaining_seconds:.12g}s' if language=='en' else
+                  f'冷却显示：{hit.remaining_seconds:.12g}秒')
     else:
         return None
-    return _format_item_message(hit, '大招', hit.ability_name, detail, max_chars)
+    return _format_item_message(hit, 'Heroic' if language=='en' else '大招',
+                                hit.ability_name, detail, max_chars, language)
 
 
-def format_stat_message(hit, *, max_chars=150):
+def format_stat_message(hit, *, max_chars=150, language='zh'):
     """只播报命中的一个白名单统计值；未知不转0，数值限定为uint32。"""
     if type(max_chars) is not int or not 100 <= max_chars <= 240:
         raise ValueError('播报长度必须为100–240个字符。')
+    _validate_language(language)
     if (not isinstance(hit, StatHitSnapshot) or hit.mapping_trusted is not True
             or not isinstance(hit.metric_id, str) or hit.metric_id not in _STAT_METRICS
             or type(hit.value) is not int or not 0 <= hit.value < 2**32):
         return None
-    speaker = _speaker(hit)
+    hit = _localized(hit, language)
+    if hit is None:return None
+    speaker = _speaker(hit, language)
     if speaker is None:
         return None
+    if language == 'en':return f'{speaker} | {_EN_STAT_METRICS[hit.metric_id]}: {hit.value:,}'
     label, unit = _STAT_METRICS[hit.metric_id]
     return f'{speaker}｜{label}：{hit.value:,}{unit}'
 
@@ -315,21 +378,23 @@ def _finite(value):
         return False
 
 
-def _identity(hit):
+def _identity(hit, language='zh'):
+    # 英文目录按稳定英雄ID选词；中文保留历史回放的身份元组布局。
+    localized_identity = (hit.hero_id,) if language == 'en' else ()
     if isinstance(hit, StatHitSnapshot):
         # 数值会持续变化；锁定格子和完整显示身份，数值只用于播报快照。
         return (hit.pid, hit.hwnd, hit.match_token, hit.player_slot, hit.team_relation,
-                'stat', hit.metric_id, hit.rect, hit.player_name, hit.hero_name)
+                'stat', hit.metric_id, hit.rect, hit.player_name, hit.hero_name) + localized_identity
     if isinstance(hit, (QuestHitSnapshot, CooldownHitSnapshot)):
         kind, item = (('quest', hit.quest_id) if isinstance(hit, QuestHitSnapshot)
                       else ('cooldown', hit.ability_id))
         name = hit.quest_name if isinstance(hit, QuestHitSnapshot) else hit.ability_name
         return (hit.pid, hit.hwnd, hit.match_token, hit.player_slot, hit.team_relation,
-                kind, item, hit.rect, hit.player_name, hit.hero_name, name)
+                kind, item, hit.rect, hit.player_name, hit.hero_name, name) + localized_identity
     return (hit.pid, hit.hwnd, hit.match_token, hit.player_slot, hit.team_relation,
             'talent', hit.tier_level, hit.talent_id, hit.rect, hit.player_name, hit.hero_name,
             hit.talent_name, hit.effect_summary, hit.advice, hit.advice_verified,
-            hit.quest_state != '')
+            hit.quest_state != '') + localized_identity
 
 
 def _target(hit):
@@ -395,7 +460,7 @@ class TalentBroadcastSession:
     def stop(self):
         return self.configure(TalentBroadcastConfig(
             enabled=False, include_advice=self.config.include_advice,
-            max_chars=self.config.max_chars))
+            max_chars=self.config.max_chars, language=self.config.language))
 
     @recorded_operation('board')
     def cancel(self, detail='本次播报已取消。'):
@@ -429,13 +494,13 @@ class TalentBroadcastSession:
 
     def _message(self, hit):
         if isinstance(hit, StatHitSnapshot):
-            return format_stat_message(hit, max_chars=self.config.max_chars)
+            return format_stat_message(hit, max_chars=self.config.max_chars, language=self.config.language)
         if isinstance(hit, QuestHitSnapshot):
-            return format_quest_message(hit, max_chars=self.config.max_chars)
+            return format_quest_message(hit, max_chars=self.config.max_chars, language=self.config.language)
         if isinstance(hit, CooldownHitSnapshot):
-            return format_cooldown_message(hit, max_chars=self.config.max_chars)
+            return format_cooldown_message(hit, max_chars=self.config.max_chars, language=self.config.language)
         return format_talent_message(hit, include_advice=self.config.include_advice,
-                                     max_chars=self.config.max_chars)
+                                     max_chars=self.config.max_chars, language=self.config.language)
 
     def _limited(self, hit, now):
         # 仅保留还在3秒窗口内的记录；停用/新局不会解除全局限频。
@@ -471,7 +536,7 @@ class TalentBroadcastSession:
             self.cancel('当前没有可信的可播报项目。')
             return False
         first = self._first_click
-        current = (_identity(hit), event_time, x, y)
+        current = (_identity(hit,self.config.language), event_time, x, y)
         if (first is None or first[0] != current[0]
                 or not 0 <= event_time - first[1] <= self.double_click_seconds
                 or abs(x - first[2]) * 2 > self.double_click_size[0]
@@ -488,8 +553,9 @@ class TalentBroadcastSession:
         action = DispatchAction(
             self._token, hit.pid, hit.hwnd, hit.match_token, hit.player_slot,
             hit.talent_id if isinstance(hit, HitSnapshot) else '', self._message(hit),
-            kind=kind, metric_id=hit.metric_id if isinstance(hit, StatHitSnapshot) else '')
-        self._pending = _Pending(action, _identity(hit), min(now + .8, hit.valid_until))
+            kind=kind, metric_id=hit.metric_id if isinstance(hit, StatHitSnapshot) else '',
+            language=self.config.language)
+        self._pending = _Pending(action, _identity(hit,self.config.language), min(now + .8, hit.valid_until))
         self._status('pending', '已识别双击，等待安全发送。')
         return False
 
@@ -498,7 +564,7 @@ class TalentBroadcastSession:
         if pending is None:
             return None
         if (not self._valid(hit, context, now) or now > pending.deadline
-                or _identity(hit) != pending.identity):
+                or _identity(hit,self.config.language) != pending.identity):
             self.cancel('面板、目标或输入环境已变化，本次播报取消。')
             return None
         message = self._message(hit)
