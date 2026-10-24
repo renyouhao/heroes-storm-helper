@@ -64,6 +64,24 @@ class InstallTests(unittest.TestCase):
             self.assertEqual((target / 'old.txt').read_text(), 'original')
             self.assertTrue(plan.path.is_file())
 
+    def test_prepare_reports_copy_and_validation_before_they_start(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target, executable, staged = self.setup_case(tmp)
+            details = []
+            copytree = update_install.shutil.copytree
+
+            def copy(source, destination, *args, **kwargs):
+                self.assertTrue(any('校验' in detail for detail in details))
+                self.assertTrue('复制' in details[-1] or '准备新版安装目录' in details[-1])
+                self.assertEqual((target / 'old.txt').read_text(), 'original')
+                return copytree(source, destination, *args, **kwargs)
+
+            with patch.object(update_install.shutil, 'copytree', side_effect=copy):
+                plan = self.prepare(target, executable, staged, progress=details.append)
+            self.assertTrue(plan.path.exists())
+            self.assertIn('校验新版安装目录', details[-1])
+            self.assertEqual((target / 'old.txt').read_text(), 'original')
+
     def test_prepare_rejects_same_or_older_version_for_a_valid_bundle(self):
         from dataclasses import replace
         with tempfile.TemporaryDirectory() as tmp:

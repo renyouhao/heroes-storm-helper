@@ -126,7 +126,7 @@ def main(argv=None):
         if diagnostic_hooks is not None:diagnostic_hooks.attach_root(root)
         create_app(root,controller,WindowSettings.load(paths.preferences_file),
                                display=TkDisplayRuntime(root),enable_repeat_hotkey=not args.demo,
-                               enable_talent_helper=not args.demo)
+                               enable_talent_helper=not args.demo,enable_update_check=not args.demo)
         root.mainloop()
         return 0
     except ConfigError as failure:

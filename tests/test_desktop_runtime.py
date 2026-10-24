@@ -127,6 +127,33 @@ class DesktopRuntimeTests(unittest.TestCase):
                 w.update_service.latest = UpdateStatus(state)
                 self.assertFalse(runtime.snapshot()['updateAvailable'])
 
+    def test_update_hint_uses_confirmed_service_result_across_transient_states(self):
+        from hots_chat.update_service import UpdateStatus
+        w = fake_window()
+        runtime = TkRuntime(w)
+        for state in ('checking', 'error', 'cancelled'):
+            with self.subTest(state=state):
+                w.update_service = SimpleNamespace(latest=UpdateStatus(state), has_available_update=True)
+                self.assertTrue(runtime.snapshot()['updateAvailable'])
+                w.update_service.has_available_update = False
+                self.assertFalse(runtime.snapshot()['updateAvailable'])
+
+    def test_native_entry_enables_only_normal_startup_checks(self):
+        for demo in (False, True):
+            window = SimpleNamespace(closed=False, setup_timer=None, hotkeys=SimpleNamespace(start=Mock()),
+                                     close=Mock())
+            with self.subTest(demo=demo), \
+                    patch('hots_chat.display_runtime.enable_process_dpi_awareness'), \
+                    patch('hots_chat.display_runtime.TkDisplayRuntime'), \
+                    patch('hots_chat.app.build_controller', return_value=Mock()), \
+                    patch('hots_chat.diagnostics.DiagnosticRecorder'), \
+                    patch('hots_chat.diagnostic_hooks.DiagnosticHooks'), \
+                    patch('hots_chat.window_settings.WindowSettings.load', return_value=WindowSettings()), \
+                    patch('tkinter.Tk'), patch('hots_chat.ui.main_window.create_app', return_value=window) as create, \
+                    patch('hots_chat.desktop_runtime.TkRuntime'):
+                run_native(Mock(), demo=demo)
+                self.assertEqual(create.call_args.kwargs['enable_update_check'], not demo)
+
     def test_legacy_runtime_theme_snapshot_is_lavender_without_changing_draft(self):
         w = fake_window()
         w.input.text = '保留尚未提交的草稿'

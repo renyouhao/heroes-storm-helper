@@ -29,7 +29,8 @@ from .brand_icon import apply_assistant_icon
 
 
 class MainWindow:
-    def __init__(self,root,controller,settings,display=None,enable_repeat_hotkey=False,enable_talent_helper=False):
+    def __init__(self,root,controller,settings,display=None,enable_repeat_hotkey=False,enable_talent_helper=False,
+                 enable_update_check=False):
         self.root,self.controller,self.settings=root,controller,settings if isinstance(settings,WindowSettings) else WindowSettings()
         self.display=display
         self._layout_guard_timer=None
@@ -40,6 +41,7 @@ class MainWindow:
         self._repeat_hotkey_enabled=bool(enable_repeat_hotkey)
         self._repeat_listener_started=False
         self._talent_runtime_enabled=bool(enable_talent_helper)
+        self._update_check_enabled=bool(enable_update_check) and not getattr(controller,'is_demo',False)
         self._update_installing=False
         self._feedback_backend=None
         self._notice_target=None
@@ -301,10 +303,11 @@ class MainWindow:
         self.update_dialog=UpdateDialog(self)
         return self.update_dialog.dialog
 
-    @staticmethod
-    def _prepare_update(staged):
+    def _prepare_update(self,staged):
         from ..update_install import prepare_install,launch_install
-        plan=prepare_install(staged)
+        progress=self.update_service.report_install_progress
+        plan=prepare_install(staged,pid=getattr(self,'_update_owner_pid',None),progress=progress)
+        progress('正在校验并启动独立升级程序…')
         return launch_install(plan)
 
     def install_update(self):
@@ -659,6 +662,7 @@ class MainWindow:
         except (OSError,ValueError) as failure:self.repeat_ui_failed(failure)
 
     def start(self):
+        if self.closed:return
         if getattr(self,'_repeat_hotkey_enabled',False):self._start_repeat_listener()
         if getattr(self,'_talent_runtime_enabled',False) and self.settings.talent_enabled:
             self._sync_talent_gate()
@@ -667,6 +671,7 @@ class MainWindow:
             self._sync_talent_gate()
             self.board_helper.set_enabled(True)
         self.controller.start_receiving()
+        if getattr(self,'_update_check_enabled',False):self.update_service.check_on_startup()
     def stop(self): self.controller.stop_receiving()
 
     def enable_configured_cloud(self):
@@ -1011,7 +1016,7 @@ class MainWindow:
         if getattr(self,'_update_installing',False):
             update=self.update_service.latest
             if update.state=='restarting':
-                self.close()
+                if not getattr(self,'_update_exit_managed_by_host',False):self.close()
                 return
             if update.state in ('error','cancelled'):
                 self._update_installing=False
@@ -1121,6 +1126,7 @@ class MainWindow:
             except (OSError,ValueError,tk.TclError):pass
 
 
-def create_app(root,controller,settings,display=None,enable_repeat_hotkey=False,enable_talent_helper=False):
+def create_app(root,controller,settings,display=None,enable_repeat_hotkey=False,enable_talent_helper=False,
+               enable_update_check=False):
     return MainWindow(root,controller,settings,display=display,enable_repeat_hotkey=enable_repeat_hotkey,
-                      enable_talent_helper=enable_talent_helper)
+                      enable_talent_helper=enable_talent_helper,enable_update_check=enable_update_check)

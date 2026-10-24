@@ -3,11 +3,59 @@ import unittest
 from unittest.mock import Mock, patch
 
 from hots_chat.ui.main_window import MainWindow
-from hots_chat.update_service import UpdateStatus
+from hots_chat.update_service import UpdateService, UpdateStatus
 from hots_chat.app import main
 
 
 class UpdateMainTests(unittest.TestCase):
+    def test_normal_start_checks_once_without_opening_update_ui(self):
+        calls = []
+        service = UpdateService(check=lambda version: calls.append(version) or
+                                SimpleNamespace(available=True, release=object()))
+        self.addCleanup(service.close)
+        window = MainWindow.__new__(MainWindow)
+        window.closed = False
+        window._update_check_enabled = True
+        window.update_service = service
+        window.controller = SimpleNamespace(start_receiving=Mock())
+        window.open_updates = Mock()
+        window.start(); service.thread.join(2); window.start()
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(service.has_available_update)
+        window.open_updates.assert_not_called()
+
+    def test_disabled_demo_and_closed_start_do_not_check(self):
+        for closed, enabled in ((False, False), (True, True)):
+            with self.subTest(closed=closed, enabled=enabled):
+                window = MainWindow.__new__(MainWindow)
+                window.closed = closed; window._update_check_enabled = enabled
+                window.update_service = SimpleNamespace(check_on_startup=Mock())
+                window.controller = SimpleNamespace(start_receiving=Mock())
+                window.start()
+                window.update_service.check_on_startup.assert_not_called()
+
+    def test_create_app_defaults_update_check_off_for_isolated_self_checks(self):
+        from hots_chat.ui.main_window import create_app
+        with patch('hots_chat.ui.main_window.MainWindow') as constructor:
+            create_app('root', 'controller', 'settings')
+        self.assertFalse(constructor.call_args.kwargs['enable_update_check'])
+
+    def test_legacy_entry_enables_only_normal_startup_checks(self):
+        from hots_chat.window_settings import WindowSettings
+        for demo in (False, True):
+            with self.subTest(demo=demo), \
+                    patch('hots_chat.display_runtime.enable_process_dpi_awareness'), \
+                    patch('hots_chat.display_runtime.TkDisplayRuntime'), \
+                    patch('hots_chat.app.SingleInstance') as mutex, \
+                    patch('hots_chat.app.build_controller', return_value=SimpleNamespace(close=Mock())), \
+                    patch('hots_chat.diagnostics.DiagnosticRecorder'), \
+                    patch('hots_chat.diagnostic_hooks.DiagnosticHooks'), \
+                    patch('hots_chat.window_settings.WindowSettings.load', return_value=WindowSettings()), \
+                    patch('tkinter.Tk'), patch('hots_chat.ui.main_window.create_app') as create:
+                mutex.return_value.acquire.return_value = True
+                self.assertEqual(main(['--legacy-ui'] + (['--demo'] if demo else [])), 0)
+                self.assertEqual(create.call_args.kwargs['enable_update_check'], not demo)
+
     def window(self):
         window = MainWindow.__new__(MainWindow)
         window.closed = False; window._update_installing = False

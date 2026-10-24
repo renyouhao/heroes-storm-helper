@@ -5,7 +5,7 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 
-from hots_chat.update_service import UpdateService
+from hots_chat.update_service import UpdateService, UpdateStatus
 from hots_chat import __version__
 from hots_chat.updater import download_update, discard_update
 from tests.test_updater import Response, archive_fixture, check_fixture, release_payload
@@ -34,6 +34,118 @@ class UpdateServiceTests(unittest.TestCase):
         self.assertIsNone(service.thread)
         self.assertEqual(service.latest.state, 'idle')
         self.assertEqual(calls, [])
+
+    def test_startup_check_is_background_once_and_never_downloads(self):
+        started, finish = threading.Event(), threading.Event()
+        calls, downloads = [], []
+        def check(version):
+            calls.append((version, threading.current_thread()))
+            started.set(); finish.wait(2)
+            return SimpleNamespace(available=True, release=SimpleNamespace(version='99.0'))
+        service = UpdateService(check=check, download=lambda *args, **kw: downloads.append(args))
+        self.addCleanup(service.close); self.addCleanup(finish.set)
+        self.assertTrue(service.check_on_startup())
+        self.assertTrue(started.wait(2))
+        self.assertFalse(service.check_on_startup())
+        self.assertFalse(service.check())
+        self.assertFalse(service.has_available_update)
+        finish.set(); service.thread.join(2)
+        self.assertTrue(service.has_available_update)
+        self.assertFalse(service.check_on_startup())
+        self.assertEqual(len(calls), 1)
+        self.assertIsNot(calls[0][1], threading.current_thread())
+        self.assertEqual(downloads, [])
+
+    def test_startup_check_defers_to_manual_work_and_does_not_discard_a_download(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, stage = self.owned_stage(root)
+            service = self.ready_service(root, stage)
+            status, worker = service.latest, service.thread
+            self.assertFalse(service.check_on_startup())
+            self.assertIs(service.latest, status)
+            self.assertIs(service.thread, worker)
+            self.assertTrue(stage.workspace.exists())
+
+    def test_manual_check_started_first_is_not_duplicated_by_startup(self):
+        started, finish = threading.Event(), threading.Event()
+        calls = []
+        def check(version):
+            calls.append(version)
+            started.set(); finish.wait(2)
+            return SimpleNamespace(available=False, release=object())
+        service = UpdateService(check=check)
+        self.addCleanup(service.close); self.addCleanup(finish.set)
+        self.assertTrue(service.check())
+        self.assertTrue(started.wait(2))
+        self.assertFalse(service.check_on_startup())
+        finish.set(); service.thread.join(2)
+        self.assertFalse(service.check_on_startup())
+        self.assertEqual(len(calls), 1)
+        self.assertFalse(service.has_available_update)
+
+    def test_failed_startup_check_is_silent_retryable_manually_and_does_not_light_hint(self):
+        calls = []
+        def check(version):
+            calls.append(version)
+            raise OSError('offline')
+        service = UpdateService(check=check)
+        self.addCleanup(service.close)
+        service.check_on_startup(); service.thread.join(2)
+        self.assertEqual(service.latest.state, 'error')
+        self.assertFalse(service.has_available_update)
+        self.assertFalse(service.check_on_startup())
+        self.assertTrue(service.check())
+        service.thread.join(2)
+        self.assertEqual(len(calls), 2)
+
+    def test_known_update_survives_recheck_failure_and_cancel_until_successful_current(self):
+        release = SimpleNamespace(version='99.0')
+        result = [SimpleNamespace(available=True, release=release)]
+        started, finish = threading.Event(), threading.Event()
+        def check(version):
+            value = result[0]
+            if isinstance(value, Exception):raise value
+            if value == 'wait':
+                started.set(); finish.wait(2)
+                return SimpleNamespace(available=False, release=release)
+            return value
+        service = UpdateService(check=check)
+        self.addCleanup(service.close); self.addCleanup(finish.set)
+        service.check_on_startup(); service.thread.join(2)
+        self.assertTrue(service.has_available_update)
+        result[0] = OSError('offline')
+        service.check(); service.thread.join(2)
+        self.assertEqual(service.latest.state, 'error')
+        self.assertTrue(service.has_available_update)
+        result[0] = 'wait'
+        service.check(); self.assertTrue(started.wait(2))
+        self.assertTrue(service.has_available_update)
+        service.cancel(); finish.set(); service.thread.join(2)
+        self.assertTrue(service.has_available_update)
+        result[0] = SimpleNamespace(available=False, release=None)
+        service.check(); service.thread.join(2)
+        self.assertTrue(service.has_available_update, '没有发行信息不能否定已确认的新版')
+        result[0] = SimpleNamespace(available=False, release=release)
+        service.check(); service.thread.join(2)
+        self.assertFalse(service.has_available_update)
+
+    def test_close_before_or_during_startup_prevents_network_or_late_hint(self):
+        service = UpdateService(check=lambda version:self.fail('closed service must not check'))
+        service.close()
+        self.assertFalse(service.check_on_startup())
+        self.assertIsNone(service.thread)
+        started, finish = threading.Event(), threading.Event()
+        def check(version):
+            started.set(); finish.wait(2)
+            return SimpleNamespace(available=True, release=object())
+        service = UpdateService(check=check)
+        self.addCleanup(service.close); self.addCleanup(finish.set)
+        service.check_on_startup(); self.assertTrue(started.wait(2))
+        previous = service.latest
+        service.close(wait=False); finish.set(); service.thread.join(2)
+        self.assertIs(service.latest, previous)
+        self.assertFalse(service.has_available_update)
 
     def test_check_download_and_progress_have_distinct_states(self):
         release = SimpleNamespace(version='1.2.0', notes='新增内容')
@@ -187,3 +299,34 @@ class UpdateServiceTests(unittest.TestCase):
             service.close(wait=False); finish.set(); service.thread.join(2)
             if service.cleanup_thread is not None:service.cleanup_thread.join(2)
             self.assertTrue(stage.archive_path.exists())
+
+    def test_preparation_progress_is_visible_while_worker_waits_and_cannot_replace_terminal_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, stage = self.owned_stage(root)
+            service = self.ready_service(root, stage)
+            started, finish = threading.Event(), threading.Event()
+
+            def prepare(staged):
+                service.report_install_progress('正在复制独立升级程序及运行库…')
+                started.set(); finish.wait(2)
+
+            self.addCleanup(finish.set)
+            self.assertTrue(service.install(prepare))
+            self.assertTrue(started.wait(2))
+            self.assertEqual(service.latest.state, 'preparing')
+            self.assertIn('复制', service.latest.detail)
+            self.assertTrue(service.busy)
+            finish.set(); service.thread.join(2)
+            self.assertEqual(service.latest.state, 'restarting')
+            terminal = service.latest
+            self.assertFalse(service.report_install_progress('迟到的校验进度'))
+            self.assertIs(service.latest, terminal)
+
+    def test_closed_service_rejects_late_preparation_progress(self):
+        service = UpdateService()
+        service._status = UpdateStatus(state='preparing')
+        service.close(wait=False)
+        status = service.latest
+        self.assertFalse(service.report_install_progress('迟到的复制进度'))
+        self.assertIs(service.latest, status)

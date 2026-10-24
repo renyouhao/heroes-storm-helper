@@ -2,6 +2,7 @@
 from pathlib import Path
 import json
 import multiprocessing
+import os
 import sys
 import threading
 import time
@@ -94,6 +95,7 @@ class DesktopApi:
         self._window=None
         self._maximized=False
         self._topmost=None
+        self._update_shutdown_started=False
 
     def snapshot(self):
         try:
@@ -106,6 +108,16 @@ class DesktopApi:
             if self._window is not None and type(topmost) is bool and topmost!=self._topmost:
                 self._window.on_top=topmost
                 self._topmost=topmost
+            update=snapshot.get('management',{}).get('update',{}) if isinstance(snapshot,dict) else {}
+            if (self._window is not None and update.get('state')=='restarting'
+                    and not self._update_shutdown_started):
+                # request() has released its lock before closed -> client.close()
+                # sends shutdown. Keep the native runtime alive until this handoff.
+                self._update_shutdown_started=True
+                try:self._window.destroy()
+                except Exception:
+                    self._update_shutdown_started=False
+                    raise
             return snapshot
         except DesktopError as failure:
             return {'error':str(failure),'connected':False}
@@ -135,7 +147,8 @@ def start_native(demo=False):
     from .desktop_runtime import run_native
     context=multiprocessing.get_context('spawn')
     connection,child=context.Pipe(duplex=True)
-    process=context.Process(target=run_native,args=(child,demo),name='hots-native-runtime')
+    process=context.Process(target=run_native,args=(child,demo),
+                            kwargs={'update_owner_pid':os.getpid()},name='hots-native-runtime')
     process.start()
     child.close()
     return NativeClient(connection,process)

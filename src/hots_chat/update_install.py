@@ -162,7 +162,9 @@ def _write_json(path, payload):
     os.replace(temporary, path)
 
 
-def prepare_install(staged, *, install_dir=None, pid=None, frozen=None, executable=None, process_token=None):
+def prepare_install(staged, *, install_dir=None, pid=None, frozen=None, executable=None, process_token=None,
+                    progress=None):
+    progress = progress or (lambda detail: None)
     if not (getattr(sys, 'frozen', False) if frozen is None else frozen):
         raise UpdateError('源码运行模式不支持原地安装，请下载发行包后手动使用。')
     if not isinstance(staged, StagedUpdate) or staged.release.asset is None:
@@ -178,11 +180,14 @@ def prepare_install(staged, *, install_dir=None, pid=None, frozen=None, executab
     bundle, archive = _plain_path(staged.bundle_dir), _plain_path(staged.archive_path)
     if bundle != workspace / 'unpacked' / APP_NAME or archive != workspace / 'package.zip':
         raise UpdateError('升级暂存目录结构无效。')
+    progress('正在校验升级压缩包…')
     if _digest(archive) != staged.release.asset.sha256:
         raise UpdateError('升级包 SHA256 已改变，已停止安装。')
     validate_bundle(bundle)
+    progress('正在校验新版文件…')
     if not staged.files or _tree_manifest(bundle) != staged.files:
         raise UpdateError('暂存升级文件已改变，请重新下载。')
+    progress('正在校验当前安装文件…')
     original_files = _tree_manifest(target)
     if any(Path(name).name.casefold() in ('heroesofthestorm_x64.exe', 'heroesofthestorm.exe') for name in original_files):
         raise UpdateError('不能将游戏目录作为助手升级目标。')
@@ -206,12 +211,16 @@ def prepare_install(staged, *, install_dir=None, pid=None, frozen=None, executab
         # Both copies are inert. The candidate shares the target volume for directory renames.
         helper.mkdir()
         helper_created = True
+        progress('正在复制独立升级程序及运行库…')
         shutil.copytree(target, helper, dirs_exist_ok=True)
+        progress('正在校验独立升级程序副本…')
         if _tree_manifest(helper) != original_files:
             raise UpdateError('独立升级程序副本校验失败。')
         candidate.mkdir()
         candidate_created = True
+        progress('正在准备新版安装目录…')
         shutil.copytree(bundle, candidate, dirs_exist_ok=True)
+        progress('正在校验新版安装目录…')
         if _tree_manifest(candidate) != staged.files:
             raise UpdateError('升级候选目录校验失败。')
         identity = target.stat()

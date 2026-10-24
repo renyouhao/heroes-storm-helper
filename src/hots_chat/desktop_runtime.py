@@ -230,7 +230,8 @@ class TkRuntime:
         helpers['talent']['enabled'] = settings.talent_enabled
         helpers['board']['enabled'] = settings.board_broadcast_enabled
         book = getattr(w.controller, 'phrases', None)
-        update = getattr(getattr(w, 'update_service', None), 'latest', None)
+        update_service = getattr(w, 'update_service', None)
+        update = getattr(update_service, 'latest', None)
         from .channels import CHANNEL_PRESETS
         return {
             'generation': vm.generation, 'messages': messages,
@@ -245,8 +246,9 @@ class TkRuntime:
             'previewSource': self._preview_source if vm.copy_text else '',
             'channelFilter': w.channel.get(), 'channelOptions': list(CHANNEL_PRESETS),
             'status': w.status_var.get(), 'isDemo': bool(getattr(w.controller, 'is_demo', False)),
-            'updateAvailable': bool(update is not None and update.release is not None and update.state in (
-                'available', 'downloading', 'downloaded', 'preparing', 'restarting')),
+            'updateAvailable': bool(getattr(update_service, 'has_available_update',
+                update is not None and update.release is not None and update.state in (
+                    'available', 'downloading', 'downloaded', 'preparing', 'restarting'))),
             'helpers': helpers, 'phrases': [asdict(phrase) for phrase in book.list()] if book else [],
             'settings': {key: getattr(settings, key) for key in (
                 'hotkeys', 'repeat_hotkey', 'repeat_action', 'repeat_interval_ms',
@@ -371,7 +373,7 @@ class TkRuntime:
         return {}
 
 
-def run_native(connection, demo=False):
+def run_native(connection, demo=False, *, update_owner_pid=None):
     """Multiprocessing target; never starts an HTTP listener or background Tk thread."""
     controller = root = window = recorder = hooks = temporary = runtime = None
     try:
@@ -407,7 +409,12 @@ def run_native(connection, demo=False):
             settings.target_language = 'en'
             settings.overlay_enabled = False
         window = create_app(root, controller, settings, display=TkDisplayRuntime(root),
-                            enable_repeat_hotkey=not demo, enable_talent_helper=not demo)
+                            enable_repeat_hotkey=not demo, enable_talent_helper=not demo,
+                            enable_update_check=not demo)
+        # The host owns WebView2 files and the single-instance mutex. The updater
+        # must wait for that process, while snapshots stay available until shutdown.
+        window._update_owner_pid = update_owner_pid
+        window._update_exit_managed_by_host = True
         if demo:
             # Editing settings during a demo must not register real hotkeys either.
             window.hotkeys.start = lambda bindings, emit: None

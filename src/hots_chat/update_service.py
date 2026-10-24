@@ -1,4 +1,4 @@
-"""升级任务与Tk隔离；仅显式操作创建线程，不在启动时联网。"""
+"""升级任务与Tk隔离；正常启动可检查一次，下载和安装仍需显式操作。"""
 from dataclasses import dataclass, replace
 from collections import deque
 import threading
@@ -29,6 +29,8 @@ class UpdateService:
         self._closed = False
         self._generation = 0
         self._status = UpdateStatus()
+        self._startup_check_attempted = False
+        self._available_release = None
         self.thread = None
         self._owned_stage = None
         self._cleanup_queue = deque()
@@ -82,6 +84,11 @@ class UpdateService:
     def busy(self):
         return self.thread is not None and self.thread.is_alive()
 
+    @property
+    def has_available_update(self):
+        # 检查、下载失败或取消任务不否定此前成功确认的新版。
+        with self._lock:return self._available_release is not None
+
     def _publish(self, generation, **changes):
         with self._lock:
             if not self._closed and generation == self._generation and not self._cancel.is_set():
@@ -91,6 +98,14 @@ class UpdateService:
 
     def check(self):
         return self._start('checking', self._run_check)
+
+    def check_on_startup(self):
+        """每个服务实例只尝试一次；用户已开始过更新操作时复用其结果。"""
+        with self._lock:
+            if self._startup_check_attempted or self._closed:return False
+            self._startup_check_attempted = True
+            if self._status.state != 'idle':return False
+            return self.check()
 
     def download(self):
         with self._lock:
@@ -114,6 +129,12 @@ class UpdateService:
                 # helper已就绪后不能当成可撤销下载；主窗下一次pump关闭整个助手。
                 self._publish(generation, state='restarting', detail='升级程序已就绪，正在退出助手…')
             return self._start('preparing', operation)
+
+    def report_install_progress(self, detail):
+        with self._lock:
+            if self._status.state == 'preparing':
+                return self._publish(self._generation, detail=detail)
+            return False
 
     def _start(self, state, operation):
         with self._lock:
@@ -142,10 +163,13 @@ class UpdateService:
 
     def _run_check(self, generation, cancelled):
         result = self._check(self.version)
-        self._publish(generation, state='available' if result.available else 'current',
-                      detail=('有新版本可下载。' if result.available else
-                              '当前版本无需升级。' if result.release is not None else '暂未找到可用的正式发行信息。'),
-                      release=result.release, staged=None)
+        with self._lock:
+            published = self._publish(generation, state='available' if result.available else 'current',
+                                      detail=('有新版本可下载。' if result.available else
+                                              '当前版本无需升级。' if result.release is not None else '暂未找到可用的正式发行信息。'),
+                                      release=result.release, staged=None)
+            if published and result.release is not None:
+                self._available_release = result.release if result.available else None
 
     def _run_download(self, generation, cancelled, release):
         def progress(downloaded, total):
