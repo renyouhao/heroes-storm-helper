@@ -1,16 +1,9 @@
 {
   "schema": 1,
-  "purpose": "binary-distribution-and-feedback",
-  "version": "3.0.0",
-  "tag": "v3.0",
-  "channel": "stable",
-  "asset": {
-    "name": "HotsHelper-3.0.0-Windows-x64.zip",
-    "bytes": 26097256,
-    "sha256": "02048894f4b00ca200ca84a12b5c25212aff70338b38c230ecbb826bfe35a29d"
-  },
-  "source_commit": "ce0ab1a3bc3651b0f3e2a86ead9d8ba42c178864",
-  "runtime_build_commit": "24f6328f6c5f5df4f6927f3460cc0e17ff6f03a3",
-  "source_visibility": "private",
-  "package_rebuilt_for_distribution_move": false
+  "purpose": "issue-feedback-only",
+  "public_downloads": false,
+  "public_updates": false,
+  "release_status": "paused",
+  "feedback_url": "https://github.com/renyouhao/heroes-storm-helper/issues",
+  "source_visibility": "private"
 }
