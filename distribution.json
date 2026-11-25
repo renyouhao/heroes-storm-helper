@@ -1,9 +1,9 @@
 {
   "schema": 1,
-  "purpose": "issue-feedback-only",
-  "public_downloads": false,
-  "public_updates": false,
-  "release_status": "paused",
+  "purpose": "release-and-feedback",
+  "public_downloads": true,
+  "public_updates": true,
+  "release_status": "active",
   "feedback_url": "https://github.com/renyouhao/heroes-storm-helper/issues",
   "source_visibility": "private"
 }
